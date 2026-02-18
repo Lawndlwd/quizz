@@ -31,6 +31,15 @@ jobs:
           push: true
           tags: ${{ env.IMAGE }}
 
+      - name: Copy config files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.yml,Caddyfile"
+          target: /opt/quizz
+
       - name: Deploy to Scaleway
         uses: appleboy/ssh-action@v1
         with:
