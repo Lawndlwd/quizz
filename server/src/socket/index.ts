@@ -40,6 +40,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           answeredPlayers: new Map(),
           correctAnswerCount: new Map(),
           playerStreaks: new Map(),
+          playerAvatars: new Map(),
           questionTimer: null,
           status: session.status as ActiveSession['status'],
         };
@@ -59,7 +60,12 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
       socket.emit('session:state', {
         session,
-        players: players.map(p => ({ id: p.id, username: p.username, totalScore: p.total_score })),
+        players: players.map(p => ({
+          id: p.id,
+          username: p.username,
+          totalScore: p.total_score,
+          avatar: state?.playerAvatars?.get(p.id),
+        })),
         questionCount: questions.length,
       });
     });
@@ -107,8 +113,8 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     });
 
     // ─── Player: join ─────────────────────────────────────────────────────────
-    socket.on('player:join', (data: { pin: string; username: string }) => {
-      const { pin, username } = data;
+    socket.on('player:join', (data: { pin: string; username: string; avatar?: string }) => {
+      const { pin, username, avatar } = data;
 
       const session = db.prepare("SELECT * FROM sessions WHERE pin = ?").get(pin) as DbSession | undefined;
       if (!session) { socket.emit('player:error', { message: 'Invalid PIN' }); return; }
@@ -140,7 +146,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           currentQuestionIndex: session.current_question_index,
           playerSockets: new Map(), socketPlayers: new Map(),
           answeredPlayers: new Map(), correctAnswerCount: new Map(),
-          playerStreaks: new Map(),
+          playerStreaks: new Map(), playerAvatars: new Map(),
           questionTimer: null, status: session.status as ActiveSession['status'],
         };
         activeSessions.set(pin, state);
@@ -149,6 +155,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
       state.playerSockets.set(playerId, socket.id);
       state.socketPlayers.set(socket.id, playerId);
+      if (avatar) state.playerAvatars.set(playerId, avatar);
 
       const players = db.prepare('SELECT * FROM players WHERE session_id = ?').all(session.id) as DbPlayer[];
 
@@ -158,11 +165,13 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         sessionId: session.id,
         status: session.status,
         playerCount: players.length,
+        avatar,
       });
 
       io.to(`admin:${session.id}`).emit('game:player-joined', {
         playerId, username: cleanName,
         playerCount: players.length,
+        avatar,
       });
     });
 
@@ -298,6 +307,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
       chosenIndex: ans?.chosen_index ?? null,
       isCorrect: (ans?.is_correct ?? 0) === 1,
       questionScore: ans?.score ?? 0,
+      avatar: state.playerAvatars.get(p.id),
     };
   });
 
@@ -327,6 +337,7 @@ function endGame(io: SocketServer, state: ActiveSession): void {
     rank: i + 1,
     username: p.username,
     totalScore: p.total_score,
+    avatar: state.playerAvatars.get(p.id),
   }));
 
   io.to(`session:${state.sessionId}`).emit('game:ended', { leaderboard: finalLeaderboard });

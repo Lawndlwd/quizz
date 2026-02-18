@@ -4,8 +4,9 @@ import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import { QuestionPayload, QuestionResults, GameEndedPayload, Session } from '../../types';
+import { AvatarDisplay } from '../../components/AvatarPicker';
 
-interface PlayerInfo { id: number; username: string; totalScore: number; }
+interface PlayerInfo { id: number; username: string; totalScore: number; avatar?: string; }
 interface SessionState {
   session: Session;
   players: PlayerInfo[];
@@ -45,10 +46,10 @@ export default function GameControl() {
     if (data.session.status === 'finished') setPhase('ended');
   });
 
-  useSocketEvent<{ playerId: number; username: string; playerCount: number }>('game:player-joined', data => {
+  useSocketEvent<{ playerId: number; username: string; playerCount: number; avatar?: string }>('game:player-joined', data => {
     setPlayers(prev => {
       if (prev.find(p => p.id === data.playerId)) return prev;
-      return [...prev, { id: data.playerId, username: data.username, totalScore: 0 }];
+      return [...prev, { id: data.playerId, username: data.username, totalScore: 0, avatar: data.avatar }];
     });
   });
 
@@ -74,8 +75,7 @@ export default function GameControl() {
   useSocketEvent<QuestionResults>('game:question-results', data => {
     setResults(data);
     setPhase('results');
-    // Update player scores from results
-    setPlayers(data.leaderboard.map(e => ({ id: e.playerId, username: e.username, totalScore: e.totalScore })));
+    setPlayers(data.leaderboard.map(e => ({ id: e.playerId, username: e.username, totalScore: e.totalScore, avatar: e.avatar })));
   });
 
   useSocketEvent<GameEndedPayload>('game:ended', data => {
@@ -156,7 +156,12 @@ export default function GameControl() {
               {players.length === 0 ? (
                 <p className="text-muted text-sm">Waiting for players to join<span className="dots"> <span>.</span><span>.</span><span>.</span></span></p>
               ) : (
-                players.map(p => <div key={p.id} className="player-chip">{p.username}</div>)
+                players.map(p => (
+                  <div key={p.id} className="player-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <AvatarDisplay avatar={p.avatar} size={22} />
+                    {p.username}
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -250,6 +255,7 @@ export default function GameControl() {
             {results.leaderboard.slice(0, 10).map(e => (
               <li key={e.playerId} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
                 <div className="lb-rank">{e.rank}</div>
+                <AvatarDisplay avatar={e.avatar} size={30} />
                 <div className="lb-name">{e.username}</div>
                 {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
                 {e.chosenIndex !== null && !e.isCorrect && <span className="lb-delta wrong">✗</span>}
@@ -279,6 +285,7 @@ export default function GameControl() {
             {finalBoard.map(e => (
               <li key={e.rank} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
                 <div className="lb-rank">{e.rank}</div>
+                <AvatarDisplay avatar={e.avatar} size={30} />
                 <div className="lb-name">{e.username}</div>
                 <div className="lb-score">{e.totalScore.toLocaleString()}</div>
               </li>

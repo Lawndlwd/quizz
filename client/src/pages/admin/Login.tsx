@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Input } from '../../components/Input';
 
 export default function Login() {
   const { login } = useAuth();
@@ -31,22 +32,16 @@ export default function Login() {
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username" type="text" autoComplete="username"
-              placeholder="admin" required value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password" type="password" autoComplete="current-password"
-              placeholder="••••••••" required value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
-          </div>
+          <Input
+            id="username" label="Username" type="text" autoComplete="username"
+            placeholder="admin" required value={username}
+            onChange={e => setUsername(e.target.value)}
+          />
+          <Input
+            id="password" label="Password" type="password" autoComplete="current-password"
+            placeholder="••••••••" required value={password}
+            onChange={e => setPassword(e.target.value)}
+          />
           <button type="submit" disabled={loading} className="btn btn-primary btn-full btn-lg mt-2">
             {loading ? 'Signing in…' : 'Sign in'}
           </button>

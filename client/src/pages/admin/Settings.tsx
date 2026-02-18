@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
 import { AppConfig } from '../../types';
+import { Input } from '../../components/Input';
 
 export default function Settings() {
   const { token } = useAuth();
@@ -63,29 +64,21 @@ export default function Settings() {
           <div className="card">
             <h2 className="mb-4">⏱ Game Settings</h2>
 
-            <div className="form-group">
-              <label>Default Question Time (seconds)</label>
-              <input type="number" min={5} max={120} value={cfg.questionTimeSec ?? 20}
-                onChange={e => update('questionTimeSec', Number(e.target.value))} />
-            </div>
+            <Input label="Default Question Time (seconds)"
+              type="number" min={5} max={120} value={cfg.questionTimeSec ?? 20}
+              onChange={e => update('questionTimeSec', Number(e.target.value))} />
 
-            <div className="form-group">
-              <label>Default Base Score</label>
-              <input type="number" min={0} step={50} value={cfg.defaultBaseScore ?? 500}
-                onChange={e => update('defaultBaseScore', Number(e.target.value))} />
-            </div>
+            <Input label="Default Base Score"
+              type="number" min={0} step={50} value={cfg.defaultBaseScore ?? 500}
+              onChange={e => update('defaultBaseScore', Number(e.target.value))} />
 
-            <div className="form-group">
-              <label>Default Speed Bonus (for players beyond top list)</label>
-              <input type="number" min={0} step={5} value={cfg.defaultSpeedBonus ?? 25}
-                onChange={e => update('defaultSpeedBonus', Number(e.target.value))} />
-            </div>
+            <Input label="Default Speed Bonus (for players beyond top list)"
+              type="number" min={0} step={5} value={cfg.defaultSpeedBonus ?? 25}
+              onChange={e => update('defaultSpeedBonus', Number(e.target.value))} />
 
-            <div className="form-group">
-              <label>Max Players Per Session</label>
-              <input type="number" min={2} max={500} value={cfg.maxPlayersPerSession ?? 50}
-                onChange={e => update('maxPlayersPerSession', Number(e.target.value))} />
-            </div>
+            <Input label="Max Players Per Session"
+              type="number" min={2} max={500} value={cfg.maxPlayersPerSession ?? 50}
+              onChange={e => update('maxPlayersPerSession', Number(e.target.value))} />
 
             <div className="form-group">
               <label>Speed Bonuses (1st correct → 2nd → 3rd → …)</label>
@@ -95,7 +88,7 @@ export default function Settings() {
                     <span style={{ fontSize: '0.78rem', color: 'var(--text2)', minWidth: 54 }}>
                       {i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} correct
                     </span>
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step={10}
@@ -147,40 +140,35 @@ export default function Settings() {
               <label htmlFor="streakEnabled" style={{ marginBottom: 0 }}>Enable streak bonus</label>
             </div>
 
-            <div className="form-group">
-              <label>Streak starts at (minimum consecutive correct answers)</label>
-              <input type="number" min={2} max={10} value={cfg.streakMinimum ?? 2}
-                onChange={e => update('streakMinimum', Number(e.target.value))}
-                disabled={!(cfg.streakBonusEnabled ?? true)} />
-              <p className="text-xs text-muted mt-1">e.g. 2 means bonus kicks in on the 3rd correct answer in a row</p>
-            </div>
+            <Input label="Streak starts at (minimum consecutive correct answers)"
+              type="number" min={2} max={10} value={cfg.streakMinimum ?? 2}
+              onChange={e => update('streakMinimum', Number(e.target.value))}
+              disabled={!(cfg.streakBonusEnabled ?? true)}
+              hint="e.g. 2 means bonus kicks in on the 3rd correct answer in a row"
+            />
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Bonus points per extra streak level</label>
-              <input type="number" min={0} step={10} value={cfg.streakBonusBase ?? 50}
-                onChange={e => update('streakBonusBase', Number(e.target.value))}
-                disabled={!(cfg.streakBonusEnabled ?? true)} />
-              <p className="text-xs text-muted mt-1">
-                e.g. 50 pts → 3-streak: +50, 4-streak: +100, 5-streak: +150…
-              </p>
-            </div>
+            <Input label="Bonus points per extra streak level"
+              noMargin
+              type="number" min={0} step={10} value={cfg.streakBonusBase ?? 50}
+              onChange={e => update('streakBonusBase', Number(e.target.value))}
+              disabled={!(cfg.streakBonusEnabled ?? true)}
+              hint="e.g. 50 pts → 3-streak: +50, 4-streak: +100, 5-streak: +150…"
+            />
           </div>
 
           {/* Admin credentials */}
           <div className="card">
             <h2 className="mb-4">🔐 Admin Credentials</h2>
 
-            <div className="form-group">
-              <label>Admin Username</label>
-              <input value={cfg.adminUsername ?? 'admin'}
-                onChange={e => update('adminUsername', e.target.value)} />
-            </div>
+            <Input label="Admin Username"
+              value={cfg.adminUsername ?? 'admin'}
+              onChange={e => update('adminUsername', e.target.value)} />
 
-            <div className="form-group">
-              <label>New Password <span className="text-muted">(leave blank to keep current)</span></label>
-              <input type="password" value={newPassword} placeholder="Enter new password"
-                onChange={e => setNewPassword(e.target.value)} />
-            </div>
+            <Input
+              label={<>New Password <span className="text-muted">(leave blank to keep current)</span></>}
+              type="password" value={newPassword} placeholder="Enter new password"
+              onChange={e => setNewPassword(e.target.value)}
+            />
 
             <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
               ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.

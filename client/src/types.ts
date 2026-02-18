@@ -46,6 +46,7 @@ export interface LeaderboardEntry {
   chosenIndex: number | null;
   isCorrect: boolean;
   questionScore: number;
+  avatar?: string;
 }
 
 export interface QuestionPayload {
@@ -67,7 +68,7 @@ export interface QuestionResults {
 }
 
 export interface GameEndedPayload {
-  leaderboard: Array<{ rank: number; username: string; totalScore: number }>;
+  leaderboard: Array<{ rank: number; username: string; totalScore: number; avatar?: string }>;
 }
 
 export interface ImportQuestion {

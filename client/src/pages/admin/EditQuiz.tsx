@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
 import { ImportPayload, ImportQuestion } from '../../types';
+import { Input, Textarea } from '../../components/Input';
 
 export default function EditQuiz() {
   const { token } = useAuth();
@@ -127,31 +128,45 @@ export default function EditQuiz() {
         <div className="card card-lg">
           <h2 className="mb-4">Quiz Details</h2>
           <div className="form-row mb-4">
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Title *</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="My Awesome Quiz" />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Description</label>
-              <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" />
-            </div>
+            <Input noMargin label="Title *"
+              value={title} onChange={e => setTitle(e.target.value)} placeholder="My Awesome Quiz" />
+            <Input noMargin label="Description"
+              value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" />
           </div>
 
           <div className="divider" />
           <h2 className="mb-4">Questions</h2>
 
           {questions.map((q, qi) => (
-            <div key={qi} className="bg-surface2 border rounded p-4 mb-4">
+            <div key={qi} style={{
+              background: 'var(--surface2)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '20px 24px',
+              marginBottom: 16,
+              transition: 'border-color .2s',
+            }}>
               <div className="flex items-center justify-between mb-3">
-                <h3>Question {qi + 1}</h3>
+                <div className="flex items-center gap-2">
+                  <span style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.72rem', fontWeight: 800, color: '#fff', flexShrink: 0,
+                  }}>{qi + 1}</span>
+                  <h3 style={{ color: 'var(--text2)', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>Question {qi + 1}</h3>
+                </div>
                 {questions.length > 1 && (
-                  <button onClick={() => removeQuestion(qi)} className="btn-icon">🗑</button>
+                  <button onClick={() => removeQuestion(qi)} className="btn-icon" title="Remove question">🗑</button>
                 )}
               </div>
-              <div className="form-group">
-                <label>Question Text *</label>
-                <input value={q.text} onChange={e => updateQuestion(qi, 'text', e.target.value)} placeholder="What is…?" />
-              </div>
+              <Textarea label="Question Text *"
+                rows={2}
+                style={{ resize: 'vertical', minHeight: 'unset', width: '100%' }}
+                value={q.text}
+                onChange={e => updateQuestion(qi, 'text', e.target.value)}
+                placeholder="What is…?"
+              />
 
               <div className="mb-3">
                 <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text2)', marginBottom: 8, fontWeight: 500 }}>
@@ -168,7 +183,7 @@ export default function EditQuiz() {
                     }}>
                       {String.fromCharCode(65 + oi)}
                     </span>
-                    <input
+                    <Input
                       style={{ flex: 1, marginBottom: 0 }}
                       value={opt}
                       onChange={e => updateOption(qi, oi, e.target.value)}
@@ -202,14 +217,12 @@ export default function EditQuiz() {
                     ))}
                   </select>
                 </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Base Score</label>
-                  <input type="number" min={0} step={50} value={q.baseScore} onChange={e => updateQuestion(qi, 'baseScore', Number(e.target.value))} />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Time (seconds)</label>
-                  <input type="number" min={5} max={120} value={q.timeSec ?? 20} onChange={e => updateQuestion(qi, 'timeSec', Number(e.target.value))} />
-                </div>
+                <Input noMargin label="Base Score"
+                  type="number" min={0} step={50} value={q.baseScore}
+                  onChange={e => updateQuestion(qi, 'baseScore', Number(e.target.value))} />
+                <Input noMargin label="Time (seconds)"
+                  type="number" min={5} max={120} value={q.timeSec ?? 20}
+                  onChange={e => updateQuestion(qi, 'timeSec', Number(e.target.value))} />
               </div>
             </div>
           ))}

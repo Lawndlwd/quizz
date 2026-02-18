@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import { QuestionPayload, QuestionResults, GameEndedPayload } from '../../types';
+import { AvatarDisplay } from '../../components/AvatarPicker';
 
 type Phase = 'waiting' | 'question' | 'answered' | 'results' | 'ended';
 
@@ -12,6 +13,7 @@ export default function Game() {
 
   const playerId = Number(sessionStorage.getItem('playerId'));
   const username = sessionStorage.getItem('username') ?? 'Player';
+  const myAvatar = sessionStorage.getItem('avatar') ?? '🎮';
 
   const [phase, setPhase] = useState<Phase>('waiting');
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
@@ -82,10 +84,15 @@ export default function Game() {
   if (phase === 'waiting') return (
     <div className="page-center">
       <div className="card text-center">
-        <div style={{ fontSize: '3rem', marginBottom: 16 }}>🎮</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <AvatarDisplay avatar={myAvatar} size={80} style={{ border: '3px solid var(--accent)' }} />
+        </div>
         <h2>Get Ready!</h2>
         <p className="subtitle mt-2 mb-6">Waiting for the game to start<span className="dots"><span>.</span><span>.</span><span>.</span></span></p>
-        <div className="player-chip" style={{ display: 'inline-block', fontSize: '1rem', padding: '8px 20px' }}>👤 {username}</div>
+        <div className="player-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '1rem', padding: '8px 20px' }}>
+          <AvatarDisplay avatar={myAvatar} size={24} />
+          {username}
+        </div>
       </div>
     </div>
   );
@@ -174,9 +181,10 @@ export default function Game() {
           <h2 className="mb-4 text-center">🏆 Standings</h2>
           <ul className="leaderboard">
             {results.leaderboard.slice(0, 8).map(e => (
-              <li key={e.playerId} className={`lb-item rank-${Math.min(e.rank, 4)} ${e.playerId === playerId ? '' : ''}`}
+              <li key={e.playerId} className={`lb-item rank-${Math.min(e.rank, 4)}`}
                 style={e.playerId === playerId ? { borderColor: 'var(--accent2)', background: 'rgba(168,85,247,.08)' } : {}}>
                 <div className="lb-rank">{e.rank}</div>
+                <AvatarDisplay avatar={e.avatar} size={30} />
                 <div className="lb-name">{e.username}{e.playerId === playerId ? ' 👈' : ''}</div>
                 {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
                 <div className="lb-score">{e.totalScore.toLocaleString()}</div>
@@ -208,6 +216,7 @@ export default function Game() {
               <li key={e.rank} className={`lb-item rank-${Math.min(e.rank, 4)}`}
                 style={e.username === username ? { borderColor: 'var(--accent2)', background: 'rgba(168,85,247,.08)' } : {}}>
                 <div className="lb-rank">{e.rank}</div>
+                <AvatarDisplay avatar={e.avatar} size={30} />
                 <div className="lb-name">{e.username}{e.username === username ? ' 👈' : ''}</div>
                 <div className="lb-score">{e.totalScore.toLocaleString()}</div>
               </li>

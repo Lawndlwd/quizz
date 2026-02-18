@@ -6,12 +6,18 @@ import { initDb } from './db';
 import { config } from './config';
 import { adminRouter } from './routes/admin';
 import { setupSockets } from './socket/index';
+import { initAvatars, listAvatars, avatarsDir } from './avatars';
 
 const app = express();
 const httpServer = http.createServer(app);
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
+
+// ── Avatars ──────────────────────────────────────────────────────────────────
+initAvatars();
+app.use('/avatars', express.static(avatarsDir));
+app.get('/api/avatars', (_req, res) => res.json(listAvatars()));
 
 app.use('/api/admin', adminRouter);
 

@@ -1,6 +1,8 @@
 import { useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
+import { AvatarPicker, AvatarDisplay, loadSavedAvatar, saveAvatar } from '../../components/AvatarPicker';
+import { Input } from '../../components/Input';
 
 export default function Join() {
   const { pin: pinParam } = useParams<{ pin?: string }>();
@@ -9,47 +11,63 @@ export default function Join() {
 
   const [pin, setPin] = useState(pinParam ?? '');
   const [username, setUsername] = useState('');
+  const [avatar, setAvatar] = useState<string>(loadSavedAvatar);
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
+  const [step, setStep] = useState<'form' | 'avatar'>('form');
 
   useSocketEvent<{ playerId: number; sessionId: number; status: string }>('player:joined', data => {
     sessionStorage.setItem('playerId', String(data.playerId));
     sessionStorage.setItem('username', username.trim());
+    sessionStorage.setItem('avatar', avatar);
+    saveAvatar(avatar);
     navigate(`/play/game/${data.sessionId}`);
   });
 
   useSocketEvent<{ message: string }>('player:error', data => {
     setError(data.message);
     setJoining(false);
+    setStep('form');
   });
 
-  function handleSubmit(e: FormEvent) {
+  function handleFormNext(e: FormEvent) {
     e.preventDefault();
     setError('');
     const cleanPin = pin.trim().replace(/\s/g, '');
     const cleanName = username.trim();
     if (!cleanPin || cleanPin.length < 4) { setError('Enter a valid PIN'); return; }
-    if (!cleanName) { setError('Enter a username'); return; }
+    if (!cleanName) { setError('Enter your name'); return; }
+    setStep('avatar');
+  }
+
+  function handleJoin() {
+    setError('');
     setJoining(true);
     socket.connect();
-    socket.emit('player:join', { pin: cleanPin, username: cleanName });
+    socket.emit('player:join', {
+      pin: pin.trim().replace(/\s/g, ''),
+      username: username.trim(),
+      avatar,
+    });
   }
 
   return (
     <div className="page-center" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <div className="card">
+      <div className="card" style={{ maxWidth: 420, width: '100%' }}>
         <div className="text-center mb-6">
           <div className="logo">⚡ Quizz</div>
-          <p className="subtitle mt-2">Enter a PIN to join a game</p>
+          <p className="subtitle mt-2">
+            {step === 'form' ? 'Enter a PIN to join a game' : 'Choose your avatar'}
+          </p>
         </div>
 
         {error && <div className="alert alert-error">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="pin">Game PIN</label>
-            <input
+        {step === 'form' ? (
+          <form onSubmit={handleFormNext}>
+            <Input
               id="pin"
+              label="Game PIN"
               type="text"
               inputMode="numeric"
               maxLength={8}
@@ -60,11 +78,9 @@ export default function Join() {
               autoFocus={!pinParam}
               required
             />
-          </div>
-          <div className="form-group">
-            <label htmlFor="username">Your Name</label>
-            <input
+            <Input
               id="username"
+              label="Your Name"
               type="text"
               maxLength={24}
               placeholder="e.g. Alice"
@@ -73,11 +89,49 @@ export default function Join() {
               autoFocus={!!pinParam}
               required
             />
+            <button type="submit" className="btn btn-primary btn-full btn-lg mt-2">
+              Next: Pick Avatar →
+            </button>
+          </form>
+        ) : (
+          <div>
+            {/* Name recap */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24,
+              padding: '10px 14px', borderRadius: 10,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+            }}>
+              <AvatarDisplay avatar={avatar} size={40} />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 700, fontSize: '1rem' }}>{username}</p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>PIN: {pin}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep('form')}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.78rem' }}
+              >
+                Edit
+              </button>
+            </div>
+
+            <AvatarPicker
+              value={avatar}
+              onChange={a => { setAvatar(a); saveAvatar(a); }}
+            />
+
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={joining}
+              className="btn btn-primary btn-full btn-lg"
+              style={{ marginTop: 20 }}
+            >
+              {joining ? 'Joining…' : 'Join Game →'}
+            </button>
           </div>
-          <button type="submit" disabled={joining} className="btn btn-primary btn-full btn-lg mt-2">
-            {joining ? 'Joining…' : 'Join Game →'}
-          </button>
-        </form>
+        )}
       </div>
     </div>
   );

@@ -17,6 +17,8 @@ export interface ActiveSession {
   correctAnswerCount: Map<number, number>;
   // playerId → consecutive correct answer streak count
   playerStreaks: Map<number, number>;
+  // playerId → base64 data URI or emoji string
+  playerAvatars: Map<number, string>;
   questionTimer: ReturnType<typeof setTimeout> | null;
   status: 'waiting' | 'active' | 'finished';
 }
