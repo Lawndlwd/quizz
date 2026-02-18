@@ -9,6 +9,8 @@ RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Install dependencies first (layer cache)
+# Force better-sqlite3 to build from source for Alpine (musl libc, not glibc)
+ENV npm_config_build_from_source=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
