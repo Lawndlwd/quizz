@@ -112,7 +112,7 @@ export default function SessionDetail() {
         <div className="card card-xl mt-6" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="p-4">
             <h2>Answer Matrix</h2>
-            <p className="subtitle">Every player's answer for each question</p>
+            <p className="subtitle">Every player&apos;s answer for each question</p>
           </div>
           <div className="table-wrap">
             <table>

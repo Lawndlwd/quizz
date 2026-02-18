@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --bg: #0d0d1a;
   --surface: #161628;
@@ -154,11 +156,22 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 label { display: block; font-size: 0.82rem; color: var(--text2); margin-bottom: 6px; font-weight: 500; letter-spacing: .02em; }
 
 input[type=text], input[type=number], input[type=password], textarea, select {
-  width: 100%; background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 9px 13px; color: var(--text);
-  font-size: 0.92rem; font-family: inherit; transition: border-color .18s;
+  @apply w-full rounded-lg px-3 py-2.5 text-sm font-[inherit] transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:ring-offset-0;
+  @apply placeholder:text-slate-500;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
 }
-input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+select option {
+  background: var(--surface);
+  color: var(--text);
+}
 textarea { resize: vertical; min-height: 110px; }
 textarea.mono { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.82rem; min-height: 180px; }
 input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }

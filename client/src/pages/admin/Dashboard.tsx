@@ -4,6 +4,7 @@ import AdminNav from '../../components/AdminNav';
 import { Quiz, Session } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
+
 export default function Dashboard() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function Dashboard() {
     setLoading(false);
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   async function startSession(quizId: number) {
@@ -119,6 +121,12 @@ export default function Dashboard() {
                         >
                           {starting === q.id ? '…' : '▶ Start'}
                         </button>
+                        <Link
+                          to={`/admin/quiz/${q.id}/edit`}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          ✎ Edit
+                        </Link>
                         <button
                           onClick={() => deleteQuiz(q.id)}
                           disabled={deleting === q.id}

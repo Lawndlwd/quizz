@@ -15,6 +15,8 @@ export interface ActiveSession {
   answeredPlayers: Map<number, Set<number>>;
   // questionId → count of correct answers so far (for speed bonus)
   correctAnswerCount: Map<number, number>;
+  // playerId → consecutive correct answer streak count
+  playerStreaks: Map<number, number>;
   questionTimer: ReturnType<typeof setTimeout> | null;
   status: 'waiting' | 'active' | 'finished';
 }

@@ -4,7 +4,6 @@ import { db } from '../db';
 import { config, saveConfig } from '../config';
 import { requireAdmin } from '../middleware';
 import { DbQuiz, DbQuestion, DbSession, QuizImportPayload } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 
 export const adminRouter = Router();
 
@@ -33,7 +32,7 @@ adminRouter.get('/me', requireAdmin, (_req, res) => {
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 adminRouter.get('/config', requireAdmin, (_req, res) => {
-  const { adminPassword: _p, jwtSecret: _s, ...safe } = config;
+  const { ...safe } = config;
   res.json(safe);
 });
 
@@ -41,7 +40,8 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   const allowed = [
     'questionTimeSec', 'defaultBaseScore', 'speedBonuses', 'defaultSpeedBonus',
     'maxPlayersPerSession', 'showLeaderboardAfterQuestion', 'allowLateJoin',
-    'adminUsername', 'adminPassword'
+    'adminUsername', 'adminPassword',
+    'streakBonusEnabled', 'streakMinimum', 'streakBonusBase',
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
@@ -103,6 +103,41 @@ adminRouter.post('/quizzes', requireAdmin, (req: Request, res: Response) => {
 
   const quizId = run();
   res.status(201).json({ id: quizId });
+});
+
+adminRouter.put('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {
+  const body = req.body as QuizImportPayload;
+  if (!body.title || !Array.isArray(body.questions) || body.questions.length === 0) {
+    return res.status(400).json({ error: 'title and at least one question are required' });
+  }
+
+  const quiz = db.prepare('SELECT id FROM quizzes WHERE id = ?').get(req.params.id) as DbQuiz | undefined;
+  if (!quiz) return res.status(404).json({ error: 'Not found' });
+
+  const updateQuiz = db.prepare('UPDATE quizzes SET title = ?, description = ? WHERE id = ?');
+  const deleteQuestions = db.prepare('DELETE FROM questions WHERE quiz_id = ?');
+  const insertQ = db.prepare(
+    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+
+  db.transaction(() => {
+    updateQuiz.run(body.title, body.description ?? '', req.params.id);
+    deleteQuestions.run(req.params.id);
+    for (let i = 0; i < body.questions.length; i++) {
+      const q = body.questions[i];
+      insertQ.run(
+        req.params.id,
+        q.text,
+        JSON.stringify(q.options),
+        q.correctIndex,
+        q.baseScore ?? config.defaultBaseScore,
+        q.timeSec ?? config.questionTimeSec,
+        i
+      );
+    }
+  })();
+
+  res.json({ ok: true });
 });
 
 adminRouter.delete('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {

@@ -111,6 +111,22 @@ export default function CreateQuiz() {
     }));
   }
 
+  function addOption(qi: number) {
+    setQuestions(prev => prev.map((q, idx) => {
+      if (idx !== qi) return q;
+      return { ...q, options: [...q.options, ''] };
+    }));
+  }
+
+  function removeOption(qi: number, oi: number) {
+    setQuestions(prev => prev.map((q, idx) => {
+      if (idx !== qi) return q;
+      const opts = q.options.filter((_, i) => i !== oi);
+      const newCorrect = q.correctIndex >= oi && q.correctIndex > 0 ? q.correctIndex - 1 : q.correctIndex;
+      return { ...q, options: opts, correctIndex: Math.min(newCorrect, opts.length - 1) };
+    }));
+  }
+
   return (
     <div className="page">
       <AdminNav />
@@ -185,16 +201,44 @@ export default function CreateQuiz() {
                   <label>Question Text *</label>
                   <input value={q.text} onChange={e => updateQuestion(qi, 'text', e.target.value)} placeholder="What is…?" />
                 </div>
-                <div className="grid-2 mb-3">
+                <div className="mb-3">
+                  <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text2)', marginBottom: 8, fontWeight: 500 }}>
+                    Answer Options
+                  </label>
                   {q.options.map((opt, oi) => (
-                    <div key={oi} className="form-group" style={{ marginBottom: 0 }}>
-                      <label>
-                        Option {String.fromCharCode(65 + oi)}
-                        {q.correctIndex === oi && <span style={{ color: 'var(--success)', marginLeft: 6 }}>✓ correct</span>}
-                      </label>
-                      <input value={opt} onChange={e => updateOption(qi, oi, e.target.value)} placeholder={`Option ${String.fromCharCode(65 + oi)}`} />
+                    <div key={oi} className="flex items-center gap-2 mb-2">
+                      <span style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: q.correctIndex === oi ? 'var(--success)' : 'var(--border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 800, fontSize: '0.75rem', flexShrink: 0,
+                        color: q.correctIndex === oi ? '#fff' : 'var(--text2)',
+                      }}>
+                        {String.fromCharCode(65 + oi)}
+                      </span>
+                      <input
+                        style={{ flex: 1, marginBottom: 0 }}
+                        value={opt}
+                        onChange={e => updateOption(qi, oi, e.target.value)}
+                        placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                      />
+                      {q.options.length > 2 && (
+                        <button
+                          onClick={() => removeOption(qi, oi)}
+                          className="btn-icon"
+                          style={{ flexShrink: 0 }}
+                          title="Remove option"
+                        >✕</button>
+                      )}
                     </div>
                   ))}
+                  <button
+                    onClick={() => addOption(qi)}
+                    className="btn btn-ghost btn-sm mt-1"
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    + Add Option
+                  </button>
                 </div>
                 <div className="form-row">
                   <div className="form-group" style={{ marginBottom: 0 }}>

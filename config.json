@@ -5,10 +5,23 @@
   "jwtSecret": "change-this-secret-in-production",
   "questionTimeSec": 20,
   "lobbyTimeoutMin": 30,
-  "defaultBaseScore": 500,
-  "speedBonuses": [200, 150, 100, 50],
+  "defaultBaseScore": 300,
+  "speedBonuses": [
+    100,
+    85,
+    70,
+    65,
+    50,
+    35,
+    25,
+    15,
+    5
+  ],
   "defaultSpeedBonus": 25,
   "maxPlayersPerSession": 50,
   "showLeaderboardAfterQuestion": true,
-  "allowLateJoin": false
+  "allowLateJoin": false,
+  "streakBonusEnabled": true,
+  "streakMinimum": 2,
+  "streakBonusBase": 50
 }

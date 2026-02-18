@@ -94,4 +94,7 @@ export interface AppConfig {
   maxPlayersPerSession: number;
   showLeaderboardAfterQuestion: boolean;
   allowLateJoin: boolean;
+  streakBonusEnabled: boolean;
+  streakMinimum: number;
+  streakBonusBase: number;
 }

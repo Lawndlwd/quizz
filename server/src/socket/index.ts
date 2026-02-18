@@ -39,6 +39,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           socketPlayers: new Map(),
           answeredPlayers: new Map(),
           correctAnswerCount: new Map(),
+          playerStreaks: new Map(),
           questionTimer: null,
           status: session.status as ActiveSession['status'],
         };
@@ -139,6 +140,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           currentQuestionIndex: session.current_question_index,
           playerSockets: new Map(), socketPlayers: new Map(),
           answeredPlayers: new Map(), correctAnswerCount: new Map(),
+          playerStreaks: new Map(),
           questionTimer: null, status: session.status as ActiveSession['status'],
         };
         activeSessions.set(pin, state);
@@ -184,6 +186,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       const isCorrect = chosenIndex === currentQ.correct_index;
       let score = 0;
 
+      // Track player streak before computing score
+      const currentStreak = state.playerStreaks.get(playerId) ?? 0;
+      const newStreak = isCorrect ? currentStreak + 1 : 0;
+      state.playerStreaks.set(playerId, newStreak);
+
       if (isCorrect) {
         score += currentQ.base_score;
         // Speed bonus
@@ -192,6 +199,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         const bonus = correctCount < bonuses.length ? bonuses[correctCount] : config.defaultSpeedBonus;
         score += bonus;
         state.correctAnswerCount.set(questionId, correctCount + 1);
+
+        // Streak bonus: each level above streakMinimum earns streakBonusBase extra points
+        if (config.streakBonusEnabled && newStreak > config.streakMinimum) {
+          score += (newStreak - config.streakMinimum) * config.streakBonusBase;
+        }
       }
 
       const answerOrder = answered.size;
@@ -204,7 +216,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         db.prepare('UPDATE players SET total_score = total_score + ? WHERE id = ?').run(score, playerId);
       }
 
-      socket.emit('player:answer-received', { isCorrect, score });
+      socket.emit('player:answer-received', { isCorrect, score, streak: newStreak });
 
       // Notify admin
       io.to(`admin:${sessionId}`).emit('game:answer-received', {
@@ -221,7 +233,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
     // ─── Disconnect ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
-      for (const [pin, state] of activeSessions.entries()) {
+      for (const [_pin, state] of activeSessions.entries()) {
         const playerId = state.socketPlayers.get(socket.id);
         if (playerId) {
           state.socketPlayers.delete(socket.id);

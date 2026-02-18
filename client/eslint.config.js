@@ -1,11 +1,9 @@
-// @ts-check
-const tsPlugin = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
-const reactPlugin = require('eslint-plugin-react');
-const reactHooksPlugin = require('eslint-plugin-react-hooks');
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
 
-/** @type {import('eslint').Linter.Config[]} */
-module.exports = [
+export default [
   { ignores: ['dist/**', 'node_modules/**'] },
   {
     files: ['src/**/*.{ts,tsx}'],

@@ -14,9 +14,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 
-RUN pnpm install --frozen-lockfile
-
 COPY . .
+
+RUN pnpm install --frozen-lockfile && \
+    cd /app/node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && \
+    npm run build-release
+
 RUN pnpm build
 
 EXPOSE 3000

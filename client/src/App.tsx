@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/admin/Login';
 import Dashboard from './pages/admin/Dashboard';
 import CreateQuiz from './pages/admin/CreateQuiz';
+import EditQuiz from './pages/admin/EditQuiz';
 import History from './pages/admin/History';
 import SessionDetail from './pages/admin/SessionDetail';
 import GameControl from './pages/admin/GameControl';
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/admin/login" element={<Login />} />
       <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
       <Route path="/admin/quiz/new" element={<RequireAdmin><CreateQuiz /></RequireAdmin>} />
+      <Route path="/admin/quiz/:id/edit" element={<RequireAdmin><EditQuiz /></RequireAdmin>} />
       <Route path="/admin/history" element={<RequireAdmin><History /></RequireAdmin>} />
       <Route path="/admin/sessions/:id" element={<RequireAdmin><SessionDetail /></RequireAdmin>} />
       <Route path="/admin/game/:sessionId" element={<RequireAdmin><GameControl /></RequireAdmin>} />
