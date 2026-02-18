@@ -4,27 +4,18 @@ WORKDIR /app
 
 # Install build dependencies for better-sqlite3
 RUN apt-get update && \
-    apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
 
-# Enable pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy package files AND .npmrc
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 
-# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Rebuild better-sqlite3 to ensure it's compiled correctly
-RUN pnpm rebuild better-sqlite3
-
-# Copy source and build
 COPY . .
 RUN pnpm build
 
