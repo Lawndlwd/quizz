@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY}:latest
+    build: .
     restart: unless-stopped
     ports:
       - "3000:3000"
