@@ -1,0 +1,9 @@
+{
+  "name": "quizz-root",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter server start"
+  }
+}

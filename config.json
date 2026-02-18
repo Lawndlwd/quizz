@@ -1,0 +1,14 @@
+{
+  "port": 3000,
+  "adminUsername": "admin",
+  "adminPassword": "admin123",
+  "jwtSecret": "change-this-secret-in-production",
+  "questionTimeSec": 20,
+  "lobbyTimeoutMin": 30,
+  "defaultBaseScore": 500,
+  "speedBonuses": [200, 150, 100, 50],
+  "defaultSpeedBonus": 25,
+  "maxPlayersPerSession": 50,
+  "showLeaderboardAfterQuestion": true,
+  "allowLateJoin": false
+}
