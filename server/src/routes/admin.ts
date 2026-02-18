@@ -38,6 +38,7 @@ adminRouter.get('/config', requireAdmin, (_req, res) => {
 
 adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   const allowed = [
+    'appName',
     'questionTimeSec', 'defaultBaseScore', 'speedBonuses', 'defaultSpeedBonus',
     'maxPlayersPerSession', 'showLeaderboardAfterQuestion', 'allowLateJoin',
     'adminUsername', 'adminPassword',
@@ -177,6 +178,14 @@ adminRouter.get('/sessions', requireAdmin, (_req, res) => {
     ORDER BY s.created_at DESC
   `).all();
   res.json(sessions);
+});
+
+adminRouter.post('/sessions/:id/force-end', requireAdmin, (req: Request, res: Response) => {
+  const session = db.prepare('SELECT id, status FROM sessions WHERE id = ?').get(req.params.id) as { id: number; status: string } | undefined;
+  if (!session) return res.status(404).json({ error: 'Not found' });
+  if (session.status === 'finished') return res.json({ ok: true, already: true });
+  db.prepare("UPDATE sessions SET status = 'finished', finished_at = datetime('now') WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
 });
 
 adminRouter.get('/sessions/:id', requireAdmin, (req: Request, res: Response) => {

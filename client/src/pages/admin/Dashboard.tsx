@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
 import { Quiz, Session } from '../../types';
@@ -14,7 +14,14 @@ export default function Dashboard() {
   const [starting, setStarting] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
+  const [closing, setClosing] = useState<number | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
+
+  async function loadSessions() {
+    const sRes = await fetch('/api/admin/sessions', { headers });
+    const sData: Session[] = await sRes.json();
+    setActiveSessions(sData.filter(s => s.status !== 'finished'));
+  }
 
   async function load() {
     const [qRes, sRes] = await Promise.all([
@@ -28,8 +35,21 @@ export default function Dashboard() {
     setLoading(false);
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, []);
+  // Auto-refresh active sessions every 5 s so stale "active" banners disappear
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    load();
+    pollRef.current = setInterval(loadSessions, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  async function forceClose(sessionId: number) {
+    if (!confirm('Force-close this session? Players will be disconnected.')) return;
+    setClosing(sessionId);
+    await fetch(`/api/admin/sessions/${sessionId}/force-end`, { method: 'POST', headers });
+    setClosing(null);
+    loadSessions();
+  }
 
   async function startSession(quizId: number) {
     setStarting(quizId);
@@ -65,13 +85,31 @@ export default function Dashboard() {
 
         {/* Active sessions banner */}
         {activeSessions.length > 0 && (
-          <div className="alert alert-info mb-6 flex items-center justify-between">
-            <span>🎮 {activeSessions.length} active session{activeSessions.length > 1 ? 's' : ''} running</span>
-            <div className="flex gap-2">
+          <div className="card mb-6" style={{ borderColor: 'rgba(124,58,237,.4)', background: 'rgba(124,58,237,.06)', padding: '16px 20px' }}>
+            <div className="flex items-center justify-between mb-3">
+              <span style={{ fontWeight: 600 }}>🎮 {activeSessions.length} open session{activeSessions.length > 1 ? 's' : ''}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {activeSessions.map(s => (
-                <button key={s.id} onClick={() => navigate(`/admin/game/${s.id}`)} className="btn btn-sm btn-primary">
-                  PIN {s.pin} →
-                </button>
+                <div key={s.id} className="flex items-center gap-2" style={{
+                  background: 'var(--surface2)', borderRadius: 8, padding: '8px 12px', border: '1px solid var(--border)',
+                }}>
+                  <span className={`badge badge-${s.status}`} style={{ flexShrink: 0 }}>{s.status}</span>
+                  <span style={{ flex: 1, fontWeight: 600 }}>{s.quiz_title}</span>
+                  <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>PIN {s.pin}</span>
+                  <button onClick={() => navigate(`/admin/game/${s.id}`)} className="btn btn-sm btn-primary">
+                    Resume →
+                  </button>
+                  <button
+                    onClick={() => forceClose(s.id)}
+                    disabled={closing === s.id}
+                    className="btn btn-sm btn-ghost"
+                    title="Force-close this session"
+                    style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                  >
+                    {closing === s.id ? '…' : '✕ Close'}
+                  </button>
+                </div>
               ))}
             </div>
           </div>

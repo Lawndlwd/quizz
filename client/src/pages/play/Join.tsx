@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import { AvatarPicker, AvatarDisplay, loadSavedAvatar, saveAvatar } from '../../components/AvatarPicker';
 import { Input } from '../../components/Input';
+import { useApp } from '../../context/AppContext';
 
 export default function Join() {
   const { pin: pinParam } = useParams<{ pin?: string }>();
   const navigate = useNavigate();
   const socket = getSocket();
 
+  const { appName } = useApp();
   const [pin, setPin] = useState(pinParam ?? '');
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState<string>(loadSavedAvatar);
@@ -55,9 +57,13 @@ export default function Join() {
     <div className="page-center" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <div className="card" style={{ maxWidth: 420, width: '100%' }}>
         <div className="text-center mb-6">
-          <div className="logo">⚡ Quizz</div>
+          <div className="logo">
+            {appName ? (
+              <>{appName} <span style={{ fontWeight: 400, fontSize: '0.6em', display: 'block', marginTop: 4, WebkitTextFillColor: 'var(--text2)', opacity: 0.85 }}>by ⚡ Quizz</span></>
+            ) : '⚡ Quizz'}
+          </div>
           <p className="subtitle mt-2">
-            {step === 'form' ? 'Enter a PIN to join a game' : 'Choose your avatar'}
+            {step === 'form' ? `Enter a PIN to join${appName ? ` ${appName}` : ''}` : 'Choose your avatar'}
           </p>
         </div>
 

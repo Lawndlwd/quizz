@@ -1,7 +1,8 @@
 {
   "port": 3000,
+  "appName": "Console",
   "adminUsername": "admin",
-  "adminPassword": "admin123",
+  "adminPassword": "AcApLevende",
   "jwtSecret": "change-this-secret-in-production",
   "questionTimeSec": 20,
   "lobbyTimeoutMin": 30,

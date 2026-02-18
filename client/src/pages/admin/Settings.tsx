@@ -59,6 +59,21 @@ export default function Settings() {
 
         {saved && <div className="alert alert-success">Settings saved successfully.</div>}
 
+        {/* Branding */}
+        <div className="card mb-6" style={{ maxWidth: 480 }}>
+          <h2 className="mb-1">✏️ App Name</h2>
+          <p className="text-sm text-muted mb-4">
+            Shown as <strong style={{ color: 'var(--text)' }}>"{(cfg.appName ?? '').trim() || 'Scaleway'} by ⚡ Quizz"</strong> — leave blank to show just <strong style={{ color: 'var(--text)' }}>⚡ Quizz</strong>
+          </p>
+          <Input
+            label="Organisation / Event name"
+            placeholder="e.g. Scaleway   (leave blank for default)"
+            value={cfg.appName ?? ''}
+            onChange={e => update('appName', e.target.value)}
+            noMargin
+          />
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24 }}>
           {/* Game settings */}
           <div className="card">

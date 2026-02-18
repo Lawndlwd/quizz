@@ -1,10 +1,12 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useApp } from '../../context/AppContext';
 import { Input } from '../../components/Input';
 
 export default function Login() {
   const { login } = useAuth();
+  const { appName } = useApp();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +27,11 @@ export default function Login() {
     <div className="page-center">
       <div className="card">
         <div className="text-center mb-6">
-          <div className="logo">⚡ Quizz</div>
+          <div className="logo">
+            {appName ? (
+              <>{appName} <span style={{ fontWeight: 400, fontSize: '0.6em', display: 'block', marginTop: 4, WebkitTextFillColor: 'var(--text2)', opacity: 0.85 }}>by ⚡ Quizz</span></>
+            ) : '⚡ Quizz'}
+          </div>
           <p className="subtitle mt-2">Admin Panel</p>
         </div>
 

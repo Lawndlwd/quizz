@@ -87,6 +87,7 @@ export interface ImportPayload {
 
 export interface AppConfig {
   port: number;
+  appName: string;
   adminUsername: string;
   questionTimeSec: number;
   defaultBaseScore: number;

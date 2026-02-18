@@ -1,5 +1,6 @@
 export interface AppConfig {
   port: number;
+  appName: string;
   adminUsername: string;
   adminPassword: string;
   jwtSecret: string;

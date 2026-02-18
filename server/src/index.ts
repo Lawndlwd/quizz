@@ -14,6 +14,9 @@ const httpServer = http.createServer(app);
 app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
 
+// ── Public config (no auth) ───────────────────────────────────────────────────
+app.get('/api/public', (_req, res) => res.json({ appName: config.appName ?? '' }));
+
 // ── Avatars ──────────────────────────────────────────────────────────────────
 initAvatars();
 app.use('/avatars', express.static(avatarsDir));
