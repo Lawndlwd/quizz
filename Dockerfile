@@ -33,13 +33,3 @@ EXPOSE 3000
 ENV DATA_DIR=/data
 
 CMD ["pnpm", "--filter", "server", "start"]
-```
-
-**Key additions:**
-1. Proper multi-line format for `apt-get` (easier to debug)
-2. **`RUN pnpm rebuild better-sqlite3`** - This is critical! It forces a rebuild after installation
-
-**To verify it worked, check your GitHub Actions build logs** - you should see output like:
-```
-> better-sqlite3@9.6.0 build-release
-> node-gyp rebuild --release
