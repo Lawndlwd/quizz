@@ -26,7 +26,7 @@ export default function GameControl() {
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [results, setResults] = useState<QuestionResults | null>(null);
-  const [finalBoard, setFinalBoard] = useState<{ rank: number; username: string; totalScore: number }[]>([]);
+  const [finalBoard, setFinalBoard] = useState<{ rank: number; username: string; totalScore: number; avatar?: string }[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [shareUrl, setShareUrl] = useState('');
