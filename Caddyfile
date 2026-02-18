@@ -1,0 +1,7 @@
+# Replace with your domain or internal hostname.
+# Caddy will auto-provision a TLS cert via Let's Encrypt.
+# For LAN-only access with no domain, replace with just ":80" (no HTTPS).
+
+quiz.taccuinu.com {
+    reverse_proxy app:3000
+}

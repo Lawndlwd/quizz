@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const DB_PATH = path.join(process.cwd(), '..', 'quizz.db');
+const DB_PATH = process.env.DATA_DIR
+  ? path.join(process.env.DATA_DIR, 'quizz.db')
+  : path.join(process.cwd(), '..', 'quizz.db');
 
 export const db = new Database(DB_PATH);
 

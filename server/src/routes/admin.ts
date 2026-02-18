@@ -45,7 +45,7 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
-      (config as Record<string, unknown>)[key] = req.body[key];
+      (config as unknown as Record<string, unknown>)[key] = req.body[key];
     }
   }
   saveConfig(config);

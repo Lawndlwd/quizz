@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
-    "start": "pnpm --filter server start"
+    "start": "pnpm --filter server start",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
   }
 }

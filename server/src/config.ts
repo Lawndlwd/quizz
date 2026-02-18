@@ -2,8 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { AppConfig } from './types';
 
-// config.json lives at the workspace root, one level above server/
-const configPath = path.join(process.cwd(), '..', 'config.json');
+const defaultConfigPath = path.join(process.cwd(), '..', 'config.json');
+const configPath = process.env.DATA_DIR
+  ? path.join(process.env.DATA_DIR, 'config.json')
+  : defaultConfigPath;
+
+// On first run inside Docker the data volume is empty — seed from bundled default
+if (process.env.DATA_DIR && !fs.existsSync(configPath)) {
+  fs.mkdirSync(process.env.DATA_DIR, { recursive: true });
+  fs.copyFileSync(defaultConfigPath, configPath);
+}
 
 export function loadConfig(): AppConfig {
   const raw = fs.readFileSync(configPath, 'utf-8');
