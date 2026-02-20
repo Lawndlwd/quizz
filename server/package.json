@@ -10,7 +10,8 @@
     "lint": "biome lint src"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
     "cookie-parser": "^1.4.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
@@ -18,7 +19,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
+    "@types/sqlite3": "^3.1.11",
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.6",

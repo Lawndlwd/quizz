@@ -1,17 +1,20 @@
 import path from 'node:path';
-import Database from 'better-sqlite3';
+import { type Database, open } from 'sqlite';
+import sqlite3 from 'sqlite3';
 
 const DB_PATH = process.env.DATA_DIR
   ? path.join(process.env.DATA_DIR, 'quizz.db')
   : path.join(process.cwd(), '..', 'quizz.db');
 
-export const db = new Database(DB_PATH);
+export let db: Database;
 
-export function initDb(): void {
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+export async function initDb(): Promise<void> {
+  db = await open({ filename: DB_PATH, driver: sqlite3.Database });
 
-  db.exec(`
+  await db.run('PRAGMA journal_mode = WAL');
+  await db.run('PRAGMA foreign_keys = ON');
+
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS quizzes (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       title       TEXT NOT NULL,
@@ -72,7 +75,7 @@ export function initDb(): void {
   ];
   for (const sql of columnMigrations) {
     try {
-      db.exec(sql);
+      await db.run(sql);
     } catch {
       /* column already exists */
     }

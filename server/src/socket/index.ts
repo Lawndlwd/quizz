@@ -11,7 +11,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
   io.on('connection', (socket: Socket) => {
     // ─── Admin join ───────────────────────────────────────────────────────────
-    socket.on('admin:join-session', (data: { sessionId: number; token: string }) => {
+    socket.on('admin:join-session', async (data: { sessionId: number; token: string }) => {
       try {
         jwt.verify(data.token, config.jwtSecret);
       } catch {
@@ -19,17 +19,19 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         return;
       }
 
-      const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(data.sessionId) as
-        | DbSession
-        | undefined;
+      const session = await db.get<DbSession>(
+        'SELECT * FROM sessions WHERE id = ?',
+        data.sessionId,
+      );
       if (!session) {
         socket.emit('error', { message: 'Session not found' });
         return;
       }
 
-      const questions = db
-        .prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index')
-        .all(session.quiz_id) as DbQuestion[];
+      const questions = await db.all<DbQuestion[]>(
+        'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+        session.quiz_id,
+      );
 
       let state = activeSessions.get(session.pin);
       if (!state) {
@@ -66,9 +68,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       socket.join(`admin:${session.id}`);
 
       // Send current players to admin
-      const players = db
-        .prepare('SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC')
-        .all(session.id) as DbPlayer[];
+      const players = await db.all<DbPlayer[]>(
+        'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC',
+        session.id,
+      );
 
       socket.emit('session:state', {
         session,
@@ -86,7 +89,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     // ─── Admin: start game ────────────────────────────────────────────────────
     socket.on(
       'admin:start-game',
-      (data: { sessionId: number; token: string; gameSettings?: GameSettings }) => {
+      async (data: { sessionId: number; token: string; gameSettings?: GameSettings }) => {
         try {
           jwt.verify(data.token, config.jwtSecret);
         } catch {
@@ -112,9 +115,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         }
 
         state.status = 'active';
-        db.prepare(
+        await db.run(
           "UPDATE sessions SET status = 'active', started_at = datetime('now') WHERE id = ?",
-        ).run(data.sessionId);
+          data.sessionId,
+        );
 
         io.to(`session:${data.sessionId}`).emit('game:started', {
           jokersEnabled: state.gameSettings.jokersEnabled,
@@ -166,12 +170,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     });
 
     // ─── Player: join (also handles reconnection) ─────────────────────────────
-    socket.on('player:join', (data: { pin: string; username: string; avatar?: string }) => {
+    socket.on('player:join', async (data: { pin: string; username: string; avatar?: string }) => {
       const { pin, username, avatar } = data;
 
-      const session = db.prepare('SELECT * FROM sessions WHERE pin = ?').get(pin) as
-        | DbSession
-        | undefined;
+      const session = await db.get<DbSession>('SELECT * FROM sessions WHERE pin = ?', pin);
       if (!session) {
         socket.emit('player:error', { message: 'Invalid PIN' });
         return;
@@ -189,9 +191,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       const cleanName = username.trim().slice(0, 24);
 
       // Check if player already exists (reconnection scenario)
-      const existing = db
-        .prepare('SELECT * FROM players WHERE session_id = ? AND username = ?')
-        .get(session.id, cleanName) as DbPlayer | undefined;
+      const existing = await db.get<DbPlayer>(
+        'SELECT * FROM players WHERE session_id = ? AND username = ?',
+        session.id,
+        cleanName,
+      );
 
       if (existing) {
         // ── Reconnect path ────────────────────────────────────────────────────
@@ -202,9 +206,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
         let state = activeSessions.get(pin);
         if (!state) {
-          const questions = db
-            .prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index')
-            .all(session.quiz_id) as DbQuestion[];
+          const questions = await db.all<DbQuestion[]>(
+            'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+            session.quiz_id,
+          );
           state = {
             sessionId: session.id,
             quizId: session.quiz_id,
@@ -239,9 +244,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         state?.socketPlayers.set(socket.id, playerId);
         if (avatar) state?.playerAvatars.set(playerId, avatar);
 
-        const players = db
-          .prepare('SELECT * FROM players WHERE session_id = ?')
-          .all(session.id) as DbPlayer[];
+        const players = await db.all<DbPlayer[]>(
+          'SELECT * FROM players WHERE session_id = ?',
+          session.id,
+        );
 
         socket.emit('player:joined', {
           playerId,
@@ -292,19 +298,22 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         return;
       }
 
-      const result = db
-        .prepare('INSERT INTO players (session_id, username) VALUES (?, ?)')
-        .run(session.id, cleanName);
-      const playerId = Number(result.lastInsertRowid);
+      const result = await db.run(
+        'INSERT INTO players (session_id, username) VALUES (?, ?)',
+        session.id,
+        cleanName,
+      );
+      const playerId = Number(result.lastID);
 
       socket.join(`session:${session.id}`);
       socket.join(`player:${playerId}`);
 
       let state = activeSessions.get(pin);
       if (!state) {
-        const questions = db
-          .prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index')
-          .all(session.quiz_id) as DbQuestion[];
+        const questions = await db.all<DbQuestion[]>(
+          'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+          session.quiz_id,
+        );
         state = {
           sessionId: session.id,
           quizId: session.quiz_id,
@@ -336,9 +345,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       state.socketPlayers.set(socket.id, playerId);
       if (avatar) state.playerAvatars.set(playerId, avatar);
 
-      const players = db
-        .prepare('SELECT * FROM players WHERE session_id = ?')
-        .all(session.id) as DbPlayer[];
+      const players = await db.all<DbPlayer[]>(
+        'SELECT * FROM players WHERE session_id = ?',
+        session.id,
+      );
 
       socket.emit('player:joined', {
         playerId,
@@ -360,7 +370,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     // ─── Player: answer ───────────────────────────────────────────────────────
     socket.on(
       'player:answer',
-      (data: {
+      async (data: {
         sessionId: number;
         questionId: number;
         chosenIndex: number;
@@ -424,9 +434,8 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         const answerOrder = answered.size;
         const storedIndex = currentQ.question_type === 'open_text' ? -1 : chosenIndex;
 
-        db.prepare(
+        await db.run(
           'INSERT INTO answers (player_id, session_id, question_id, chosen_index, is_correct, score, answer_order, chosen_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(
           playerId,
           sessionId,
           questionId,
@@ -438,7 +447,8 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         );
 
         if (isCorrect) {
-          db.prepare('UPDATE players SET total_score = total_score + ? WHERE id = ?').run(
+          await db.run(
+            'UPDATE players SET total_score = total_score + ? WHERE id = ?',
             score,
             playerId,
           );
@@ -465,7 +475,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     );
 
     // ─── Player: joker - pass ─────────────────────────────────────────────────
-    socket.on('player:joker-pass', (data: { sessionId: number; playerId: number }) => {
+    socket.on('player:joker-pass', async (data: { sessionId: number; playerId: number }) => {
       const pin = sessionIdToPin.get(data.sessionId);
       const state = pin ? activeSessions.get(pin) : undefined;
       if (!state || state.status !== 'active' || state.questionPhase !== 'question') return;
@@ -493,10 +503,19 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       answered.add(playerId);
 
       const answerOrder = answered.size;
-      db.prepare(
+      await db.run(
         'INSERT INTO answers (player_id, session_id, question_id, chosen_index, is_correct, score, answer_order, chosen_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(playerId, data.sessionId, currentQ.id, -2, 0, awardedScore, answerOrder, null);
-      db.prepare('UPDATE players SET total_score = total_score + ? WHERE id = ?').run(
+        playerId,
+        data.sessionId,
+        currentQ.id,
+        -2,
+        0,
+        awardedScore,
+        answerOrder,
+        null,
+      );
+      await db.run(
+        'UPDATE players SET total_score = total_score + ? WHERE id = ?',
         awardedScore,
         playerId,
       );
@@ -591,10 +610,7 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
   const q = state.questions[index];
   state.currentQuestionIndex = index;
 
-  db.prepare('UPDATE sessions SET current_question_index = ? WHERE id = ?').run(
-    index,
-    state.sessionId,
-  );
+  db.run('UPDATE sessions SET current_question_index = ? WHERE id = ?', index, state.sessionId);
 
   const payload = {
     questionIndex: index,
@@ -625,72 +641,76 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
   const q = state.questions.find((x) => x.id === questionId);
   if (!q) return;
 
-  const players = db
-    .prepare('SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC')
-    .all(state.sessionId) as DbPlayer[];
-
-  const answers = db
-    .prepare(
+  Promise.all([
+    db.all<DbPlayer[]>(
+      'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC',
+      state.sessionId,
+    ),
+    db.all<
+      Array<{
+        player_id: number;
+        username: string;
+        chosen_index: number;
+        is_correct: number;
+        score: number;
+        chosen_text: string | null;
+      }>
+    >(
       'SELECT a.*, p.username FROM answers a JOIN players p ON p.id = a.player_id WHERE a.session_id = ? AND a.question_id = ?',
-    )
-    .all(state.sessionId, questionId) as Array<{
-    player_id: number;
-    username: string;
-    chosen_index: number;
-    is_correct: number;
-    score: number;
-    chosen_text: string | null;
-  }>;
+      state.sessionId,
+      questionId,
+    ),
+  ]).then(([players, answers]) => {
+    const answerMap = new Map(answers.map((a) => [a.player_id, a]));
 
-  const answerMap = new Map(answers.map((a) => [a.player_id, a]));
+    const leaderboard = players.map((p, i) => {
+      const ans = answerMap.get(p.id);
+      return {
+        rank: i + 1,
+        playerId: p.id,
+        username: p.username,
+        totalScore: p.total_score,
+        chosenIndex: ans?.chosen_index ?? null,
+        chosenText: ans?.chosen_text ?? null,
+        isCorrect: (ans?.is_correct ?? 0) === 1,
+        questionScore: ans?.score ?? 0,
+        avatar: state.playerAvatars.get(p.id),
+      };
+    });
 
-  const leaderboard = players.map((p, i) => {
-    const ans = answerMap.get(p.id);
-    return {
-      rank: i + 1,
-      playerId: p.id,
-      username: p.username,
-      totalScore: p.total_score,
-      chosenIndex: ans?.chosen_index ?? null,
-      chosenText: ans?.chosen_text ?? null,
-      isCorrect: (ans?.is_correct ?? 0) === 1,
-      questionScore: ans?.score ?? 0,
-      avatar: state.playerAvatars.get(p.id),
+    const autoAdvanceSec = config.resultsAutoAdvanceSec ?? 5;
+
+    const resultsPayload = {
+      questionId,
+      questionText: q.text,
+      correctIndex: q.correct_index,
+      correctAnswer: q.correct_answer,
+      questionType: q.question_type,
+      options: JSON.parse(q.options) as string[],
+      leaderboard,
+      isLastQuestion: state.currentQuestionIndex >= state.questions.length - 1,
+      autoAdvanceSec,
     };
+
+    state.questionPhase = 'results';
+    state.lastResultsPayload = resultsPayload;
+
+    io.to(`session:${state.sessionId}`).emit('game:question-results', resultsPayload);
+
+    // Auto-advance only if configured (0 = manual only)
+    if (state.resultsTimer) clearTimeout(state.resultsTimer);
+    if (autoAdvanceSec > 0) {
+      state.resultsTimer = setTimeout(() => {
+        state.resultsTimer = null;
+        const nextIndex = state.currentQuestionIndex + 1;
+        if (nextIndex >= state.questions.length) {
+          endGame(io, state);
+        } else {
+          sendQuestion(io, state, nextIndex);
+        }
+      }, autoAdvanceSec * 1000);
+    }
   });
-
-  const autoAdvanceSec = config.resultsAutoAdvanceSec ?? 5;
-
-  const resultsPayload = {
-    questionId,
-    questionText: q.text,
-    correctIndex: q.correct_index,
-    correctAnswer: q.correct_answer,
-    questionType: q.question_type,
-    options: JSON.parse(q.options) as string[],
-    leaderboard,
-    isLastQuestion: state.currentQuestionIndex >= state.questions.length - 1,
-    autoAdvanceSec,
-  };
-
-  state.questionPhase = 'results';
-  state.lastResultsPayload = resultsPayload;
-
-  io.to(`session:${state.sessionId}`).emit('game:question-results', resultsPayload);
-
-  // Auto-advance only if configured (0 = manual only)
-  if (state.resultsTimer) clearTimeout(state.resultsTimer);
-  if (autoAdvanceSec > 0) {
-    state.resultsTimer = setTimeout(() => {
-      state.resultsTimer = null;
-      const nextIndex = state.currentQuestionIndex + 1;
-      if (nextIndex >= state.questions.length) {
-        endGame(io, state);
-      } else {
-        sendQuestion(io, state, nextIndex);
-      }
-    }, autoAdvanceSec * 1000);
-  }
 }
 
 function endGame(io: SocketServer, state: ActiveSession): void {
@@ -704,22 +724,24 @@ function endGame(io: SocketServer, state: ActiveSession): void {
   }
   state.status = 'finished';
 
-  db.prepare(
+  db.run(
     "UPDATE sessions SET status = 'finished', finished_at = datetime('now') WHERE id = ?",
-  ).run(state.sessionId);
+    state.sessionId,
+  );
 
-  const players = db
-    .prepare('SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC')
-    .all(state.sessionId) as DbPlayer[];
+  db.all<DbPlayer[]>(
+    'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC',
+    state.sessionId,
+  ).then((players) => {
+    const finalLeaderboard = players.map((p, i) => ({
+      rank: i + 1,
+      username: p.username,
+      totalScore: p.total_score,
+      avatar: state.playerAvatars.get(p.id),
+    }));
 
-  const finalLeaderboard = players.map((p, i) => ({
-    rank: i + 1,
-    username: p.username,
-    totalScore: p.total_score,
-    avatar: state.playerAvatars.get(p.id),
-  }));
-
-  io.to(`session:${state.sessionId}`).emit('game:ended', { leaderboard: finalLeaderboard });
+    io.to(`session:${state.sessionId}`).emit('game:ended', { leaderboard: finalLeaderboard });
+  });
 
   activeSessions.delete(state.pin);
   sessionIdToPin.delete(state.sessionId);

@@ -29,11 +29,11 @@ const clientDist = path.join(process.cwd(), '..', 'client', 'dist');
 app.use(express.static(clientDist));
 app.get('/{*path}', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 
-initDb();
-setupSockets(httpServer);
-
-httpServer.listen(config.port, () => {
-  console.log(`\n🎯  Quizz — http://localhost:${config.port}`);
-  console.log(`    Admin : http://localhost:${config.port}/admin`);
-  console.log(`    Play  : http://localhost:${config.port}/play\n`);
+initDb().then(() => {
+  setupSockets(httpServer);
+  httpServer.listen(config.port, () => {
+    console.log(`\n🎯  Quizz — http://localhost:${config.port}`);
+    console.log(`    Admin : http://localhost:${config.port}/admin`);
+    console.log(`    Play  : http://localhost:${config.port}/play\n`);
+  });
 });
