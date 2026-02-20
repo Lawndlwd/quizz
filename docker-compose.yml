@@ -9,7 +9,24 @@ services:
     volumes:
       - quizz-data:/data
       # Avatars live on the host — drop image files here and they appear in the picker
-      - /opt/quizz/avatars:/data/avatars
+      - quizz-avatars:/data/avatars
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./site:/srv
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   quizz-data:
+  quizz-avatars:
+  caddy_data:
+  caddy_config:

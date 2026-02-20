@@ -1,6 +1,11 @@
 import { AvatarDisplay } from '../../../components/AvatarPicker';
 
-interface LeaderboardEntry { rank: number; username: string; totalScore: number; avatar?: string; }
+interface LeaderboardEntry {
+  rank: number;
+  username: string;
+  totalScore: number;
+  avatar?: string;
+}
 
 interface Props {
   quizTitle?: string;
@@ -22,7 +27,7 @@ export function GameEnded({ quizTitle, leaderboard, onViewDetails, onDashboard }
       <div className="card card-md" style={{ margin: '0 auto' }}>
         <h2 className="mb-4 text-center">🏆 Final Leaderboard</h2>
         <ul className="leaderboard">
-          {leaderboard.map(e => (
+          {leaderboard.map((e) => (
             <li key={e.rank} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
               <div className="lb-rank">{e.rank}</div>
               <AvatarDisplay avatar={e.avatar} size={30} />
@@ -32,8 +37,12 @@ export function GameEnded({ quizTitle, leaderboard, onViewDetails, onDashboard }
           ))}
         </ul>
         <div className="flex gap-2 mt-6">
-          <button onClick={onViewDetails} className="btn btn-secondary btn-full">View Details</button>
-          <button onClick={onDashboard} className="btn btn-primary btn-full">← Dashboard</button>
+          <button type="button" onClick={onViewDetails} className="btn btn-secondary btn-full">
+            View Details
+          </button>
+          <button type="button" onClick={onDashboard} className="btn btn-primary btn-full">
+            ← Dashboard
+          </button>
         </div>
       </div>
     </div>

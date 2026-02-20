@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
-import { Session, Player, Question } from '../../types';
+import type { Player, Question, Session } from '../../types';
 
 interface FullSession {
   session: Session;
@@ -25,16 +25,22 @@ export default function SessionDetail() {
 
   useEffect(() => {
     fetch(`/api/admin/sessions/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(setData);
-  }, [id]);
+  }, [id, token]);
 
-  if (!data) return (
-    <div className="page"><AdminNav /><div className="page-center"><p className="text-muted">Loading…</p></div></div>
-  );
+  if (!data)
+    return (
+      <div className="page">
+        <AdminNav />
+        <div className="page-center">
+          <p className="text-muted">Loading…</p>
+        </div>
+      </div>
+    );
 
   const { session, players, questions, answers } = data;
-  const answerMap = new Map(answers.map(a => [`${a.player_id}:${a.question_id}`, a]));
+  const answerMap = new Map(answers.map((a) => [`${a.player_id}:${a.question_id}`, a]));
 
   const sortedPlayers = [...players].sort((a, b) => b.total_score - a.total_score);
 
@@ -43,15 +49,26 @@ export default function SessionDetail() {
       <AdminNav />
       <div className="main-content">
         <div className="flex items-center gap-4 mb-6">
-          <Link to="/admin/history" className="btn btn-ghost btn-sm">← Back</Link>
+          <Link to="/admin/history" className="btn btn-ghost btn-sm">
+            ← Back
+          </Link>
           <div>
             <h1>{session.quiz_title}</h1>
             <p className="subtitle">
-              Session <code className="font-mono" style={{ color: 'var(--accent2)' }}>#{session.id}</code> · PIN <code className="font-mono" style={{ color: 'var(--accent2)' }}>{session.pin}</code>
+              Session{' '}
+              <code className="font-mono" style={{ color: 'var(--accent2)' }}>
+                #{session.id}
+              </code>{' '}
+              · PIN{' '}
+              <code className="font-mono" style={{ color: 'var(--accent2)' }}>
+                {session.pin}
+              </code>
               {session.finished_at && ` · ${new Date(session.finished_at).toLocaleString()}`}
             </p>
           </div>
-          <span className={`badge badge-${session.status}`} style={{ marginLeft: 'auto' }}>{session.status}</span>
+          <span className={`badge badge-${session.status}`} style={{ marginLeft: 'auto' }}>
+            {session.status}
+          </span>
         </div>
 
         {/* Stats */}
@@ -89,19 +106,26 @@ export default function SessionDetail() {
           <div className="card">
             <h2 className="mb-4">📊 Question Breakdown</h2>
             {questions.map((q, qi) => {
-              const qAnswers = players.map(p => answerMap.get(`${p.id}:${q.id}`));
-              const correct = qAnswers.filter(a => a?.is_correct).length;
+              const qAnswers = players.map((p) => answerMap.get(`${p.id}:${q.id}`));
+              const correct = qAnswers.filter((a) => a?.is_correct).length;
               const pct = players.length ? Math.round((correct / players.length) * 100) : 0;
               return (
                 <div key={q.id} className="mb-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm" style={{ fontWeight: 600 }}>Q{qi + 1}: {q.text.slice(0, 60)}{q.text.length > 60 ? '…' : ''}</span>
-                    <span className="text-xs text-muted">{correct}/{players.length} ({pct}%)</span>
+                    <span className="text-sm" style={{ fontWeight: 600 }}>
+                      Q{qi + 1}: {q.text.slice(0, 60)}
+                      {q.text.length > 60 ? '…' : ''}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {correct}/{players.length} ({pct}%)
+                    </span>
                   </div>
                   <div className="answer-bar">
                     <div className="answer-bar-fill" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="text-xs text-muted mt-1">Correct: {q.options[q.correct_index]}</div>
+                  <div className="text-xs text-muted mt-1">
+                    Correct: {q.options[q.correct_index]}
+                  </div>
                 </div>
               );
             })}
@@ -119,7 +143,9 @@ export default function SessionDetail() {
               <thead>
                 <tr>
                   <th>Player</th>
-                  {questions.map((q, i) => <th key={q.id}>Q{i + 1}</th>)}
+                  {questions.map((q, i) => (
+                    <th key={q.id}>Q{i + 1}</th>
+                  ))}
                   <th>Total</th>
                 </tr>
               </thead>
@@ -127,9 +153,10 @@ export default function SessionDetail() {
                 {sortedPlayers.map((p, pi) => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: pi < 3 ? 700 : 400 }}>
-                      {pi === 0 ? '🥇 ' : pi === 1 ? '🥈 ' : pi === 2 ? '🥉 ' : ''}{p.username}
+                      {pi === 0 ? '🥇 ' : pi === 1 ? '🥈 ' : pi === 2 ? '🥉 ' : ''}
+                      {p.username}
                     </td>
-                    {questions.map(q => {
+                    {questions.map((q) => {
                       const a = answerMap.get(`${p.id}:${q.id}`);
                       return (
                         <td key={q.id}>
@@ -143,7 +170,9 @@ export default function SessionDetail() {
                         </td>
                       );
                     })}
-                    <td style={{ fontWeight: 700, color: 'var(--accent2)' }}>{p.total_score.toLocaleString()}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--accent2)' }}>
+                      {p.total_score.toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 
 interface AuthCtx {
   isAdmin: boolean;
@@ -18,12 +18,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       const t = localStorage.getItem('adminToken');
-      if (!t) { setChecking(false); return; }
+      if (!t) {
+        setChecking(false);
+        return;
+      }
       const res = await fetch('/api/admin/me', {
         headers: { Authorization: `Bearer ${t}` },
       });
-      if (res.ok) { setIsAdmin(true); setToken(t); }
-      else { localStorage.removeItem('adminToken'); setToken(null); }
+      if (res.ok) {
+        setIsAdmin(true);
+        setToken(t);
+      } else {
+        localStorage.removeItem('adminToken');
+        setToken(null);
+      }
       setChecking(false);
     })();
   }, []);
@@ -57,7 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(false);
   }
 
-  return <Ctx.Provider value={{ isAdmin, checking, login, logout, token }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ isAdmin, checking, login, logout, token }}>{children}</Ctx.Provider>
+  );
 }
 
 export const useAuth = () => useContext(Ctx);

@@ -1,10 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { type Request, type Response, Router } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../db';
-import { config, saveConfig } from '../config';
-import { requireAdmin } from '../middleware';
-import { DbQuiz, DbQuestion, DbSession, QuizImportPayload } from '../types';
 import { saveAvatarsFromDataUrls } from '../avatars';
+import { config, saveConfig } from '../config';
+import { db } from '../db';
+import { requireAdmin } from '../middleware';
+import type { DbQuestion, DbQuiz, DbSession, QuizImportPayload } from '../types';
 
 export const adminRouter = Router();
 
@@ -40,10 +40,18 @@ adminRouter.get('/config', requireAdmin, (_req, res) => {
 adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   const allowed = [
     'appName',
-    'questionTimeSec', 'defaultBaseScore', 'speedBonuses', 'defaultSpeedBonus',
-    'maxPlayersPerSession', 'showLeaderboardAfterQuestion', 'allowLateJoin',
-    'adminUsername', 'adminPassword',
-    'streakBonusEnabled', 'streakMinimum', 'streakBonusBase',
+    'questionTimeSec',
+    'defaultBaseScore',
+    'speedBonuses',
+    'defaultSpeedBonus',
+    'maxPlayersPerSession',
+    'showLeaderboardAfterQuestion',
+    'allowLateJoin',
+    'adminUsername',
+    'adminPassword',
+    'streakBonusEnabled',
+    'streakMinimum',
+    'streakBonusBase',
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
@@ -62,9 +70,7 @@ adminRouter.post('/avatars/bulk', requireAdmin, (req: Request, res: Response) =>
     return res.status(400).json({ error: 'dataUrls array is required' });
   }
 
-  const urls = saveAvatarsFromDataUrls(
-    dataUrls.filter((u): u is string => typeof u === 'string'),
-  );
+  const urls = saveAvatarsFromDataUrls(dataUrls.filter((u): u is string => typeof u === 'string'));
 
   if (urls.length === 0) {
     return res.status(400).json({ error: 'No valid images provided' });
@@ -76,21 +82,30 @@ adminRouter.post('/avatars/bulk', requireAdmin, (req: Request, res: Response) =>
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
 
 adminRouter.get('/quizzes', requireAdmin, (_req, res) => {
-  const quizzes = db.prepare(`
+  const quizzes = db
+    .prepare(`
     SELECT q.*, COUNT(qu.id) as question_count
     FROM quizzes q
     LEFT JOIN questions qu ON qu.quiz_id = q.id
     GROUP BY q.id
     ORDER BY q.created_at DESC
-  `).all() as DbQuiz[];
+  `)
+    .all() as DbQuiz[];
   res.json(quizzes);
 });
 
 adminRouter.get('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {
-  const quiz = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(req.params.id) as DbQuiz | undefined;
+  const quiz = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(req.params.id) as
+    | DbQuiz
+    | undefined;
   if (!quiz) return res.status(404).json({ error: 'Not found' });
-  const questions = db.prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index').all(req.params.id) as DbQuestion[];
-  res.json({ ...quiz, questions: questions.map(q => ({ ...q, options: JSON.parse(q.options) })) });
+  const questions = db
+    .prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index')
+    .all(req.params.id) as DbQuestion[];
+  res.json({
+    ...quiz,
+    questions: questions.map((q) => ({ ...q, options: JSON.parse(q.options) })),
+  });
 });
 
 adminRouter.post('/quizzes', requireAdmin, (req: Request, res: Response) => {
@@ -101,7 +116,7 @@ adminRouter.post('/quizzes', requireAdmin, (req: Request, res: Response) => {
 
   const insertQuiz = db.prepare('INSERT INTO quizzes (title, description) VALUES (?, ?)');
   const insertQ = db.prepare(
-    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
 
   const run = db.transaction(() => {
@@ -135,13 +150,15 @@ adminRouter.put('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {
     return res.status(400).json({ error: 'title and at least one question are required' });
   }
 
-  const quiz = db.prepare('SELECT id FROM quizzes WHERE id = ?').get(req.params.id) as DbQuiz | undefined;
+  const quiz = db.prepare('SELECT id FROM quizzes WHERE id = ?').get(req.params.id) as
+    | DbQuiz
+    | undefined;
   if (!quiz) return res.status(404).json({ error: 'Not found' });
 
   const updateQuiz = db.prepare('UPDATE quizzes SET title = ?, description = ? WHERE id = ?');
   const deleteQuestions = db.prepare('DELETE FROM questions WHERE quiz_id = ?');
   const insertQ = db.prepare(
-    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
 
   db.transaction(() => {
@@ -188,56 +205,66 @@ adminRouter.post('/sessions', requireAdmin, (req: Request, res: Response) => {
     pin = generatePin();
   }
 
-  const result = db.prepare(
-    "INSERT INTO sessions (quiz_id, pin, status) VALUES (?, ?, 'waiting')"
-  ).run(quizId, pin);
+  const result = db
+    .prepare("INSERT INTO sessions (quiz_id, pin, status) VALUES (?, ?, 'waiting')")
+    .run(quizId, pin);
 
   res.status(201).json({ id: result.lastInsertRowid, pin });
 });
 
 adminRouter.get('/sessions', requireAdmin, (_req, res) => {
-  const sessions = db.prepare(`
+  const sessions = db
+    .prepare(`
     SELECT s.*, q.title as quiz_title,
       (SELECT COUNT(*) FROM players p WHERE p.session_id = s.id) as player_count
     FROM sessions s
     JOIN quizzes q ON q.id = s.quiz_id
     ORDER BY s.created_at DESC
-  `).all();
+  `)
+    .all();
   res.json(sessions);
 });
 
 adminRouter.post('/sessions/:id/force-end', requireAdmin, (req: Request, res: Response) => {
-  const session = db.prepare('SELECT id, status FROM sessions WHERE id = ?').get(req.params.id) as { id: number; status: string } | undefined;
+  const session = db.prepare('SELECT id, status FROM sessions WHERE id = ?').get(req.params.id) as
+    | { id: number; status: string }
+    | undefined;
   if (!session) return res.status(404).json({ error: 'Not found' });
   if (session.status === 'finished') return res.json({ ok: true, already: true });
-  db.prepare("UPDATE sessions SET status = 'finished', finished_at = datetime('now') WHERE id = ?").run(req.params.id);
+  db.prepare(
+    "UPDATE sessions SET status = 'finished', finished_at = datetime('now') WHERE id = ?",
+  ).run(req.params.id);
   res.json({ ok: true });
 });
 
 adminRouter.get('/sessions/:id', requireAdmin, (req: Request, res: Response) => {
-  const session = db.prepare(`
+  const session = db
+    .prepare(`
     SELECT s.*, q.title as quiz_title
     FROM sessions s JOIN quizzes q ON q.id = s.quiz_id
     WHERE s.id = ?
-  `).get(req.params.id) as DbSession | undefined;
+  `)
+    .get(req.params.id) as DbSession | undefined;
   if (!session) return res.status(404).json({ error: 'Not found' });
 
-  const players = db.prepare(
-    'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC'
-  ).all(req.params.id);
+  const players = db
+    .prepare('SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC')
+    .all(req.params.id);
 
-  const questions = db.prepare(
-    'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index'
-  ).all(session.quiz_id) as DbQuestion[];
+  const questions = db
+    .prepare('SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index')
+    .all(session.quiz_id) as DbQuestion[];
 
-  const answers = db.prepare(
-    'SELECT a.*, p.username FROM answers a JOIN players p ON p.id = a.player_id WHERE a.session_id = ?'
-  ).all(req.params.id);
+  const answers = db
+    .prepare(
+      'SELECT a.*, p.username FROM answers a JOIN players p ON p.id = a.player_id WHERE a.session_id = ?',
+    )
+    .all(req.params.id);
 
   res.json({
     session,
     players,
-    questions: questions.map(q => ({ ...q, options: JSON.parse(q.options) })),
-    answers
+    questions: questions.map((q) => ({ ...q, options: JSON.parse(q.options) })),
+    answers,
   });
 });

@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
-import { QuestionPayload, QuestionResults, GameEndedPayload } from '../../types';
-import { WaitingScreen } from './components/WaitingScreen';
-import { QuestionScreen } from './components/QuestionScreen';
+import type { GameEndedPayload, QuestionPayload, QuestionResults } from '../../types';
 import { AnsweredScreen } from './components/AnsweredScreen';
-import { ResultsScreen } from './components/ResultsScreen';
-import { PodiumScreen } from './components/PodiumScreen';
 import { EndedScreen } from './components/EndedScreen';
+import { PodiumScreen } from './components/PodiumScreen';
+import { QuestionScreen } from './components/QuestionScreen';
+import { ResultsScreen } from './components/ResultsScreen';
+import { WaitingScreen } from './components/WaitingScreen';
 
 type Phase = 'waiting' | 'question' | 'answered' | 'results' | 'podium' | 'ended';
 
@@ -25,7 +25,11 @@ export default function Game() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [openTextInput, setOpenTextInput] = useState('');
   const [openTextSubmitted, setOpenTextSubmitted] = useState(false);
-  const [answerResult, setAnswerResult] = useState<{ isCorrect: boolean; score: number; wasPassJoker?: boolean } | null>(null);
+  const [answerResult, setAnswerResult] = useState<{
+    isCorrect: boolean;
+    score: number;
+    wasPassJoker?: boolean;
+  } | null>(null);
   const [eliminatedIndices, setEliminatedIndices] = useState<number[]>([]);
   const [jokersEnabled, setJokersEnabled] = useState({ pass: false, fiftyFifty: false });
   const [jokersUsed, setJokersUsed] = useState({ pass: false, fiftyFifty: false });
@@ -38,7 +42,7 @@ export default function Game() {
 
   useEffect(() => {
     if (!playerId) navigate('/play');
-  }, []);
+  }, [navigate, playerId]);
 
   // Reconnect: re-emit player:join on socket reconnect
   useEffect(() => {
@@ -58,25 +62,33 @@ export default function Game() {
     }
 
     socket.on('connect', handleReconnect);
-    return () => { socket.off('connect', handleReconnect); };
-  }, []);
+    return () => {
+      socket.off('connect', handleReconnect);
+    };
+  }, [socket.on, socket.off, socket.emit]);
 
-  useSocketEvent<{ jokersEnabled: { pass: boolean; fiftyFifty: boolean } }>('game:started', data => {
-    setPhase('waiting');
-    if (data?.jokersEnabled) setJokersEnabled(data.jokersEnabled);
-  });
+  useSocketEvent<{ jokersEnabled: { pass: boolean; fiftyFifty: boolean } }>(
+    'game:started',
+    (data) => {
+      setPhase('waiting');
+      if (data?.jokersEnabled) setJokersEnabled(data.jokersEnabled);
+    },
+  );
 
-  useSocketEvent<{ jokersEnabled: { pass: boolean; fiftyFifty: boolean }; jokersUsed: { pass: boolean; fiftyFifty: boolean } }>('player:joker-state', data => {
+  useSocketEvent<{
+    jokersEnabled: { pass: boolean; fiftyFifty: boolean };
+    jokersUsed: { pass: boolean; fiftyFifty: boolean };
+  }>('player:joker-state', (data) => {
     setJokersEnabled(data.jokersEnabled);
     setJokersUsed(data.jokersUsed);
   });
 
-  useSocketEvent<{ eliminatedIndices: number[] }>('player:joker-5050-applied', data => {
+  useSocketEvent<{ eliminatedIndices: number[] }>('player:joker-5050-applied', (data) => {
     setEliminatedIndices(data.eliminatedIndices);
-    setJokersUsed(prev => ({ ...prev, fiftyFifty: true }));
+    setJokersUsed((prev) => ({ ...prev, fiftyFifty: true }));
   });
 
-  useSocketEvent<QuestionPayload>('game:question', data => {
+  useSocketEvent<QuestionPayload>('game:question', (data) => {
     setQuestion(data);
     setSelectedIndex(null);
     setOpenTextInput('');
@@ -87,24 +99,33 @@ export default function Game() {
     setTimeLeft(data.timeSec);
     setPhase('question');
 
-    if (autoAdvanceRef.current) { clearInterval(autoAdvanceRef.current); autoAdvanceRef.current = null; }
+    if (autoAdvanceRef.current) {
+      clearInterval(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
 
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(timerRef.current!); return 0; }
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
         return t - 1;
       });
     }, 1000);
   });
 
-  useSocketEvent<{ isCorrect: boolean; score: number; wasPassJoker?: boolean }>('player:answer-received', data => {
-    setAnswerResult(data);
-    setPhase('answered');
-    if (timerRef.current) clearInterval(timerRef.current);
-  });
+  useSocketEvent<{ isCorrect: boolean; score: number; wasPassJoker?: boolean }>(
+    'player:answer-received',
+    (data) => {
+      setAnswerResult(data);
+      setPhase('answered');
+      if (timerRef.current) clearInterval(timerRef.current);
+    },
+  );
 
-  useSocketEvent<QuestionResults>('game:question-results', data => {
+  useSocketEvent<QuestionResults>('game:question-results', (data) => {
     setResults(data);
     setPhase('results');
     if (timerRef.current) clearInterval(timerRef.current);
@@ -112,14 +133,17 @@ export default function Game() {
     setAutoAdvanceLeft(data.autoAdvanceSec);
     if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
     autoAdvanceRef.current = setInterval(() => {
-      setAutoAdvanceLeft(t => {
-        if (t <= 1) { clearInterval(autoAdvanceRef.current!); return 0; }
+      setAutoAdvanceLeft((t) => {
+        if (t <= 1) {
+          if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
+          return 0;
+        }
         return t - 1;
       });
     }, 1000);
   });
 
-  useSocketEvent<GameEndedPayload>('game:ended', data => {
+  useSocketEvent<GameEndedPayload>('game:ended', (data) => {
     setFinalBoard(data.leaderboard);
     if (timerRef.current) clearInterval(timerRef.current);
     if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
@@ -149,65 +173,59 @@ export default function Game() {
     });
   }
 
-  if (phase === 'waiting') return (
-    <WaitingScreen username={username} avatar={myAvatar} />
-  );
+  if (phase === 'waiting') return <WaitingScreen username={username} avatar={myAvatar} />;
 
-  if (phase === 'question' && question) return (
-    <QuestionScreen
-      question={question}
-      timeLeft={timeLeft}
-      selectedIndex={selectedIndex}
-      openTextInput={openTextInput}
-      openTextSubmitted={openTextSubmitted}
-      eliminatedIndices={eliminatedIndices}
-      jokersEnabled={jokersEnabled}
-      jokersUsed={jokersUsed}
-      onAnswer={submitAnswer}
-      onOpenTextChange={setOpenTextInput}
-      onOpenTextSubmit={submitOpenText}
-      onPassJoker={() => {
-        if (jokersUsed.pass) return;
-        setJokersUsed(prev => ({ ...prev, pass: true }));
-        socket.emit('player:joker-pass', { sessionId: Number(sessionId), playerId });
-      }}
-      onFiftyFiftyJoker={() => {
-        if (jokersUsed.fiftyFifty) return;
-        socket.emit('player:joker-5050', { sessionId: Number(sessionId), playerId });
-      }}
-    />
-  );
+  if (phase === 'question' && question)
+    return (
+      <QuestionScreen
+        question={question}
+        timeLeft={timeLeft}
+        selectedIndex={selectedIndex}
+        openTextInput={openTextInput}
+        openTextSubmitted={openTextSubmitted}
+        eliminatedIndices={eliminatedIndices}
+        jokersEnabled={jokersEnabled}
+        jokersUsed={jokersUsed}
+        onAnswer={submitAnswer}
+        onOpenTextChange={setOpenTextInput}
+        onOpenTextSubmit={submitOpenText}
+        onPassJoker={() => {
+          if (jokersUsed.pass) return;
+          setJokersUsed((prev) => ({ ...prev, pass: true }));
+          socket.emit('player:joker-pass', { sessionId: Number(sessionId), playerId });
+        }}
+        onFiftyFiftyJoker={() => {
+          if (jokersUsed.fiftyFifty) return;
+          socket.emit('player:joker-5050', { sessionId: Number(sessionId), playerId });
+        }}
+      />
+    );
 
-  if (phase === 'answered' && answerResult) return (
-    <AnsweredScreen
-      isCorrect={answerResult.isCorrect}
-      score={answerResult.score}
-      wasPassJoker={answerResult.wasPassJoker}
-    />
-  );
+  if (phase === 'answered' && answerResult)
+    return (
+      <AnsweredScreen
+        isCorrect={answerResult.isCorrect}
+        score={answerResult.score}
+        wasPassJoker={answerResult.wasPassJoker}
+      />
+    );
 
-  if (phase === 'results' && results && question) return (
-    <ResultsScreen
-      results={results}
-      playerId={playerId}
-      autoAdvanceLeft={autoAdvanceLeft}
-    />
-  );
+  if (phase === 'results' && results && question)
+    return (
+      <ResultsScreen results={results} playerId={playerId} autoAdvanceLeft={autoAdvanceLeft} />
+    );
 
-  if (phase === 'podium') return (
-    <PodiumScreen
-      leaderboard={finalBoard}
-      onContinue={() => setPhase('ended')}
-    />
-  );
+  if (phase === 'podium')
+    return <PodiumScreen leaderboard={finalBoard} onContinue={() => setPhase('ended')} />;
 
-  if (phase === 'ended') return (
-    <EndedScreen
-      leaderboard={finalBoard}
-      username={username}
-      onPlayAgain={() => navigate('/play')}
-    />
-  );
+  if (phase === 'ended')
+    return (
+      <EndedScreen
+        leaderboard={finalBoard}
+        username={username}
+        onPlayAgain={() => navigate('/play')}
+      />
+    );
 
   return null;
 }

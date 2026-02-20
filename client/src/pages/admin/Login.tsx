@@ -1,8 +1,8 @@
-import { useState, FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useApp } from '../../context/AppContext';
 import { Input } from '../../components/Input';
+import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
@@ -29,8 +29,24 @@ export default function Login() {
         <div className="text-center mb-6">
           <div className="logo">
             {appName ? (
-              <>{appName} <span style={{ fontWeight: 400, fontSize: '0.6em', display: 'block', marginTop: 4, WebkitTextFillColor: 'var(--text2)', opacity: 0.85 }}>by ⚡ Quizz</span></>
-            ) : '⚡ Quizz'}
+              <>
+                {appName}{' '}
+                <span
+                  style={{
+                    fontWeight: 400,
+                    fontSize: '0.6em',
+                    display: 'block',
+                    marginTop: 4,
+                    WebkitTextFillColor: 'var(--text2)',
+                    opacity: 0.85,
+                  }}
+                >
+                  by ⚡ Quizz
+                </span>
+              </>
+            ) : (
+              '⚡ Quizz'
+            )}
           </div>
           <p className="subtitle mt-2">Admin Panel</p>
         </div>
@@ -39,14 +55,24 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <Input
-            id="username" label="Username" type="text" autoComplete="username"
-            placeholder="admin" required value={username}
-            onChange={e => setUsername(e.target.value)}
+            id="username"
+            label="Username"
+            type="text"
+            autoComplete="username"
+            placeholder="admin"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
           <Input
-            id="password" label="Password" type="password" autoComplete="current-password"
-            placeholder="••••••••" required value={password}
-            onChange={e => setPassword(e.target.value)}
+            id="password"
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <button type="submit" disabled={loading} className="btn btn-primary btn-full btn-lg mt-2">
             {loading ? 'Signing in…' : 'Sign in'}

@@ -1,11 +1,29 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 
 const AVATAR_KEY = 'quizz_avatar';
 
 // Emoji fallbacks shown while the server list is loading or if it returns empty
 const FALLBACK_EMOJIS = [
-  '🦊','🦁','🐸','🦄','🐧','🦋','🦈','🦑','🤖','👾',
-  '🎮','🎯','⚡','🌈','🔥','🐉','🦅','🐺','🐙','🎭',
+  '🦊',
+  '🦁',
+  '🐸',
+  '🦄',
+  '🐧',
+  '🦋',
+  '🦈',
+  '🦑',
+  '🤖',
+  '👾',
+  '🎮',
+  '🎯',
+  '⚡',
+  '🌈',
+  '🔥',
+  '🐉',
+  '🦅',
+  '🐺',
+  '🐙',
+  '🎭',
 ];
 
 export function loadSavedAvatar(): string {
@@ -28,9 +46,12 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
 
   useEffect(() => {
     fetch('/api/avatars')
-      .then(r => r.json())
+      .then((r) => r.json())
       .then((urls: string[]) => setServerUrls(urls))
-      .catch(() => { setFetchError(true); setServerUrls([]); });
+      .catch(() => {
+        setFetchError(true);
+        setServerUrls([]);
+      });
   }, []);
 
   function handleFile(e: ChangeEvent<HTMLInputElement>) {
@@ -43,7 +64,8 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
       const canvas = document.createElement('canvas');
       canvas.width = SIZE;
       canvas.height = SIZE;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       // Center-crop to circle
       const min = Math.min(img.width, img.height);
       const sx = (img.width - min) / 2;
@@ -62,7 +84,7 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
 
   const isImage = value.startsWith('data:') || value.startsWith('/avatars/');
   const loading = serverUrls === null;
-  const options = (serverUrls && serverUrls.length > 0) ? serverUrls : (fetchError ? null : null);
+  const options = serverUrls && serverUrls.length > 0 ? serverUrls : fetchError ? null : null;
 
   return (
     <div>
@@ -70,7 +92,16 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <AvatarDisplay avatar={value} size={72} />
         <div>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text2)', fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', marginBottom: 8 }}>
+          <p
+            style={{
+              fontSize: '0.78rem',
+              color: 'var(--text2)',
+              fontWeight: 600,
+              letterSpacing: '.04em',
+              textTransform: 'uppercase',
+              marginBottom: 8,
+            }}
+          >
             Your avatar
           </p>
           <button
@@ -91,36 +122,55 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
       </div>
 
       {/* Server avatars or fallback emojis */}
-      <p style={{ fontSize: '0.78rem', color: 'var(--text2)', fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <p
+        style={{
+          fontSize: '0.78rem',
+          color: 'var(--text2)',
+          fontWeight: 600,
+          letterSpacing: '.06em',
+          textTransform: 'uppercase',
+          marginBottom: 10,
+        }}
+      >
         {loading ? 'Loading avatars…' : 'Or pick one'}
       </p>
 
       {loading && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} style={{
-              width: 46, height: 46, borderRadius: 10,
-              background: 'var(--surface2)', border: '2px solid var(--border)',
-              animation: 'pulse .8s infinite alternate',
-            }} />
+          {Array.from({ length: 10 }, (_, i) => i).map((i) => (
+            <div
+              key={`skeleton-${i}`}
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: 10,
+                background: 'var(--surface2)',
+                border: '2px solid var(--border)',
+                animation: 'pulse .8s infinite alternate',
+              }}
+            />
           ))}
         </div>
       )}
 
       {!loading && options && options.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {options.map(url => {
+          {options.map((url) => {
             const selected = value === url;
             return (
               <button
-                key={url}
                 type="button"
+                key={url}
                 onClick={() => onChange(url)}
                 style={{
-                  width: 52, height: 52, borderRadius: 10, padding: 3,
+                  width: 52,
+                  height: 52,
+                  borderRadius: 10,
+                  padding: 3,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
                   background: selected ? 'rgba(124,58,237,.18)' : 'var(--surface2)',
-                  cursor: 'pointer', overflow: 'hidden',
+                  cursor: 'pointer',
+                  overflow: 'hidden',
                   boxShadow: selected ? '0 0 0 3px rgba(124,58,237,.25)' : 'none',
                   transition: 'all .15s',
                   flexShrink: 0,
@@ -129,7 +179,13 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
                 <img
                   src={url}
                   alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6 }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    borderRadius: 6,
+                  }}
                 />
               </button>
             );
@@ -140,19 +196,24 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
       {/* Fallback: show emoji chars if server returned empty list */}
       {!loading && (!options || options.length === 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {FALLBACK_EMOJIS.map(emoji => {
+          {FALLBACK_EMOJIS.map((emoji) => {
             const selected = value === emoji;
             return (
               <button
-                key={emoji}
                 type="button"
+                key={emoji}
                 onClick={() => onChange(emoji)}
                 style={{
-                  width: 46, height: 46, borderRadius: 10,
+                  width: 46,
+                  height: 46,
+                  borderRadius: 10,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
                   background: selected ? 'rgba(124,58,237,.18)' : 'var(--surface2)',
-                  fontSize: '1.6rem', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.6rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   boxShadow: selected ? '0 0 0 3px rgba(124,58,237,.25)' : 'none',
                   transition: 'all .15s',
                 }}
@@ -178,18 +239,31 @@ interface AvatarDisplayProps {
 export function AvatarDisplay({ avatar, size = 36, style }: AvatarDisplayProps) {
   const isImage = avatar?.startsWith('data:') || avatar?.startsWith('/avatars/');
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      border: '2px solid var(--border)',
-      background: 'var(--surface2)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', flexShrink: 0,
-      fontSize: size * 0.52,
-      ...style,
-    }}>
-      {isImage
-        ? <img src={avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        : (avatar ?? '🎮')}
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: '2px solid var(--border)',
+        background: 'var(--surface2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        flexShrink: 0,
+        fontSize: size * 0.52,
+        ...style,
+      }}
+    >
+      {isImage ? (
+        <img
+          src={avatar}
+          alt="avatar"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        (avatar ?? '🎮')
+      )}
     </div>
   );
 }

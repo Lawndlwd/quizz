@@ -1,11 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { AppProvider } from './context/AppContext';
 import App from './App';
+import { AppProvider } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import './styles/index.css';
 
+// biome-ignore lint/style/noNonNullAssertion: root element is always present in index.html
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
@@ -15,5 +16,5 @@ createRoot(document.getElementById('root')!).render(
         </AuthProvider>
       </AppProvider>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );

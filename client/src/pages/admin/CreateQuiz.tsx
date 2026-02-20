@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { type QuestionWithKey, withKey } from '@/helpers';
 import AdminNav from '../../components/AdminNav';
-import { useAuth } from '../../context/AuthContext';
-import { ImportPayload, ImportQuestion } from '../../types';
 import { Input } from '../../components/Input';
-import { QuestionEditor, blankQuestion } from './components/QuestionEditor';
+import { useAuth } from '../../context/AuthContext';
+import type { ImportPayload, ImportQuestion } from '../../types';
+import { blankQuestion, QuestionEditor } from './components/QuestionEditor';
 
 const PLACEHOLDER = JSON.stringify(
   {
@@ -38,7 +39,7 @@ const PLACEHOLDER = JSON.stringify(
     ],
   } satisfies ImportPayload,
   null,
-  2
+  2,
 );
 
 export default function CreateQuiz() {
@@ -52,7 +53,7 @@ export default function CreateQuiz() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [questions, setQuestions] = useState<ImportQuestion[]>([blankQuestion()]);
+  const [questions, setQuestions] = useState<QuestionWithKey[]>([withKey(blankQuestion())]);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -91,19 +92,31 @@ export default function CreateQuiz() {
   }
 
   async function handleManualSubmit() {
-    if (!title.trim()) { setJsonError('Title is required'); return; }
+    if (!title.trim()) {
+      setJsonError('Title is required');
+      return;
+    }
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      if (!q.text.trim()) { setJsonError(`Question ${i + 1} has no text`); return; }
+      if (!q.text.trim()) {
+        setJsonError(`Question ${i + 1} has no text`);
+        return;
+      }
       const type = q.questionType ?? 'multiple_choice';
-      if (type === 'open_text' && !q.correctAnswer?.trim()) { setJsonError(`Question ${i + 1} needs a correct answer`); return; }
-      if (type === 'multiple_choice' && q.options.some(o => !o.trim())) { setJsonError(`Question ${i + 1} has empty options`); return; }
+      if (type === 'open_text' && !q.correctAnswer?.trim()) {
+        setJsonError(`Question ${i + 1} needs a correct answer`);
+        return;
+      }
+      if (type === 'multiple_choice' && q.options.some((o) => !o.trim())) {
+        setJsonError(`Question ${i + 1} has empty options`);
+        return;
+      }
     }
     await saveQuiz({ title, description, questions });
   }
 
   function updateQuestion(i: number, field: keyof ImportQuestion, value: unknown) {
-    setQuestions(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q));
+    setQuestions((prev) => prev.map((q, idx) => (idx === i ? { ...q, [field]: value } : q)));
   }
 
   return (
@@ -116,8 +129,20 @@ export default function CreateQuiz() {
             <p className="subtitle">Build manually or paste AI-generated JSON</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setMode('json')} className={`btn ${mode === 'json' ? 'btn-primary' : 'btn-ghost'}`}>JSON Import</button>
-            <button onClick={() => setMode('manual')} className={`btn ${mode === 'manual' ? 'btn-primary' : 'btn-ghost'}`}>Manual Builder</button>
+            <button
+              type="button"
+              onClick={() => setMode('json')}
+              className={`btn ${mode === 'json' ? 'btn-primary' : 'btn-ghost'}`}
+            >
+              JSON Import
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('manual')}
+              className={`btn ${mode === 'manual' ? 'btn-primary' : 'btn-ghost'}`}
+            >
+              Manual Builder
+            </button>
           </div>
         </div>
 
@@ -128,25 +153,50 @@ export default function CreateQuiz() {
           <div className="card card-lg">
             <h2 className="mb-4">Paste JSON</h2>
             <div className="alert alert-info mb-4" style={{ fontSize: '0.85rem' }}>
-              Use an AI (ChatGPT, Claude, etc.) to generate the JSON below. Supports <strong>multiple_choice</strong>, <strong>true_false</strong>, and <strong>open_text</strong> question types.
+              Use an AI (ChatGPT, Claude, etc.) to generate the JSON below. Supports{' '}
+              <strong>multiple_choice</strong>, <strong>true_false</strong>, and{' '}
+              <strong>open_text</strong> question types.
             </div>
             <div className="form-group">
-              <label>Quiz JSON</label>
+              <label htmlFor="quiz-json">Quiz JSON</label>
               <textarea
+                id="quiz-json"
                 className="mono"
                 style={{ minHeight: 320 }}
                 placeholder={PLACEHOLDER}
                 value={jsonText}
-                onChange={e => setJsonText(e.target.value)}
+                onChange={(e) => setJsonText(e.target.value)}
               />
             </div>
             <details className="mt-2 mb-4">
-              <summary className="text-sm text-muted" style={{ cursor: 'pointer' }}>Show example / schema</summary>
-              <pre className="font-mono mt-2" style={{ background: 'var(--bg)', padding: 16, borderRadius: 8, fontSize: '0.78rem', overflowX: 'auto', border: '1px solid var(--border)', color: 'var(--text2)' }}>{PLACEHOLDER}</pre>
+              <summary className="text-sm text-muted" style={{ cursor: 'pointer' }}>
+                Show example / schema
+              </summary>
+              <pre
+                className="font-mono mt-2"
+                style={{
+                  background: 'var(--bg)',
+                  padding: 16,
+                  borderRadius: 8,
+                  fontSize: '0.78rem',
+                  overflowX: 'auto',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text2)',
+                }}
+              >
+                {PLACEHOLDER}
+              </pre>
             </details>
             <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-              <button onClick={() => navigate('/admin')} className="btn btn-ghost">Cancel</button>
-              <button onClick={handleJsonSubmit} disabled={saving || !jsonText.trim()} className="btn btn-primary btn-lg">
+              <button type="button" onClick={() => navigate('/admin')} className="btn btn-ghost">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleJsonSubmit}
+                disabled={saving || !jsonText.trim()}
+                className="btn btn-primary btn-lg"
+              >
                 {saving ? 'Saving…' : '✓ Create Quiz'}
               </button>
             </div>
@@ -155,10 +205,20 @@ export default function CreateQuiz() {
           <div className="card card-lg">
             <h2 className="mb-4">Quiz Details</h2>
             <div className="form-row mb-4">
-              <Input noMargin label="Title *"
-                value={title} onChange={e => setTitle(e.target.value)} placeholder="My Awesome Quiz" />
-              <Input noMargin label="Description"
-                value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" />
+              <Input
+                noMargin
+                label="Title *"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="My Awesome Quiz"
+              />
+              <Input
+                noMargin
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Optional"
+              />
             </div>
 
             <div className="divider" />
@@ -166,20 +226,33 @@ export default function CreateQuiz() {
 
             {questions.map((q, qi) => (
               <QuestionEditor
-                key={qi}
+                key={q._key}
                 q={q}
                 qi={qi}
                 onChange={(field, value) => updateQuestion(qi, field, value)}
-                onRemove={() => setQuestions(prev => prev.filter((_, idx) => idx !== qi))}
+                onRemove={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}
                 canRemove={questions.length > 1}
               />
             ))}
 
-            <button onClick={() => setQuestions(prev => [...prev, blankQuestion()])} className="btn btn-ghost btn-full mb-4">+ Add Question</button>
+            <button
+              type="button"
+              onClick={() => setQuestions((prev) => [...prev, withKey(blankQuestion())])}
+              className="btn btn-ghost btn-full mb-4"
+            >
+              + Add Question
+            </button>
 
             <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-              <button onClick={() => navigate('/admin')} className="btn btn-ghost">Cancel</button>
-              <button onClick={handleManualSubmit} disabled={saving} className="btn btn-primary btn-lg">
+              <button type="button" onClick={() => navigate('/admin')} className="btn btn-ghost">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleManualSubmit}
+                disabled={saving}
+                className="btn btn-primary btn-lg"
+              >
                 {saving ? 'Saving…' : '✓ Create Quiz'}
               </button>
             </div>

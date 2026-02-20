@@ -1,5 +1,5 @@
+import path from 'node:path';
 import Database from 'better-sqlite3';
-import path from 'path';
 
 const DB_PATH = process.env.DATA_DIR
   ? path.join(process.env.DATA_DIR, 'quizz.db')
@@ -71,6 +71,10 @@ export function initDb(): void {
     `ALTER TABLE answers ADD COLUMN chosen_text TEXT`,
   ];
   for (const sql of columnMigrations) {
-    try { db.exec(sql); } catch { /* column already exists */ }
+    try {
+      db.exec(sql);
+    } catch {
+      /* column already exists */
+    }
   }
 }

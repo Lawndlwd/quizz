@@ -5,3 +5,4 @@ dist/
 *.db-wal
 .env
 avatars/
+.claude

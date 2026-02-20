@@ -1,8 +1,8 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { type ChangeEvent, useEffect, useState } from 'react';
 import AdminNav from '../../components/AdminNav';
-import { useAuth } from '../../context/AuthContext';
-import { AppConfig } from '../../types';
 import { Input } from '../../components/Input';
+import { useAuth } from '../../context/AuthContext';
+import type { AppConfig } from '../../types';
 
 export default function Settings() {
   const { token } = useAuth();
@@ -19,11 +19,11 @@ export default function Settings() {
 
   useEffect(() => {
     fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(setCfg);
 
     fetch('/api/avatars')
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error('Failed to load avatars');
         return r.json();
       })
@@ -35,7 +35,7 @@ export default function Settings() {
         setAvailableAvatars([]);
         setAvatarsError('Could not load current avatars.');
       });
-  }, []);
+  }, [token]);
 
   async function save() {
     if (!cfg) return;
@@ -104,12 +104,18 @@ export default function Settings() {
   }
 
   function update<K extends keyof AppConfig>(key: K, value: AppConfig[K]) {
-    setCfg(prev => prev ? { ...prev, [key]: value } : prev);
+    setCfg((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  if (!cfg) return (
-    <div className="page"><AdminNav /><div className="page-center"><p className="text-muted">Loading…</p></div></div>
-  );
+  if (!cfg)
+    return (
+      <div className="page">
+        <AdminNav />
+        <div className="page-center">
+          <p className="text-muted">Loading…</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="page">
@@ -120,7 +126,7 @@ export default function Settings() {
             <h1>Settings</h1>
             <p className="subtitle">Adjust game behaviour and admin credentials</p>
           </div>
-          <button onClick={save} disabled={saving} className="btn btn-primary btn-lg">
+          <button type="button" onClick={save} disabled={saving} className="btn btn-primary btn-lg">
             {saving ? 'Saving…' : saved ? '✓ Saved!' : 'Save Changes'}
           </button>
         </div>
@@ -131,45 +137,76 @@ export default function Settings() {
         <div className="card mb-6" style={{ maxWidth: 480 }}>
           <h2 className="mb-1">✏️ App Name</h2>
           <p className="text-sm text-muted mb-4">
-            Shown as <strong style={{ color: 'var(--text)' }}>"{(cfg.appName ?? '').trim() || 'Scaleway'} by ⚡ Quizz"</strong> — leave blank to show just <strong style={{ color: 'var(--text)' }}>⚡ Quizz</strong>
+            Shown as{' '}
+            <strong style={{ color: 'var(--text)' }}>
+              "{(cfg.appName ?? '').trim() || 'Scaleway'} by ⚡ Quizz"
+            </strong>{' '}
+            — leave blank to show just <strong style={{ color: 'var(--text)' }}>⚡ Quizz</strong>
           </p>
           <Input
             label="Organisation / Event name"
             placeholder="e.g. Scaleway   (leave blank for default)"
             value={cfg.appName ?? ''}
-            onChange={e => update('appName', e.target.value)}
+            onChange={(e) => update('appName', e.target.value)}
             noMargin
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+            gap: 24,
+          }}
+        >
           {/* Game settings */}
           <div className="card">
             <h2 className="mb-4">⏱ Game Settings</h2>
 
-            <Input label="Default Question Time (seconds)"
-              type="number" min={5} max={120} value={cfg.questionTimeSec ?? 20}
-              onChange={e => update('questionTimeSec', Number(e.target.value))} />
+            <Input
+              label="Default Question Time (seconds)"
+              type="number"
+              min={5}
+              max={120}
+              value={cfg.questionTimeSec ?? 20}
+              onChange={(e) => update('questionTimeSec', Number(e.target.value))}
+            />
 
-            <Input label="Default Base Score"
-              type="number" min={0} step={50} value={cfg.defaultBaseScore ?? 500}
-              onChange={e => update('defaultBaseScore', Number(e.target.value))} />
+            <Input
+              label="Default Base Score"
+              type="number"
+              min={0}
+              step={50}
+              value={cfg.defaultBaseScore ?? 500}
+              onChange={(e) => update('defaultBaseScore', Number(e.target.value))}
+            />
 
-            <Input label="Default Speed Bonus (for players beyond top list)"
-              type="number" min={0} step={5} value={cfg.defaultSpeedBonus ?? 25}
-              onChange={e => update('defaultSpeedBonus', Number(e.target.value))} />
+            <Input
+              label="Default Speed Bonus (for players beyond top list)"
+              type="number"
+              min={0}
+              step={5}
+              value={cfg.defaultSpeedBonus ?? 25}
+              onChange={(e) => update('defaultSpeedBonus', Number(e.target.value))}
+            />
 
-            <Input label="Max Players Per Session"
-              type="number" min={2} max={500} value={cfg.maxPlayersPerSession ?? 50}
-              onChange={e => update('maxPlayersPerSession', Number(e.target.value))} />
+            <Input
+              label="Max Players Per Session"
+              type="number"
+              min={2}
+              max={500}
+              value={cfg.maxPlayersPerSession ?? 50}
+              onChange={(e) => update('maxPlayersPerSession', Number(e.target.value))}
+            />
 
             <div className="form-group">
-              <label>Speed Bonuses (1st correct → 2nd → 3rd → …)</label>
+              <p className="form-label">Speed Bonuses (1st correct → 2nd → 3rd → …)</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
                 {(cfg.speedBonuses ?? [200, 150, 100, 50]).map((val, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                  <div key={`speed-${i + 1}`} className="flex items-center gap-2">
                     <span style={{ fontSize: '0.78rem', color: 'var(--text2)', minWidth: 54 }}>
-                      {i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} correct
+                      {i + 1}
+                      {i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} correct
                     </span>
                     <Input
                       type="number"
@@ -177,7 +214,7 @@ export default function Settings() {
                       step={10}
                       value={val}
                       style={{ maxWidth: 110 }}
-                      onChange={e => {
+                      onChange={(e) => {
                         const bonuses = [...(cfg.speedBonuses ?? [])];
                         bonuses[i] = Number(e.target.value);
                         update('speedBonuses', bonuses);
@@ -185,70 +222,102 @@ export default function Settings() {
                     />
                     {(cfg.speedBonuses ?? []).length > 1 && (
                       <button
+                        type="button"
                         className="btn-icon"
                         style={{ fontSize: '0.8rem' }}
                         onClick={() => {
                           const bonuses = (cfg.speedBonuses ?? []).filter((_, idx) => idx !== i);
                           update('speedBonuses', bonuses);
                         }}
-                      >✕</button>
+                      >
+                        ✕
+                      </button>
                     )}
                   </div>
                 ))}
               </div>
               <button
+                type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => update('speedBonuses', [...(cfg.speedBonuses ?? []), 0])}
-              >+ Add Tier</button>
-              <p className="text-xs text-muted mt-2">Players beyond the last tier use the Default Speed Bonus above.</p>
+              >
+                + Add Tier
+              </button>
+              <p className="text-xs text-muted mt-2">
+                Players beyond the last tier use the Default Speed Bonus above.
+              </p>
             </div>
 
             <div className="form-group">
-              <label>Results Screen Duration (seconds)</label>
+              <label htmlFor="results-auto-advance-sec">Results Screen Duration (seconds)</label>
               <p className="text-xs text-muted mb-2">
-                How long to show results before auto-advancing. Set to <strong>0</strong> for manual-only (admin clicks Next).
+                How long to show results before auto-advancing. Set to <strong>0</strong> for
+                manual-only (admin clicks Next).
               </p>
               <Input
+                id="results-auto-advance-sec"
                 type="number"
                 min={0}
                 max={60}
                 value={cfg.resultsAutoAdvanceSec ?? 5}
-                onChange={e => update('resultsAutoAdvanceSec', Number(e.target.value))}
+                onChange={(e) => update('resultsAutoAdvanceSec', Number(e.target.value))}
                 noMargin
               />
             </div>
 
             <div className="form-group flex items-center gap-3" style={{ marginBottom: 0 }}>
-              <input type="checkbox" id="lateJoin" style={{ width: 'auto' }}
+              <input
+                type="checkbox"
+                id="lateJoin"
+                style={{ width: 'auto' }}
                 checked={cfg.allowLateJoin ?? false}
-                onChange={e => update('allowLateJoin', e.target.checked)} />
-              <label htmlFor="lateJoin" style={{ marginBottom: 0 }}>Allow late join (players can join mid-game)</label>
+                onChange={(e) => update('allowLateJoin', e.target.checked)}
+              />
+              <label htmlFor="lateJoin" style={{ marginBottom: 0 }}>
+                Allow late join (players can join mid-game)
+              </label>
             </div>
           </div>
 
           {/* Streak bonus settings */}
           <div className="card">
             <h2 className="mb-4">🔥 Streak Bonus</h2>
-            <p className="text-sm text-muted mb-4">Award extra points when a player answers correctly multiple times in a row.</p>
+            <p className="text-sm text-muted mb-4">
+              Award extra points when a player answers correctly multiple times in a row.
+            </p>
 
             <div className="form-group flex items-center gap-3">
-              <input type="checkbox" id="streakEnabled" style={{ width: 'auto' }}
+              <input
+                type="checkbox"
+                id="streakEnabled"
+                style={{ width: 'auto' }}
                 checked={cfg.streakBonusEnabled ?? true}
-                onChange={e => update('streakBonusEnabled', e.target.checked)} />
-              <label htmlFor="streakEnabled" style={{ marginBottom: 0 }}>Enable streak bonus</label>
+                onChange={(e) => update('streakBonusEnabled', e.target.checked)}
+              />
+              <label htmlFor="streakEnabled" style={{ marginBottom: 0 }}>
+                Enable streak bonus
+              </label>
             </div>
 
-            <Input label="Streak starts at (minimum consecutive correct answers)"
-              type="number" min={2} max={10} value={cfg.streakMinimum ?? 2}
-              onChange={e => update('streakMinimum', Number(e.target.value))}
+            <Input
+              label="Streak starts at (minimum consecutive correct answers)"
+              type="number"
+              min={2}
+              max={10}
+              value={cfg.streakMinimum ?? 2}
+              onChange={(e) => update('streakMinimum', Number(e.target.value))}
               disabled={!(cfg.streakBonusEnabled ?? true)}
               hint="e.g. 2 means bonus kicks in on the 3rd correct answer in a row"
             />
 
-            <Input label="Bonus points per extra streak level"
+            <Input
+              label="Bonus points per extra streak level"
               noMargin
-              type="number" min={0} step={10} value={cfg.streakBonusBase ?? 50}
-              onChange={e => update('streakBonusBase', Number(e.target.value))}
+              type="number"
+              min={0}
+              step={10}
+              value={cfg.streakBonusBase ?? 50}
+              onChange={(e) => update('streakBonusBase', Number(e.target.value))}
               disabled={!(cfg.streakBonusEnabled ?? true)}
               hint="e.g. 50 pts → 3-streak: +50, 4-streak: +100, 5-streak: +150…"
             />
@@ -258,14 +327,22 @@ export default function Settings() {
           <div className="card">
             <h2 className="mb-4">🔐 Admin Credentials</h2>
 
-            <Input label="Admin Username"
+            <Input
+              label="Admin Username"
               value={cfg.adminUsername ?? 'admin'}
-              onChange={e => update('adminUsername', e.target.value)} />
+              onChange={(e) => update('adminUsername', e.target.value)}
+            />
 
             <Input
-              label={<>New Password <span className="text-muted">(leave blank to keep current)</span></>}
-              type="password" value={newPassword} placeholder="Enter new password"
-              onChange={e => setNewPassword(e.target.value)}
+              label={
+                <>
+                  New Password <span className="text-muted">(leave blank to keep current)</span>
+                </>
+              }
+              type="password"
+              value={newPassword}
+              placeholder="Enter new password"
+              onChange={(e) => setNewPassword(e.target.value)}
             />
 
             <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
@@ -277,13 +354,17 @@ export default function Settings() {
           <div className="card">
             <h2 className="mb-2">😊 Avatar & Emoji Library</h2>
             <p className="text-sm text-muted mb-4">
-              Upload one or more small emoji-style images to make them available as avatars for players.
-              These will be stored on the server and automatically appear in the avatar picker.
+              Upload one or more small emoji-style images to make them available as avatars for
+              players. These will be stored on the server and automatically appear in the avatar
+              picker.
             </p>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="mb-2">Bulk upload emoji avatars</label>
+              <label htmlFor="avatar-bulk-upload" className="mb-2">
+                Bulk upload emoji avatars
+              </label>
               <input
+                id="avatar-bulk-upload"
                 type="file"
                 accept="image/*"
                 multiple
@@ -296,28 +377,27 @@ export default function Settings() {
             </div>
 
             {avatarUploadMessage && (
-              <div
-                className="alert mt-3"
-                style={{ fontSize: '0.85rem' }}
-              >
+              <div className="alert mt-3" style={{ fontSize: '0.85rem' }}>
                 {avatarUploadMessage}
               </div>
             )}
 
             <div className="mt-4">
-              <h3 className="mb-2" style={{ fontSize: '0.9rem' }}>Available avatars</h3>
+              <h3 className="mb-2" style={{ fontSize: '0.9rem' }}>
+                Available avatars
+              </h3>
               {availableAvatars === null && !avatarsError && (
                 <p className="text-sm text-muted">Loading current avatars…</p>
               )}
-              {avatarsError && (
-                <p className="text-sm text-muted">{avatarsError}</p>
-              )}
+              {avatarsError && <p className="text-sm text-muted">{avatarsError}</p>}
               {availableAvatars && availableAvatars.length === 0 && !avatarsError && (
-                <p className="text-sm text-muted">No avatars found yet. Upload some above to populate the library.</p>
+                <p className="text-sm text-muted">
+                  No avatars found yet. Upload some above to populate the library.
+                </p>
               )}
               {availableAvatars && availableAvatars.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                  {availableAvatars.map(url => (
+                  {availableAvatars.map((url) => (
                     <div
                       key={url}
                       style={{
@@ -334,7 +414,13 @@ export default function Settings() {
                       <img
                         src={url}
                         alt=""
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6 }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          display: 'block',
+                          borderRadius: 6,
+                        }}
                       />
                     </div>
                   ))}

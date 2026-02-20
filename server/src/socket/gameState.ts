@@ -1,4 +1,4 @@
-import { DbQuestion, GameSettings } from '../types';
+import type { DbQuestion, GameSettings } from '../types';
 
 export interface ActiveSession {
   sessionId: number;

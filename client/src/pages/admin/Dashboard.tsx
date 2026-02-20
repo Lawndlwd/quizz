@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
-import { Quiz, Session, AppConfig, GameSettings } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import type { AppConfig, GameSettings, Quiz, Session } from '../../types';
 import { PreGameSettingsModal } from './components/PreGameSettingsModal';
 
 export default function Dashboard() {
@@ -18,15 +18,15 @@ export default function Dashboard() {
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
 
   const [closing, setClosing] = useState<number | null>(null);
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-  async function loadSessions() {
+  const loadSessions = useCallback(async () => {
     const sRes = await fetch('/api/admin/sessions', { headers });
     const sData: Session[] = await sRes.json();
-    setActiveSessions(sData.filter(s => s.status !== 'finished'));
-  }
+    setActiveSessions(sData.filter((s) => s.status !== 'finished'));
+  }, [headers]);
 
-  async function load() {
+  const load = useCallback(async () => {
     const [qRes, sRes] = await Promise.all([
       fetch('/api/admin/quizzes', { headers }),
       fetch('/api/admin/sessions', { headers }),
@@ -34,17 +34,19 @@ export default function Dashboard() {
     const qData: Quiz[] = await qRes.json();
     const sData: Session[] = await sRes.json();
     setQuizzes(qData);
-    setActiveSessions(sData.filter(s => s.status !== 'finished'));
+    setActiveSessions(sData.filter((s) => s.status !== 'finished'));
     setLoading(false);
-  }
+  }, [headers]);
 
   // Auto-refresh active sessions every 5 s so stale "active" banners disappear
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     load();
     pollRef.current = setInterval(loadSessions, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [load, loadSessions]);
 
   async function forceClose(sessionId: number) {
     if (!confirm('Force-close this session? Players will be disconnected.')) return;
@@ -90,48 +92,74 @@ export default function Dashboard() {
     load();
   }
 
-  if (loading) return (
-    <div className="page">
-      <AdminNav />
-      <div className="page-center"><p className="text-muted">Loading…</p></div>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="page">
+        <AdminNav />
+        <div className="page-center">
+          <p className="text-muted">Loading…</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="page">
       <AdminNav />
       <div className="main-content">
-
         {/* Active sessions banner */}
         {activeSessions.length > 0 && (
-          <div className="card mb-6 flex flex-col gap-4" style={{ borderColor: 'rgba(124,58,237,.4)', background: 'rgba(124,58,237,.06)', padding: '16px 20px' }}>
+          <div
+            className="card mb-6 flex flex-col gap-4"
+            style={{
+              borderColor: 'rgba(124,58,237,.4)',
+              background: 'rgba(124,58,237,.06)',
+              padding: '16px 20px',
+            }}
+          >
             <div className="flex items-center justify-between mb-3">
-              <span style={{ fontWeight: 600 }}>🎮 {activeSessions.length} open session{activeSessions.length > 1 ? 's' : ''}</span>
+              <span style={{ fontWeight: 600 }}>
+                🎮 {activeSessions.length} open session{activeSessions.length > 1 ? 's' : ''}
+              </span>
             </div>
-            <div className="flex flex-col gap-2" >
-              {activeSessions.map(s => (
-                <div key={s.id} className="flex flex-col items-center gap-2" style={{
-                  background: 'var(--surface2)', borderRadius: 8, padding: '8px 12px', border: '1px solid var(--border)',
-                }}>
+            <div className="flex flex-col gap-2">
+              {activeSessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex flex-col items-center gap-2"
+                  style={{
+                    background: 'var(--surface2)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                  }}
+                >
                   <div className="flex items-center gap-2">
-                  <span className={`badge badge-${s.status}`} style={{ flexShrink: 0 }}>{s.status}</span>
-                  <span style={{ flex: 1, fontWeight: 600 }}>{s.quiz_title}</span>
+                    <span className={`badge badge-${s.status}`} style={{ flexShrink: 0 }}>
+                      {s.status}
+                    </span>
+                    <span style={{ flex: 1, fontWeight: 600 }}>{s.quiz_title}</span>
                   </div>
-                                    <div className="flex items-center gap-2">
-
-                  <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>PIN {s.pin}</span>
-                  <button onClick={() => navigate(`/admin/game/${s.id}`)} className="btn btn-sm btn-primary">
-                    Resume →
-                  </button>
-                  <button
-                    onClick={() => forceClose(s.id)}
-                    disabled={closing === s.id}
-                    className="btn btn-sm btn-ghost"
-                    title="Force-close this session"
-                    style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                  >
-                    {closing === s.id ? '…' : '✕ Close'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>
+                      PIN {s.pin}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/game/${s.id}`)}
+                      className="btn btn-sm btn-primary"
+                    >
+                      Resume →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => forceClose(s.id)}
+                      disabled={closing === s.id}
+                      className="btn btn-sm btn-ghost"
+                      title="Force-close this session"
+                      style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                    >
+                      {closing === s.id ? '…' : '✕ Close'}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -142,9 +170,13 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1>My Quizzes</h1>
-            <p className="subtitle">{quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} total</p>
+            <p className="subtitle">
+              {quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''} total
+            </p>
           </div>
-          <Link to="/admin/quiz/new" className="btn btn-primary btn-lg">+ Create Quiz</Link>
+          <Link to="/admin/quiz/new" className="btn btn-primary btn-lg">
+            + Create Quiz
+          </Link>
         </div>
 
         {quizzes.length === 0 ? (
@@ -152,7 +184,9 @@ export default function Dashboard() {
             <div style={{ fontSize: '3rem', marginBottom: 12 }}>📝</div>
             <h2>No quizzes yet</h2>
             <p className="subtitle mt-2 mb-6">Create your first quiz to get started</p>
-            <Link to="/admin/quiz/new" className="btn btn-primary btn-lg">Create Quiz</Link>
+            <Link to="/admin/quiz/new" className="btn btn-primary btn-lg">
+              Create Quiz
+            </Link>
           </div>
         ) : (
           <div className="table-wrap card card-xl" style={{ padding: 0, overflow: 'hidden' }}>
@@ -166,30 +200,35 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {quizzes.map(q => (
+                {quizzes.map((q) => (
                   <tr key={q.id}>
                     <td>
                       <div style={{ fontWeight: 600 }}>{q.title}</div>
-                      {q.description && <div className="text-muted text-sm mt-1 truncate" style={{ maxWidth: 360 }}>{q.description}</div>}
+                      {q.description && (
+                        <div className="text-muted text-sm mt-1 truncate" style={{ maxWidth: 360 }}>
+                          {q.description}
+                        </div>
+                      )}
                     </td>
                     <td>{q.question_count} Q</td>
-                    <td className="text-muted text-sm">{new Date(q.created_at).toLocaleDateString()}</td>
+                    <td className="text-muted text-sm">
+                      {new Date(q.created_at).toLocaleDateString()}
+                    </td>
                     <td>
                       <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
                         <button
+                          type="button"
                           onClick={() => handleStartClick(q.id)}
                           disabled={starting === q.id}
                           className="btn btn-success btn-sm"
                         >
                           {starting === q.id ? '…' : '▶ Start'}
                         </button>
-                        <Link
-                          to={`/admin/quiz/${q.id}/edit`}
-                          className="btn btn-secondary btn-sm"
-                        >
+                        <Link to={`/admin/quiz/${q.id}/edit`} className="btn btn-secondary btn-sm">
                           ✎ Edit
                         </Link>
                         <button
+                          type="button"
                           onClick={() => deleteQuiz(q.id)}
                           disabled={deleting === q.id}
                           className="btn btn-ghost btn-sm"
@@ -210,7 +249,10 @@ export default function Dashboard() {
         <PreGameSettingsModal
           config={appConfig}
           onConfirm={confirmStart}
-          onCancel={() => { setShowSettingsModal(false); setPendingStartQuizId(null); }}
+          onCancel={() => {
+            setShowSettingsModal(false);
+            setPendingStartQuizId(null);
+          }}
         />
       )}
     </div>

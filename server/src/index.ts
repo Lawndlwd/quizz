@@ -1,12 +1,12 @@
-import express from 'express';
-import http from 'http';
+import http from 'node:http';
+import path from 'node:path';
 import cookieParser from 'cookie-parser';
-import path from 'path';
-import { initDb } from './db';
+import express from 'express';
+import { avatarsDir, initAvatars, listAvatars } from './avatars';
 import { config } from './config';
+import { initDb } from './db';
 import { adminRouter } from './routes/admin';
 import { setupSockets } from './socket/index';
-import { initAvatars, listAvatars, avatarsDir } from './avatars';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -27,7 +27,7 @@ app.use('/api/admin', adminRouter);
 // In production serve the built React app
 const clientDist = path.join(process.cwd(), '..', 'client', 'dist');
 app.use(express.static(clientDist));
-app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+app.get('/{*path}', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 
 initDb();
 setupSockets(httpServer);

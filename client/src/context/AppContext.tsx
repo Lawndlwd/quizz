@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 
 interface AppContextValue {
   appName: string;
@@ -28,7 +28,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetch('/api/public')
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(({ appName }: { appName: string }) => setValue(buildDisplay(appName)))
       .catch(() => {});
   }, []);

@@ -1,4 +1,9 @@
-import { InputHTMLAttributes, TextareaHTMLAttributes, ReactNode, forwardRef } from 'react';
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: ReactNode;
@@ -19,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
       </div>
     );
-  }
+  },
 );
 
 Input.displayName = 'Input';
@@ -43,7 +48,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
       </div>
     );
-  }
+  },
 );
 
 Textarea.displayName = 'Textarea';

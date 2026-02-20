@@ -1,9 +1,14 @@
-import { useState, FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getSocket, useSocketEvent } from '../../hooks/useSocket';
-import { AvatarPicker, AvatarDisplay, loadSavedAvatar, saveAvatar } from '../../components/AvatarPicker';
+import { type FormEvent, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  AvatarDisplay,
+  AvatarPicker,
+  loadSavedAvatar,
+  saveAvatar,
+} from '../../components/AvatarPicker';
 import { Input } from '../../components/Input';
 import { useApp } from '../../context/AppContext';
+import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 
 export default function Join() {
   const { pin: pinParam } = useParams<{ pin?: string }>();
@@ -18,16 +23,19 @@ export default function Join() {
   const [joining, setJoining] = useState(false);
   const [step, setStep] = useState<'form' | 'avatar'>('form');
 
-  useSocketEvent<{ playerId: number; sessionId: number; status: string }>('player:joined', data => {
-    sessionStorage.setItem('playerId', String(data.playerId));
-    sessionStorage.setItem('username', username.trim());
-    sessionStorage.setItem('avatar', avatar);
-    sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
-    saveAvatar(avatar);
-    navigate(`/play/game/${data.sessionId}`);
-  });
+  useSocketEvent<{ playerId: number; sessionId: number; status: string }>(
+    'player:joined',
+    (data) => {
+      sessionStorage.setItem('playerId', String(data.playerId));
+      sessionStorage.setItem('username', username.trim());
+      sessionStorage.setItem('avatar', avatar);
+      sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
+      saveAvatar(avatar);
+      navigate(`/play/game/${data.sessionId}`);
+    },
+  );
 
-  useSocketEvent<{ message: string }>('player:error', data => {
+  useSocketEvent<{ message: string }>('player:error', (data) => {
     setError(data.message);
     setJoining(false);
     setStep('form');
@@ -38,8 +46,14 @@ export default function Join() {
     setError('');
     const cleanPin = pin.trim().replace(/\s/g, '');
     const cleanName = username.trim();
-    if (!cleanPin || cleanPin.length < 4) { setError('Enter a valid PIN'); return; }
-    if (!cleanName) { setError('Enter your name'); return; }
+    if (!cleanPin || cleanPin.length < 4) {
+      setError('Enter a valid PIN');
+      return;
+    }
+    if (!cleanName) {
+      setError('Enter your name');
+      return;
+    }
     setStep('avatar');
   }
 
@@ -60,11 +74,29 @@ export default function Join() {
         <div className="text-center mb-6">
           <div className="logo">
             {appName ? (
-              <>{appName} <span style={{ fontWeight: 400, fontSize: '0.6em', display: 'block', marginTop: 4, WebkitTextFillColor: 'var(--text2)', opacity: 0.85 }}>by ⚡ Quizz</span></>
-            ) : '⚡ Quizz'}
+              <>
+                {appName}{' '}
+                <span
+                  style={{
+                    fontWeight: 400,
+                    fontSize: '0.6em',
+                    display: 'block',
+                    marginTop: 4,
+                    WebkitTextFillColor: 'var(--text2)',
+                    opacity: 0.85,
+                  }}
+                >
+                  by ⚡ Quizz
+                </span>
+              </>
+            ) : (
+              '⚡ Quizz'
+            )}
           </div>
           <p className="subtitle mt-2">
-            {step === 'form' ? `Enter a PIN to join${appName ? ` ${appName}` : ''}` : 'Choose your avatar'}
+            {step === 'form'
+              ? `Enter a PIN to join${appName ? ` ${appName}` : ''}`
+              : 'Choose your avatar'}
           </p>
         </div>
 
@@ -80,8 +112,13 @@ export default function Join() {
               maxLength={8}
               placeholder="123456"
               value={pin}
-              onChange={e => setPin(e.target.value)}
-              style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '0.12em', textAlign: 'center' }}
+              onChange={(e) => setPin(e.target.value)}
+              style={{
+                fontSize: '1.6rem',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textAlign: 'center',
+              }}
               autoFocus={!pinParam}
               required
             />
@@ -92,7 +129,7 @@ export default function Join() {
               maxLength={24}
               placeholder="e.g. Alice"
               value={username}
-              onChange={e => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value)}
               autoFocus={!!pinParam}
               required
             />
@@ -103,11 +140,18 @@ export default function Join() {
         ) : (
           <div>
             {/* Name recap */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24,
-              padding: '10px 14px', borderRadius: 10,
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                marginBottom: 24,
+                padding: '10px 14px',
+                borderRadius: 10,
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+              }}
+            >
               <AvatarDisplay avatar={avatar} size={40} />
               <div style={{ flex: 1 }}>
                 <p style={{ fontWeight: 700, fontSize: '1rem' }}>{username}</p>
@@ -125,7 +169,10 @@ export default function Join() {
 
             <AvatarPicker
               value={avatar}
-              onChange={a => { setAvatar(a); saveAvatar(a); }}
+              onChange={(a) => {
+                setAvatar(a);
+                saveAvatar(a);
+              }}
             />
 
             <button

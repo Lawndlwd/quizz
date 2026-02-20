@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
-import { Session } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import type { Session } from '../../types';
 
 export default function History() {
   const { token } = useAuth();
@@ -12,11 +12,14 @@ export default function History() {
 
   useEffect(() => {
     fetch('/api/admin/sessions', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then((data: Session[]) => { setSessions(data); setLoading(false); });
-  }, []);
+      .then((r) => r.json())
+      .then((data: Session[]) => {
+        setSessions(data);
+        setLoading(false);
+      });
+  }, [token]);
 
-  const filtered = filter === 'all' ? sessions : sessions.filter(s => s.status === filter);
+  const filtered = filter === 'all' ? sessions : sessions.filter((s) => s.status === filter);
 
   return (
     <div className="page">
@@ -28,8 +31,13 @@ export default function History() {
             <p className="subtitle">{sessions.length} sessions total</p>
           </div>
           <div className="flex gap-2">
-            {(['all', 'active', 'waiting', 'finished'] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}>
+            {(['all', 'active', 'waiting', 'finished'] as const).map((f) => (
+              <button
+                type="button"
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
+              >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
@@ -59,16 +67,28 @@ export default function History() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(s => {
-                  const dur = s.started_at && s.finished_at
-                    ? Math.round((new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) / 1000)
-                    : null;
+                {filtered.map((s) => {
+                  const dur =
+                    s.started_at && s.finished_at
+                      ? Math.round(
+                          (new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) /
+                            1000,
+                        )
+                      : null;
                   return (
                     <tr key={s.id}>
-                      <td><span style={{ fontWeight: 600 }}>{s.quiz_title}</span></td>
-                      <td><code className="font-mono" style={{ color: 'var(--accent2)' }}>{s.pin}</code></td>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{s.quiz_title}</span>
+                      </td>
+                      <td>
+                        <code className="font-mono" style={{ color: 'var(--accent2)' }}>
+                          {s.pin}
+                        </code>
+                      </td>
                       <td>{s.player_count ?? '—'}</td>
-                      <td><span className={`badge badge-${s.status}`}>{s.status}</span></td>
+                      <td>
+                        <span className={`badge badge-${s.status}`}>{s.status}</span>
+                      </td>
                       <td className="text-muted text-sm">
                         {s.started_at ? new Date(s.started_at).toLocaleString() : '—'}
                       </td>
@@ -77,9 +97,13 @@ export default function History() {
                       </td>
                       <td>
                         {s.status === 'finished' ? (
-                          <Link to={`/admin/sessions/${s.id}`} className="btn btn-sm btn-ghost">Results →</Link>
+                          <Link to={`/admin/sessions/${s.id}`} className="btn btn-sm btn-ghost">
+                            Results →
+                          </Link>
                         ) : (
-                          <Link to={`/admin/game/${s.id}`} className="btn btn-sm btn-primary">Resume →</Link>
+                          <Link to={`/admin/game/${s.id}`} className="btn btn-sm btn-primary">
+                            Resume →
+                          </Link>
                         )}
                       </td>
                     </tr>

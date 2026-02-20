@@ -1,5 +1,5 @@
-import { GameEndedPayload } from '../../../types';
 import { AvatarDisplay } from '../../../components/AvatarPicker';
+import type { GameEndedPayload } from '../../../types';
 
 interface Props {
   leaderboard: GameEndedPayload['leaderboard'];
@@ -17,9 +17,18 @@ export function PodiumScreen({ leaderboard, onContinue }: Props) {
   return (
     <div className="page-center" style={{ flexDirection: 'column', gap: 32 }}>
       <h1 style={{ textAlign: 'center', fontSize: '2rem' }}>🏁 Game Over!</h1>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, width: '100%', maxWidth: 420 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          gap: 8,
+          width: '100%',
+          maxWidth: 420,
+        }}
+      >
         {podiumOrder.map(({ entry, medal, place, color, barH }, idx) => {
-          if (!entry) return <div key={idx} style={{ flex: 1 }} />;
+          if (!entry) return <div key={place} style={{ flex: 1 }} />;
           const isFirst = place === 1;
           return (
             <div
@@ -33,45 +42,51 @@ export function PodiumScreen({ leaderboard, onContinue }: Props) {
               }}
             >
               <div style={{ textAlign: 'center', marginBottom: 8, padding: '0 4px' }}>
-                <div style={{ fontSize: isFirst ? '2rem' : '1.6rem', marginBottom: 6 }}>{medal}</div>
+                <div style={{ fontSize: isFirst ? '2rem' : '1.6rem', marginBottom: 6 }}>
+                  {medal}
+                </div>
                 <AvatarDisplay
                   avatar={entry.avatar}
                   size={isFirst ? 56 : 44}
                   style={{ border: `3px solid ${color}`, marginBottom: 6 }}
                 />
-                <div style={{
-                  fontWeight: 700,
-                  fontSize: isFirst ? '0.9rem' : '0.78rem',
-                  lineHeight: 1.2,
-                  wordBreak: 'break-word',
-                  color: 'var(--text)',
-                  marginBottom: 4,
-                }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: isFirst ? '0.9rem' : '0.78rem',
+                    lineHeight: 1.2,
+                    wordBreak: 'break-word',
+                    color: 'var(--text)',
+                    marginBottom: 4,
+                  }}
+                >
                   {entry.username}
                 </div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color }}>
                   {entry.totalScore.toLocaleString()} pts
                 </div>
               </div>
-              <div style={{
-                width: '100%',
-                height: barH,
-                background: `linear-gradient(180deg, ${color}, ${color}bb)`,
-                borderRadius: '8px 8px 0 0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isFirst ? '2rem' : '1.6rem',
-                fontWeight: 900,
-                color: place === 1 ? '#000' : '#fff',
-              }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: barH,
+                  background: `linear-gradient(180deg, ${color}, ${color}bb)`,
+                  borderRadius: '8px 8px 0 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isFirst ? '2rem' : '1.6rem',
+                  fontWeight: 900,
+                  color: place === 1 ? '#000' : '#fff',
+                }}
+              >
                 {place}
               </div>
             </div>
           );
         })}
       </div>
-      <button onClick={onContinue} className="btn btn-primary btn-lg">
+      <button type="button" onClick={onContinue} className="btn btn-primary btn-lg">
         See Full Results →
       </button>
     </div>

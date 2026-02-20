@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { v4 as uuid } from 'uuid';
 
 const SUPPORTED = new Set(['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp']);
@@ -17,7 +17,9 @@ export function initAvatars(): void {
   fs.mkdirSync(avatarsDir, { recursive: true });
 
   // Seed bundled defaults only when the folder is empty
-  const existing = fs.readdirSync(avatarsDir).filter(f => SUPPORTED.has(path.extname(f).toLowerCase()));
+  const existing = fs
+    .readdirSync(avatarsDir)
+    .filter((f) => SUPPORTED.has(path.extname(f).toLowerCase()));
   if (existing.length === 0 && fs.existsSync(defaultsDir)) {
     for (const file of fs.readdirSync(defaultsDir)) {
       if (SUPPORTED.has(path.extname(file).toLowerCase())) {
@@ -32,9 +34,9 @@ export function listAvatars(): string[] {
   if (!fs.existsSync(avatarsDir)) return [];
   return fs
     .readdirSync(avatarsDir)
-    .filter(f => SUPPORTED.has(path.extname(f).toLowerCase()))
+    .filter((f) => SUPPORTED.has(path.extname(f).toLowerCase()))
     .sort()
-    .map(f => `/avatars/${encodeURIComponent(f)}`);
+    .map((f) => `/avatars/${encodeURIComponent(f)}`);
 }
 
 /** Saves a single avatar provided as a data: URL and returns its public URL. */

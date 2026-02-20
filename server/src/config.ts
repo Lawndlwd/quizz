@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { AppConfig } from './types';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { AppConfig } from './types';
 
 const defaultConfigPath = path.join(process.cwd(), '..', 'config.json');
 const configPath = process.env.DATA_DIR
