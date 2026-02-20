@@ -1,3 +1,5 @@
+export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text';
+
 export interface Quiz {
   id: number;
   title: string;
@@ -15,6 +17,9 @@ export interface Question {
   base_score: number;
   time_sec: number;
   order_index: number;
+  image_url?: string;
+  question_type: QuestionType;
+  correct_answer?: string;
 }
 
 export interface Session {
@@ -44,6 +49,7 @@ export interface LeaderboardEntry {
   username: string;
   totalScore: number;
   chosenIndex: number | null;
+  chosenText?: string | null;
   isCorrect: boolean;
   questionScore: number;
   avatar?: string;
@@ -56,15 +62,21 @@ export interface QuestionPayload {
   text: string;
   options: string[];
   timeSec: number;
+  imageUrl?: string;
+  questionType: QuestionType;
+  correctAnswer?: string; // provided for open_text so player sees what to type (optional reveal)
 }
 
 export interface QuestionResults {
   questionId: number;
   questionText: string;
   correctIndex: number;
+  correctAnswer: string | null;
+  questionType: QuestionType;
   options: string[];
   leaderboard: LeaderboardEntry[];
   isLastQuestion: boolean;
+  autoAdvanceSec: number;
 }
 
 export interface GameEndedPayload {
@@ -77,12 +89,22 @@ export interface ImportQuestion {
   correctIndex: number;
   baseScore: number;
   timeSec?: number;
+  imageUrl?: string;
+  questionType?: QuestionType;
+  correctAnswer?: string;
 }
 
 export interface ImportPayload {
   title: string;
   description?: string;
   questions: ImportQuestion[];
+}
+
+export interface GameSettings {
+  baseScore?: number;
+  streakBonusEnabled?: boolean;
+  streakBonusBase?: number;
+  jokersEnabled: { pass: boolean; fiftyFifty: boolean };
 }
 
 export interface AppConfig {
@@ -99,4 +121,5 @@ export interface AppConfig {
   streakBonusEnabled: boolean;
   streakMinimum: number;
   streakBonusBase: number;
+  resultsAutoAdvanceSec: number;
 }

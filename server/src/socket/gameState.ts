@@ -1,4 +1,4 @@
-import { DbQuestion } from '../types';
+import { DbQuestion, GameSettings } from '../types';
 
 export interface ActiveSession {
   sessionId: number;
@@ -20,7 +20,20 @@ export interface ActiveSession {
   // playerId → base64 data URI or emoji string
   playerAvatars: Map<number, string>;
   questionTimer: ReturnType<typeof setTimeout> | null;
+  // Auto-advance timer after showing results
+  resultsTimer: ReturnType<typeof setTimeout> | null;
   status: 'waiting' | 'active' | 'finished';
+  // Current phase within an active game
+  questionPhase: 'question' | 'results' | null;
+  // Last payloads for reconnecting players
+  lastQuestionPayload: object | null;
+  lastResultsPayload: object | null;
+  // Per-game settings (set at game start, overrides global config)
+  gameSettings: GameSettings;
+  // Per-player joker usage: playerId → { pass: used, fiftyFifty: used }
+  playerJokersUsed: Map<number, { pass: boolean; fiftyFifty: boolean }>;
+  // Per-player 50/50 eliminated indices for the current question (reset per question)
+  playerFiftyFiftyIndices: Map<number, number[]>;
 }
 
 // pin → ActiveSession

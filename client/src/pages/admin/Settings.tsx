@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
 import { AppConfig } from '../../types';
@@ -10,6 +10,10 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [uploadingAvatars, setUploadingAvatars] = useState(false);
+  const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
+  const [availableAvatars, setAvailableAvatars] = useState<string[] | null>(null);
+  const [avatarsError, setAvatarsError] = useState<string | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -17,6 +21,20 @@ export default function Settings() {
     fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setCfg);
+
+    fetch('/api/avatars')
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load avatars');
+        return r.json();
+      })
+      .then((urls: string[]) => {
+        setAvailableAvatars(urls);
+        setAvatarsError(null);
+      })
+      .catch(() => {
+        setAvailableAvatars([]);
+        setAvatarsError('Could not load current avatars.');
+      });
   }, []);
 
   async function save() {
@@ -33,6 +51,56 @@ export default function Settings() {
     setSaved(true);
     setNewPassword('');
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function handleAvatarBulkUpload(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setAvatarUploadMessage(null);
+    setUploadingAvatars(true);
+
+    try {
+      const toDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+
+      const dataUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        const url = await toDataUrl(files[i] as File);
+        dataUrls.push(url);
+      }
+
+      const res = await fetch('/api/admin/avatars/bulk', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ dataUrls }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || 'Upload failed');
+      }
+
+      const payload = await res.json().catch(() => ({}));
+      const created = Array.isArray(payload.urls) ? payload.urls.length : 0;
+      setAvatarUploadMessage(
+        created > 0
+          ? `Uploaded ${created} new avatar${created === 1 ? '' : 's'}. They will appear in the avatar picker.`
+          : 'Upload completed, but no new avatars were created.',
+      );
+    } catch (err) {
+      console.error(err);
+      setAvatarUploadMessage('Could not upload avatars. Please try again with valid image files.');
+    } finally {
+      setUploadingAvatars(false);
+      e.target.value = '';
+    }
   }
 
   function update<K extends keyof AppConfig>(key: K, value: AppConfig[K]) {
@@ -135,6 +203,21 @@ export default function Settings() {
               <p className="text-xs text-muted mt-2">Players beyond the last tier use the Default Speed Bonus above.</p>
             </div>
 
+            <div className="form-group">
+              <label>Results Screen Duration (seconds)</label>
+              <p className="text-xs text-muted mb-2">
+                How long to show results before auto-advancing. Set to <strong>0</strong> for manual-only (admin clicks Next).
+              </p>
+              <Input
+                type="number"
+                min={0}
+                max={60}
+                value={cfg.resultsAutoAdvanceSec ?? 5}
+                onChange={e => update('resultsAutoAdvanceSec', Number(e.target.value))}
+                noMargin
+              />
+            </div>
+
             <div className="form-group flex items-center gap-3" style={{ marginBottom: 0 }}>
               <input type="checkbox" id="lateJoin" style={{ width: 'auto' }}
                 checked={cfg.allowLateJoin ?? false}
@@ -187,6 +270,76 @@ export default function Settings() {
 
             <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
               ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.
+            </div>
+          </div>
+
+          {/* Avatar / emoji library */}
+          <div className="card">
+            <h2 className="mb-2">😊 Avatar & Emoji Library</h2>
+            <p className="text-sm text-muted mb-4">
+              Upload one or more small emoji-style images to make them available as avatars for players.
+              These will be stored on the server and automatically appear in the avatar picker.
+            </p>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="mb-2">Bulk upload emoji avatars</label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleAvatarBulkUpload}
+                disabled={uploadingAvatars}
+              />
+              <p className="text-xs text-muted mt-2">
+                Recommended: square images (e.g. 128×128) in PNG, JPG, GIF, SVG, or WebP format.
+              </p>
+            </div>
+
+            {avatarUploadMessage && (
+              <div
+                className="alert mt-3"
+                style={{ fontSize: '0.85rem' }}
+              >
+                {avatarUploadMessage}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <h3 className="mb-2" style={{ fontSize: '0.9rem' }}>Available avatars</h3>
+              {availableAvatars === null && !avatarsError && (
+                <p className="text-sm text-muted">Loading current avatars…</p>
+              )}
+              {avatarsError && (
+                <p className="text-sm text-muted">{avatarsError}</p>
+              )}
+              {availableAvatars && availableAvatars.length === 0 && !avatarsError && (
+                <p className="text-sm text-muted">No avatars found yet. Upload some above to populate the library.</p>
+              )}
+              {availableAvatars && availableAvatars.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                  {availableAvatars.map(url => (
+                    <div
+                      key={url}
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 10,
+                        border: '2px solid var(--border)',
+                        background: 'var(--surface2)',
+                        padding: 3,
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

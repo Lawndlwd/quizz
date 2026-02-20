@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { v4 as uuid } from 'uuid';
 
 const SUPPORTED = new Set(['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
@@ -34,4 +35,49 @@ export function listAvatars(): string[] {
     .filter(f => SUPPORTED.has(path.extname(f).toLowerCase()))
     .sort()
     .map(f => `/avatars/${encodeURIComponent(f)}`);
+}
+
+/** Saves a single avatar provided as a data: URL and returns its public URL. */
+export function saveAvatarFromDataUrl(dataUrl: string): string {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,/.exec(dataUrl);
+  if (!match) {
+    throw new Error('Invalid data URL');
+  }
+
+  const mime = match[1].toLowerCase();
+  let ext = '';
+  if (mime === 'image/png') ext = '.png';
+  else if (mime === 'image/jpeg' || mime === 'image/jpg') ext = '.jpg';
+  else if (mime === 'image/gif') ext = '.gif';
+  else if (mime === 'image/svg+xml') ext = '.svg';
+  else if (mime === 'image/webp') ext = '.webp';
+  else throw new Error('Unsupported image type');
+
+  if (!SUPPORTED.has(ext)) {
+    throw new Error('Unsupported image extension');
+  }
+
+  const base64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
+  const buffer = Buffer.from(base64, 'base64');
+
+  fs.mkdirSync(avatarsDir, { recursive: true });
+  const filename = `${uuid()}${ext}`;
+  const filepath = path.join(avatarsDir, filename);
+  fs.writeFileSync(filepath, buffer);
+
+  return `/avatars/${encodeURIComponent(filename)}`;
+}
+
+/** Saves multiple avatars from data URLs, skipping invalid entries. */
+export function saveAvatarsFromDataUrls(dataUrls: string[]): string[] {
+  const urls: string[] = [];
+  for (const url of dataUrls) {
+    if (typeof url !== 'string' || !url.startsWith('data:')) continue;
+    try {
+      urls.push(saveAvatarFromDataUrl(url));
+    } catch {
+      // ignore invalid/unsupported entries
+    }
+  }
+  return urls;
 }

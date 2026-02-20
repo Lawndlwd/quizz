@@ -32,6 +32,7 @@ const DEFAULTS: AppConfig = {
   streakBonusEnabled: true,
   streakMinimum: 2,
   streakBonusBase: 50,
+  resultsAutoAdvanceSec: 0,
 };
 
 export function loadConfig(): AppConfig {

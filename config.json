@@ -2,7 +2,7 @@
   "port": 3000,
   "appName": "Console",
   "adminUsername": "admin",
-  "adminPassword": "AcApLevende",
+  "adminPassword": "admin123",
   "jwtSecret": "change-this-secret-in-production",
   "questionTimeSec": 20,
   "lobbyTimeoutMin": 30,
@@ -24,5 +24,6 @@
   "allowLateJoin": false,
   "streakBonusEnabled": true,
   "streakMinimum": 2,
-  "streakBonusBase": 50
+  "streakBonusBase": 50,
+  "resultsAutoAdvanceSec": 0
 }

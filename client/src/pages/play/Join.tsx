@@ -22,6 +22,7 @@ export default function Join() {
     sessionStorage.setItem('playerId', String(data.playerId));
     sessionStorage.setItem('username', username.trim());
     sessionStorage.setItem('avatar', avatar);
+    sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
     saveAvatar(avatar);
     navigate(`/play/game/${data.sessionId}`);
   });

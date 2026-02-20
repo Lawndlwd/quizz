@@ -1,3 +1,10 @@
+export interface GameSettings {
+  baseScore?: number;
+  streakBonusEnabled?: boolean;
+  streakBonusBase?: number;
+  jokersEnabled: { pass: boolean; fiftyFifty: boolean };
+}
+
 export interface AppConfig {
   port: number;
   appName: string;
@@ -15,7 +22,10 @@ export interface AppConfig {
   streakBonusEnabled: boolean;
   streakMinimum: number;
   streakBonusBase: number;
+  resultsAutoAdvanceSec: number;
 }
+
+export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text';
 
 export interface QuizQuestion {
   text: string;
@@ -23,6 +33,9 @@ export interface QuizQuestion {
   correctIndex: number;
   baseScore: number;
   timeSec?: number;
+  imageUrl?: string;
+  questionType?: QuestionType;
+  correctAnswer?: string;
 }
 
 export interface QuizImportPayload {
@@ -48,6 +61,9 @@ export interface DbQuestion {
   base_score: number;
   time_sec: number;
   order_index: number;
+  image_url: string | null;
+  question_type: QuestionType;
+  correct_answer: string | null;
 }
 
 export interface DbSession {
@@ -80,6 +96,7 @@ export interface DbAnswer {
   score: number;
   answer_order: number;
   answered_at: string;
+  chosen_text: string | null;
 }
 
 // Socket payloads
@@ -92,6 +109,7 @@ export interface PlayerAnswerPayload {
   sessionId: number;
   questionId: number;
   chosenIndex: number;
+  chosenText?: string;
 }
 
 export interface QuestionResult {

@@ -4,6 +4,7 @@ import { db } from '../db';
 import { config, saveConfig } from '../config';
 import { requireAdmin } from '../middleware';
 import { DbQuiz, DbQuestion, DbSession, QuizImportPayload } from '../types';
+import { saveAvatarsFromDataUrls } from '../avatars';
 
 export const adminRouter = Router();
 
@@ -53,6 +54,25 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ─── Avatars (admin bulk upload) ────────────────────────────────────────────────
+
+adminRouter.post('/avatars/bulk', requireAdmin, (req: Request, res: Response) => {
+  const { dataUrls } = req.body as { dataUrls?: unknown };
+  if (!Array.isArray(dataUrls) || dataUrls.length === 0) {
+    return res.status(400).json({ error: 'dataUrls array is required' });
+  }
+
+  const urls = saveAvatarsFromDataUrls(
+    dataUrls.filter((u): u is string => typeof u === 'string'),
+  );
+
+  if (urls.length === 0) {
+    return res.status(400).json({ error: 'No valid images provided' });
+  }
+
+  res.status(201).json({ urls });
+});
+
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
 
 adminRouter.get('/quizzes', requireAdmin, (_req, res) => {
@@ -81,7 +101,7 @@ adminRouter.post('/quizzes', requireAdmin, (req: Request, res: Response) => {
 
   const insertQuiz = db.prepare('INSERT INTO quizzes (title, description) VALUES (?, ?)');
   const insertQ = db.prepare(
-    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   const run = db.transaction(() => {
@@ -96,7 +116,10 @@ adminRouter.post('/quizzes', requireAdmin, (req: Request, res: Response) => {
         q.correctIndex,
         q.baseScore ?? config.defaultBaseScore,
         q.timeSec ?? config.questionTimeSec,
-        i
+        i,
+        q.imageUrl ?? null,
+        q.questionType ?? 'multiple_choice',
+        q.correctAnswer ?? null,
       );
     }
     return quizId;
@@ -118,7 +141,7 @@ adminRouter.put('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {
   const updateQuiz = db.prepare('UPDATE quizzes SET title = ?, description = ? WHERE id = ?');
   const deleteQuestions = db.prepare('DELETE FROM questions WHERE quiz_id = ?');
   const insertQ = db.prepare(
-    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   db.transaction(() => {
@@ -133,7 +156,10 @@ adminRouter.put('/quizzes/:id', requireAdmin, (req: Request, res: Response) => {
         q.correctIndex,
         q.baseScore ?? config.defaultBaseScore,
         q.timeSec ?? config.questionTimeSec,
-        i
+        i,
+        q.imageUrl ?? null,
+        q.questionType ?? 'multiple_choice',
+        q.correctAnswer ?? null,
       );
     }
   })();

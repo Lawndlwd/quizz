@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminNav from '../../components/AdminNav';
 import { useAuth } from '../../context/AuthContext';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
-import { QuestionPayload, QuestionResults, GameEndedPayload, Session } from '../../types';
+import { QuestionPayload, QuestionResults, GameEndedPayload, Session, GameSettings } from '../../types';
 import { AvatarDisplay } from '../../components/AvatarPicker';
 
 interface PlayerInfo { id: number; username: string; totalScore: number; avatar?: string; }
@@ -11,6 +11,8 @@ interface SessionState {
   session: Session;
   players: PlayerInfo[];
   questionCount: number;
+  gameSettings?: GameSettings;
+  jokersUsed?: { pass: boolean; fiftyFifty: boolean };
 }
 
 type Phase = 'lobby' | 'question' | 'results' | 'ended';
@@ -29,7 +31,9 @@ export default function GameControl() {
   const [finalBoard, setFinalBoard] = useState<{ rank: number; username: string; totalScore: number; avatar?: string }[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
+  const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
   const [shareUrl, setShareUrl] = useState('');
+  const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!token || !sessionId) return;
@@ -66,6 +70,7 @@ export default function GameControl() {
     setAnsweredCount(0);
     setTimeLeft(data.timeSec);
     setPhase('question');
+    if (autoAdvanceRef.current) { clearInterval(autoAdvanceRef.current); autoAdvanceRef.current = null; }
   });
 
   useSocketEvent<{ answeredCount: number; totalPlayers: number }>('game:answer-received', data => {
@@ -76,12 +81,24 @@ export default function GameControl() {
     setResults(data);
     setPhase('results');
     setPlayers(data.leaderboard.map(e => ({ id: e.playerId, username: e.username, totalScore: e.totalScore, avatar: e.avatar })));
+
+    // Auto-advance countdown
+    setAutoAdvanceLeft(data.autoAdvanceSec);
+    if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
+    autoAdvanceRef.current = setInterval(() => {
+      setAutoAdvanceLeft(t => {
+        if (t <= 1) { clearInterval(autoAdvanceRef.current!); return 0; }
+        return t - 1;
+      });
+    }, 1000);
   });
 
   useSocketEvent<GameEndedPayload>('game:ended', data => {
     setFinalBoard(data.leaderboard);
     setPhase('ended');
+    if (autoAdvanceRef.current) { clearInterval(autoAdvanceRef.current); autoAdvanceRef.current = null; }
   });
+
 
   // Countdown timer (display only — real timer is server-driven)
   useEffect(() => {
@@ -91,10 +108,15 @@ export default function GameControl() {
   }, [phase, question]);
 
   const startGame = useCallback(() => {
-    socket.emit('admin:start-game', { sessionId: Number(sessionId), token });
+    const stored = sessionStorage.getItem(`gameSettings:${sessionId}`);
+    const gameSettings: GameSettings = stored
+      ? JSON.parse(stored)
+      : { jokersEnabled: { pass: false, fiftyFifty: false } };
+    socket.emit('admin:start-game', { sessionId: Number(sessionId), token, gameSettings });
   }, [sessionId, token]);
 
   const nextQuestion = useCallback(() => {
+    if (autoAdvanceRef.current) { clearInterval(autoAdvanceRef.current); autoAdvanceRef.current = null; }
     socket.emit('admin:next-question', { sessionId: Number(sessionId), token });
   }, [sessionId, token]);
 
@@ -120,7 +142,7 @@ export default function GameControl() {
     <div className="page">
       <AdminNav />
       <div className="main-content">
-        <div className="flex items-center justify-between mb-6">
+        <div className="gc-header mb-6">
           <div>
             <h1>{sessionState.session.quiz_title}</h1>
             <p className="subtitle">Waiting for players — {totalQ} question{totalQ !== 1 ? 's' : ''}</p>
@@ -128,7 +150,7 @@ export default function GameControl() {
           <button onClick={endGame} className="btn btn-ghost btn-sm">Discard</button>
         </div>
 
-        <div className="grid-2 gap-6">
+        <div className="gc-grid gap-6">
           <div className="card">
             <h2 className="mb-2">Game PIN</h2>
             <div className="pin-display">{pin}</div>
@@ -142,7 +164,7 @@ export default function GameControl() {
           </div>
 
           <div className="card">
-            <div className="flex items-center justify-between mb-4">
+            <div className="gc-start-row mb-4">
               <h2>Players ({players.length})</h2>
               <button
                 onClick={startGame}
@@ -179,43 +201,52 @@ export default function GameControl() {
       <div className="page">
         <AdminNav />
         <div className="main-content">
-          <div className="flex items-center justify-between mb-4">
+          <div className="gc-header mb-4">
             <h2>Question {question.questionIndex + 1} / {question.totalQuestions}</h2>
-            <div className="flex gap-2">
-              <button onClick={endGame} className="btn btn-ghost btn-sm">End Game</button>
-            </div>
+            <button onClick={endGame} className="btn btn-ghost btn-sm">End Game</button>
           </div>
 
-          <div className="card card-lg mb-4">
-            <div className="flex items-center justify-between mb-4">
+          <div className="card card-lg mb-4 min-w-full">
+            <div className="gc-question-top mb-4">
               <div style={{ flex: 1 }}>
                 <p className="text-muted text-sm mb-2">Question {question.questionIndex + 1}</p>
+                {question.imageUrl && (
+                  <img src={question.imageUrl} alt="Question" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, marginBottom: 10, objectFit: 'contain' }} />
+                )}
                 <h2 style={{ fontSize: '1.3rem' }}>{question.text}</h2>
               </div>
-              <div className={`timer-value ${urgent ? 'urgent' : ''}`} style={{ marginLeft: 24, minWidth: 60 }}>{timeLeft}</div>
+              <div className={`timer-value ${urgent ? 'urgent' : ''}`} style={{ marginLeft: 24, minWidth: 60, flexShrink: 0 }}>{timeLeft}</div>
             </div>
             <div className="progress-bar"><div className={`progress-fill ${urgent ? 'urgent' : ''}`} style={{ width: `${pct}%` }} /></div>
 
-            <div className="options-grid mt-4">
-              {question.options.map((opt, i) => (
-                <div key={i} className="option-btn" style={{ cursor: 'default' }}>
-                  <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                  <div className="option-text">{opt}</div>
-                </div>
-              ))}
-            </div>
+            {question.questionType !== 'open_text' && (
+              <div className="options-grid mt-4">
+                {question.options.map((opt, i) => (
+                  <div key={i} className="option-btn" style={{ cursor: 'default' }}>
+                    <div className="option-letter">{String.fromCharCode(65 + i)}</div>
+                    <div className="option-text">{opt}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {question.questionType === 'open_text' && (
+              <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <p className="text-muted text-sm">Open-text question — players type their answer</p>
+              </div>
+            )}
           </div>
 
-          <div className="grid-2 gap-4">
+          <div className="gc-grid gap-4">
             <div className="stat-card">
               <div className="stat-value">{answeredCount} / {players.length}</div>
               <div className="stat-label">Answered</div>
               <div className="answer-bar mt-2"><div className="answer-bar-fill" style={{ width: `${answerPct}%` }} /></div>
             </div>
-            <div className="stat-card flex items-center justify-center">
+            <div className="stat-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <p className="text-muted text-sm text-center">Results show automatically<br/>when timer ends or everyone answers</p>
             </div>
           </div>
+
         </div>
       </div>
     );
@@ -226,12 +257,15 @@ export default function GameControl() {
     <div className="page">
       <AdminNav />
       <div className="main-content">
-        <div className="flex items-center justify-between mb-4">
+        <div className="gc-header mb-4">
           <h2>Results — Q{(question?.questionIndex ?? 0) + 1}</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 gc-results-actions">
             <button onClick={endGame} className="btn btn-ghost btn-sm">End Game</button>
-            <button onClick={nextQuestion} className="btn btn-primary btn-lg">
-              {results.isLastQuestion ? '🏁 Show Final Scores' : 'Next Question →'}
+            <button onClick={nextQuestion} className="btn btn-primary btn-lg" style={{ position: 'relative', minWidth: 180 }}>
+              {results.isLastQuestion ? '🏁 Final Scores' : `Next →`}
+              {results.autoAdvanceSec > 0 && (
+                <span style={{ fontSize: '0.75rem', opacity: 0.8, marginLeft: 6 }}>({autoAdvanceLeft}s)</span>
+              )}
             </button>
           </div>
         </div>
@@ -239,14 +273,21 @@ export default function GameControl() {
         <div className="card card-lg mb-4">
           <p className="text-muted text-sm mb-2">Question</p>
           <h2 style={{ marginBottom: 16 }}>{results.questionText}</h2>
-          <div className="options-grid">
-            {results.options.map((opt, i) => (
-              <div key={i} className={`option-btn ${i === results.correctIndex ? 'correct' : ''}`} style={{ cursor: 'default' }}>
-                <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                <div className="option-text">{opt}</div>
-              </div>
-            ))}
-          </div>
+          {results.questionType === 'open_text' ? (
+            <div style={{ background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.3)', borderRadius: 8, padding: '12px 16px' }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 4 }}>Correct answer</p>
+              <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--success)' }}>{results.correctAnswer}</p>
+            </div>
+          ) : (
+            <div className="options-grid">
+              {results.options.map((opt, i) => (
+                <div key={i} className={`option-btn ${i === results.correctIndex ? 'correct' : ''}`} style={{ cursor: 'default' }}>
+                  <div className="option-letter">{String.fromCharCode(65 + i)}</div>
+                  <div className="option-text">{opt}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card card-lg">
@@ -258,7 +299,7 @@ export default function GameControl() {
                 <AvatarDisplay avatar={e.avatar} size={30} />
                 <div className="lb-name">{e.username}</div>
                 {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
-                {e.chosenIndex !== null && !e.isCorrect && <span className="lb-delta wrong">✗</span>}
+                {e.chosenIndex !== null && e.chosenIndex !== -1 && !e.isCorrect && <span className="lb-delta wrong">✗</span>}
                 <div className="lb-score">{e.totalScore.toLocaleString()}</div>
               </li>
             ))}

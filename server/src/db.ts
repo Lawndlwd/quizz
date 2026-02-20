@@ -62,4 +62,15 @@ export function initDb(): void {
       answered_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Column migrations (safe to run multiple times)
+  const columnMigrations = [
+    `ALTER TABLE questions ADD COLUMN image_url TEXT`,
+    `ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'`,
+    `ALTER TABLE questions ADD COLUMN correct_answer TEXT`,
+    `ALTER TABLE answers ADD COLUMN chosen_text TEXT`,
+  ];
+  for (const sql of columnMigrations) {
+    try { db.exec(sql); } catch { /* column already exists */ }
+  }
 }
