@@ -39,7 +39,12 @@ export function loadConfig(): AppConfig {
   const raw = fs.readFileSync(configPath, 'utf-8');
   const saved = JSON.parse(raw) as Partial<AppConfig>;
   // Merge: saved values win; any key missing from the file falls back to DEFAULTS
-  return { ...DEFAULTS, ...saved };
+  const cfg = { ...DEFAULTS, ...saved };
+  // Env vars always win over file — useful for Docker deployments
+  if (process.env.ADMIN_USERNAME) cfg.adminUsername = process.env.ADMIN_USERNAME;
+  if (process.env.ADMIN_PASSWORD) cfg.adminPassword = process.env.ADMIN_PASSWORD;
+  if (process.env.JWT_SECRET) cfg.jwtSecret = process.env.JWT_SECRET;
+  return cfg;
 }
 
 export function saveConfig(cfg: AppConfig): void {

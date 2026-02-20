@@ -1,11 +1,14 @@
 services:
   app:
-    build: .
+    image: ghcr.io/lawndlwd/quizz:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - DATA_DIR=/data
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
     volumes:
       - quizz-data:/data
       # Avatars live on the host — drop image files here and they appear in the picker
@@ -19,6 +22,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./site:/srv

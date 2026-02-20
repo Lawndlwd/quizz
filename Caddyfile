@@ -1,7 +1,3 @@
-:80 {
-  reverse_proxy app:3000
-}
-
-:443 {
+{$DOMAIN::80} {
   reverse_proxy app:3000
 }
