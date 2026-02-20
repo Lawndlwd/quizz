@@ -10,7 +10,7 @@ RUN apt-get update && \
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy package files AND .npmrc
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 
