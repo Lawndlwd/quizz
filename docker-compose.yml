@@ -12,7 +12,7 @@ services:
     volumes:
       - quizz-data:/data
       # Avatars live on the host — drop image files here and they appear in the picker
-      - quizz-avatars:/data/avatars
+      - ./avatars:/data/avatars
 
   caddy:
     image: caddy:latest
@@ -32,6 +32,5 @@ services:
 
 volumes:
   quizz-data:
-  quizz-avatars:
   caddy_data:
   caddy_config:
