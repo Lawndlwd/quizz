@@ -2,7 +2,7 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install build dependencies for better-sqlite3
+# Install build dependencies for native modules
 RUN apt-get update && \
     apt-get install -y python3 make g++ && \
     rm -rf /var/lib/apt/lists/*
@@ -16,9 +16,7 @@ COPY client/package.json ./client/
 
 COPY . .
 
-RUN pnpm install --frozen-lockfile && \
-    cd /app/node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && \
-    npm run build-release
+RUN pnpm install --frozen-lockfile
 
 RUN pnpm build
 
