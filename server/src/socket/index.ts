@@ -168,19 +168,19 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
             status: session.status as ActiveSession['status'],
             questionPhase: null, lastQuestionPayload: null, lastResultsPayload: null,
             gameSettings: { jokersEnabled: { pass: false, fiftyFifty: false } },
-            jokersUsed: { pass: false, fiftyFifty: false },
-            fiftyFiftyEliminatedIndices: null,
+            playerJokersUsed: new Map(),
+            playerFiftyFiftyIndices: new Map(),
           };
           activeSessions.set(pin, state);
           sessionIdToPin.set(session.id, pin);
         }
 
         // Remove old socket mapping
-        const oldSocketId = state.playerSockets.get(playerId);
-        if (oldSocketId) state.socketPlayers.delete(oldSocketId);
-        state.playerSockets.set(playerId, socket.id);
-        state.socketPlayers.set(socket.id, playerId);
-        if (avatar) state.playerAvatars.set(playerId, avatar);
+        const oldSocketId = state?.playerSockets.get(playerId);
+        if (oldSocketId) state?.socketPlayers.delete(oldSocketId);
+        state?.playerSockets.set(playerId, socket.id);
+        state?.socketPlayers.set(socket.id, playerId);
+        if (avatar) state?.playerAvatars.set(playerId, avatar);
 
         const players = db.prepare('SELECT * FROM players WHERE session_id = ?').all(session.id) as DbPlayer[];
 
@@ -190,34 +190,34 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           sessionId: session.id,
           status: session.status,
           playerCount: players.length,
-          avatar: state.playerAvatars.get(playerId) ?? avatar,
+          avatar: state?.playerAvatars.get(playerId) ?? avatar,
           reconnected: true,
         });
 
         // Notify admin that player is back
         io.to(`admin:${session.id}`).emit('game:player-joined', {
           playerId, username: cleanName,
-          playerCount: state.playerSockets.size,
-          avatar: state.playerAvatars.get(playerId) ?? avatar,
+          playerCount: state?.playerSockets.size,
+          avatar: state?.playerAvatars.get(playerId) ?? avatar,
         });
 
         // Restore game state for reconnecting player
         if (session.status === 'active') {
           // Send joker config so UI can show the right buttons
-          const myJokersUsed = state.playerJokersUsed.get(playerId) ?? { pass: false, fiftyFifty: false };
+          const myJokersUsed = state?.playerJokersUsed.get(playerId) ?? { pass: false, fiftyFifty: false };
           socket.emit('player:joker-state', {
-            jokersEnabled: state.gameSettings.jokersEnabled,
+            jokersEnabled: state?.gameSettings.jokersEnabled,
             jokersUsed: myJokersUsed,
           });
-          if (state.questionPhase === 'question' && state.lastQuestionPayload) {
-            socket.emit('game:question', state.lastQuestionPayload);
+          if (state?.questionPhase === 'question' && state?.lastQuestionPayload) {
+            socket.emit('game:question', state?.lastQuestionPayload);
             // Restore 50/50 if this player already used it this question
-            const myEliminated = state.playerFiftyFiftyIndices.get(playerId);
+            const myEliminated = state?.playerFiftyFiftyIndices.get(playerId);
             if (myEliminated) {
               socket.emit('player:joker-5050-applied', { eliminatedIndices: myEliminated });
             }
-          } else if (state.questionPhase === 'results' && state.lastResultsPayload) {
-            socket.emit('game:question-results', state.lastResultsPayload);
+          } else if (state?.questionPhase === 'results' && state?.lastResultsPayload) {
+            socket.emit('game:question-results', state?.lastResultsPayload);
           }
         }
         return;
