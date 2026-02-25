@@ -10,6 +10,7 @@ import type {
   QuestionResults,
   Session,
 } from '../../types';
+import { CountdownScreen } from '../play/components/CountdownScreen';
 import { GameEnded } from './components/GameEnded';
 import { GameLobby } from './components/GameLobby';
 import { GameQuestion } from './components/GameQuestion';
@@ -29,7 +30,7 @@ interface SessionState {
   jokersUsed?: { pass: boolean; fiftyFifty: boolean };
 }
 
-type Phase = 'lobby' | 'question' | 'results' | 'ended';
+type Phase = 'lobby' | 'countdown' | 'question' | 'results' | 'ended';
 
 export default function GameControl() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -45,6 +46,7 @@ export default function GameControl() {
   const [finalBoard, setFinalBoard] = useState<
     { rank: number; username: string; totalScore: number; avatar?: string }[]
   >([]);
+  const [countdownSec, setCountdownSec] = useState(3);
   const [timeLeft, setTimeLeft] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
@@ -86,7 +88,12 @@ export default function GameControl() {
   });
 
   useSocketEvent<Record<string, never>>('game:started', () => {
-    setPhase('question');
+    // Phase will be set by game:countdown or game:question
+  });
+
+  useSocketEvent<{ seconds: number }>('game:countdown', (data) => {
+    setCountdownSec(data.seconds);
+    setPhase('countdown');
   });
 
   useSocketEvent<QuestionPayload>('game:question', (data) => {
@@ -196,6 +203,11 @@ export default function GameControl() {
           onDiscard={endGame}
           onCopyLink={() => navigator.clipboard.writeText(shareUrl)}
         />
+      )}
+      {phase === 'countdown' && (
+        <div className="main-content">
+          <CountdownScreen seconds={countdownSec} />
+        </div>
       )}
       {phase === 'question' && question && (
         <GameQuestion

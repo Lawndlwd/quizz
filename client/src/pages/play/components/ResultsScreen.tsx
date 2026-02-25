@@ -21,6 +21,7 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
         <p className="text-muted text-sm mb-2">{results.questionText}</p>
         {isOpenText ? (
           <div
+            className="result-reveal-correct"
             style={{
               background: 'rgba(34,197,94,.1)',
               border: '1px solid rgba(34,197,94,.3)',
@@ -43,8 +44,8 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
               return (
                 <div
                   key={String.fromCharCode(65 + i)}
-                  className={`option-btn ${isCorrect ? 'correct' : myChoice ? 'wrong' : ''}`}
-                  style={{ cursor: 'default' }}
+                  className={`option-btn result-reveal ${isCorrect ? 'correct' : myChoice ? 'wrong' : ''}`}
+                  style={{ cursor: 'default', animationDelay: `${i * 0.06}s` }}
                 >
                   <div className="option-letter">{String.fromCharCode(65 + i)}</div>
                   <div className="option-text">{opt}</div>
@@ -56,10 +57,10 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
         )}
       </div>
 
-      {/* My result */}
+      {/* My result — with score pop animation */}
       {myEntry && (
         <div
-          className={`alert ${myEntry.isCorrect ? 'alert-success' : 'alert-error'} text-center mb-4`}
+          className={`alert ${myEntry.isCorrect ? 'alert-success result-flash-correct' : 'alert-error result-flash-wrong'} text-center mb-4`}
           style={{
             fontSize: '1.05rem',
             fontWeight: 600,
@@ -69,9 +70,14 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
             boxSizing: 'border-box',
           }}
         >
-          {myEntry.isCorrect
-            ? `✓ Correct! +${myEntry.questionScore} pts · Total: ${myEntry.totalScore.toLocaleString()}`
-            : `✗ Wrong — ${myEntry.totalScore.toLocaleString()} pts total`}
+          {myEntry.isCorrect ? (
+            <>
+              ✓ Correct! <span className="score-pop">+{myEntry.questionScore}</span> pts · Total:{' '}
+              {myEntry.totalScore.toLocaleString()}
+            </>
+          ) : (
+            <>✗ Wrong — {myEntry.totalScore.toLocaleString()} pts total</>
+          )}
         </div>
       )}
 
@@ -79,15 +85,16 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
       <div className="card" style={{ maxWidth: '100%', minWidth: 0 }}>
         <h2 className="mb-4 text-center">🏆 Standings</h2>
         <ul className="leaderboard">
-          {results.leaderboard.slice(0, 8).map((e) => (
+          {results.leaderboard.slice(0, 8).map((e, idx) => (
             <li
               key={e.playerId}
-              className={`lb-item rank-${Math.min(e.rank, 4)}`}
-              style={
-                e.playerId === playerId
+              className={`lb-item rank-${Math.min(e.rank, 4)} lb-slide`}
+              style={{
+                animationDelay: `${idx * 0.05}s`,
+                ...(e.playerId === playerId
                   ? { borderColor: 'var(--accent2)', background: 'rgba(168,85,247,.08)' }
-                  : {}
-              }
+                  : {}),
+              }}
             >
               <div className="lb-rank">{e.rank}</div>
               <AvatarDisplay avatar={e.avatar} size={30} />

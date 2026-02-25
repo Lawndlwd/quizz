@@ -7,6 +7,8 @@ interface Props {
   openTextInput: string;
   openTextSubmitted: boolean;
   eliminatedIndices: number[];
+  answeredCount: number;
+  totalPlayers: number;
   jokersEnabled: { pass: boolean; fiftyFifty: boolean };
   jokersUsed: { pass: boolean; fiftyFifty: boolean };
   onAnswer: (index: number) => void;
@@ -23,6 +25,8 @@ export function QuestionScreen({
   openTextInput,
   openTextSubmitted,
   eliminatedIndices,
+  answeredCount,
+  totalPlayers,
   jokersEnabled,
   jokersUsed,
   onAnswer,
@@ -35,6 +39,9 @@ export function QuestionScreen({
   const urgent = timeLeft <= 5;
   const isTrueFalse = question.questionType === 'true_false';
   const isOpenText = question.questionType === 'open_text';
+
+  // Timer bar color: green > 50%, yellow 20-50%, red < 20%
+  const timerColorClass = pct > 50 ? '' : pct > 20 ? 'warning' : 'urgent';
 
   return (
     <div className="page-vcenter">
@@ -62,13 +69,16 @@ export function QuestionScreen({
           </div>
           <div className="timer-wrap">
             <div className="progress-bar">
-              <div
-                className={`progress-fill ${urgent ? 'urgent' : ''}`}
-                style={{ width: `${pct}%` }}
-              />
+              <div className={`progress-fill ${timerColorClass}`} style={{ width: `${pct}%` }} />
             </div>
             <div className={`timer-value ${urgent ? 'urgent' : ''}`}>{timeLeft}</div>
           </div>
+          {/* Answer counter */}
+          {totalPlayers > 0 && (
+            <div className="answer-counter">
+              {answeredCount} / {totalPlayers} answered
+            </div>
+          )}
         </div>
 
         {/* Joker buttons */}
@@ -122,12 +132,13 @@ export function QuestionScreen({
                 key={label}
                 disabled={selectedIndex !== null}
                 onClick={() => onAnswer(i)}
-                className={`option-btn ${selectedIndex === i ? 'selected' : ''}`}
+                className={`option-btn option-stagger ${selectedIndex === i ? 'selected' : ''}`}
                 style={{
                   justifyContent: 'center',
                   fontSize: '1.2rem',
                   fontWeight: 700,
                   minHeight: 90,
+                  animationDelay: `${i * 0.08}s`,
                   background:
                     i === 0
                       ? selectedIndex === 0
@@ -147,6 +158,7 @@ export function QuestionScreen({
         ) : isOpenText ? (
           <div style={{ padding: '20px' }}>
             <div
+              className="option-stagger"
               style={{
                 background: 'var(--surface2)',
                 border: '1px solid var(--border)',
@@ -196,7 +208,8 @@ export function QuestionScreen({
                   key={String.fromCharCode(65 + i)}
                   disabled={selectedIndex !== null || isEliminated}
                   onClick={() => onAnswer(i)}
-                  className={`option-btn ${selectedIndex === i ? 'selected' : ''} ${isEliminated ? 'eliminated' : ''}`}
+                  className={`option-btn option-stagger ${selectedIndex === i ? 'selected' : ''} ${isEliminated ? 'eliminated' : ''}`}
+                  style={{ animationDelay: `${i * 0.08}s` }}
                 >
                   <div className="option-letter">{String.fromCharCode(65 + i)}</div>
                   <div className="option-text">{isEliminated ? '—' : opt}</div>

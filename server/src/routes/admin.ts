@@ -40,10 +40,11 @@ adminRouter.get('/config', requireAdmin, (_req, res) => {
 adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
   const allowed = [
     'appName',
+    'appSubtitle',
     'questionTimeSec',
     'defaultBaseScore',
-    'speedBonuses',
-    'defaultSpeedBonus',
+    'speedBonusMax',
+    'speedBonusMin',
     'maxPlayersPerSession',
     'showLeaderboardAfterQuestion',
     'allowLateJoin',
@@ -52,6 +53,7 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
     'streakBonusEnabled',
     'streakMinimum',
     'streakBonusBase',
+    'resultsAutoAdvanceSec',
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
@@ -186,6 +188,8 @@ adminRouter.put('/quizzes/:id', requireAdmin, async (req: Request, res: Response
 });
 
 adminRouter.delete('/quizzes/:id', requireAdmin, async (req: Request, res: Response) => {
+  // Delete sessions first (no ON DELETE CASCADE on sessions.quiz_id)
+  await db.run('DELETE FROM sessions WHERE quiz_id = ?', req.params.id);
   await db.run('DELETE FROM quizzes WHERE id = ?', req.params.id);
   res.json({ ok: true });
 });

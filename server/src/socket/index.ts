@@ -49,7 +49,9 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           playerStreaks: new Map(),
           playerAvatars: new Map(),
           questionTimer: null,
+          questionStartedAt: null,
           resultsTimer: null,
+          resultsShownAt: null,
           status: session.status as ActiveSession['status'],
           questionPhase: null,
           lastQuestionPayload: null,
@@ -123,7 +125,12 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         io.to(`session:${data.sessionId}`).emit('game:started', {
           jokersEnabled: state.gameSettings.jokersEnabled,
         });
-        sendQuestion(io, state, 0);
+
+        // 3-2-1 countdown before first question
+        io.to(`session:${data.sessionId}`).emit('game:countdown', { seconds: 3 });
+        setTimeout(() => {
+          sendQuestion(io, state, 0);
+        }, 4000);
       },
     );
 
@@ -224,7 +231,9 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
             playerStreaks: new Map(),
             playerAvatars: new Map(),
             questionTimer: null,
+            questionStartedAt: null,
             resultsTimer: null,
+            resultsShownAt: null,
             status: session.status as ActiveSession['status'],
             questionPhase: null,
             lastQuestionPayload: null,
@@ -238,11 +247,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         }
 
         // Remove old socket mapping
-        const oldSocketId = state?.playerSockets.get(playerId);
-        if (oldSocketId) state?.socketPlayers.delete(oldSocketId);
-        state?.playerSockets.set(playerId, socket.id);
-        state?.socketPlayers.set(socket.id, playerId);
-        if (avatar) state?.playerAvatars.set(playerId, avatar);
+        const oldSocketId = state.playerSockets.get(playerId);
+        if (oldSocketId) state.socketPlayers.delete(oldSocketId);
+        state.playerSockets.set(playerId, socket.id);
+        state.socketPlayers.set(socket.id, playerId);
+        if (avatar) state.playerAvatars.set(playerId, avatar);
 
         const players = await db.all<DbPlayer[]>(
           'SELECT * FROM players WHERE session_id = ?',
@@ -270,23 +279,71 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         // Restore game state for reconnecting player
         if (session.status === 'active') {
           // Send joker config so UI can show the right buttons
-          const myJokersUsed = state?.playerJokersUsed.get(playerId) ?? {
+          const myJokersUsed = state.playerJokersUsed.get(playerId) ?? {
             pass: false,
             fiftyFifty: false,
           };
           socket.emit('player:joker-state', {
-            jokersEnabled: state?.gameSettings.jokersEnabled,
+            jokersEnabled: state.gameSettings.jokersEnabled,
             jokersUsed: myJokersUsed,
           });
-          if (state?.questionPhase === 'question' && state?.lastQuestionPayload) {
-            socket.emit('game:question', state?.lastQuestionPayload);
+          if (state.questionPhase === 'question' && state.lastQuestionPayload) {
+            // Hot state: server still has in-memory phase data — send with remaining time
+            const payload = state.lastQuestionPayload as Record<string, unknown>;
+            const originalTimeSec = (payload.timeSec as number) ?? 0;
+            const elapsed = state.questionStartedAt
+              ? Math.floor((Date.now() - state.questionStartedAt) / 1000)
+              : 0;
+            const timeRemaining = Math.max(originalTimeSec - elapsed, 0);
+            socket.emit('game:question', { ...payload, timeRemaining });
             // Restore 50/50 if this player already used it this question
-            const myEliminated = state?.playerFiftyFiftyIndices.get(playerId);
+            const myEliminated = state.playerFiftyFiftyIndices.get(playerId);
             if (myEliminated) {
               socket.emit('player:joker-5050-applied', { eliminatedIndices: myEliminated });
             }
-          } else if (state?.questionPhase === 'results' && state?.lastResultsPayload) {
-            socket.emit('game:question-results', state?.lastResultsPayload);
+          } else if (state.questionPhase === 'results' && state.lastResultsPayload) {
+            // Hot state: results phase — send with remaining auto-advance time
+            const rPayload = state.lastResultsPayload as Record<string, unknown>;
+            const originalAutoAdvance = (rPayload.autoAdvanceSec as number) ?? 0;
+            const rElapsed = state.resultsShownAt
+              ? Math.floor((Date.now() - state.resultsShownAt) / 1000)
+              : 0;
+            const autoAdvanceRemaining = Math.max(originalAutoAdvance - rElapsed, 0);
+            socket.emit('game:question-results', {
+              ...rPayload,
+              autoAdvanceSec: autoAdvanceRemaining,
+            });
+          } else {
+            // Cold state: server restarted, no in-memory phase — rebuild from DB
+            const currentQ = state.questions[session.current_question_index];
+            if (currentQ) {
+              const coldPayload = {
+                questionIndex: session.current_question_index,
+                totalQuestions: state.questions.length,
+                questionId: currentQ.id,
+                text: currentQ.text,
+                options: JSON.parse(currentQ.options) as string[],
+                timeSec: currentQ.time_sec,
+                imageUrl: currentQ.image_url ?? undefined,
+                questionType: currentQ.question_type,
+                correctAnswer:
+                  currentQ.question_type === 'open_text' ? currentQ.correct_answer : undefined,
+              };
+              // Populate state so future reconnects within this server lifetime work
+              state.questionPhase = 'question';
+              state.lastQuestionPayload = coldPayload;
+              state.questionStartedAt = Date.now();
+              // Full timer — we lost the original start time, so reset it
+              socket.emit('game:question', coldPayload);
+
+              // Restart the server-side question timer for this session
+              if (!state.questionTimer) {
+                state.questionTimer = setTimeout(() => {
+                  state.questionTimer = null;
+                  showResults(io, state, currentQ.id);
+                }, currentQ.time_sec * 1000);
+              }
+            }
           }
         }
         return;
@@ -328,7 +385,9 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           playerStreaks: new Map(),
           playerAvatars: new Map(),
           questionTimer: null,
+          questionStartedAt: null,
           resultsTimer: null,
+          resultsShownAt: null,
           status: session.status as ActiveSession['status'],
           questionPhase: null,
           lastQuestionPayload: null,
@@ -414,12 +473,16 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
         if (isCorrect) {
           score += currentQ.base_score;
-          // Speed bonus
+          // Speed bonus — scales linearly from max to min based on answer position vs total players
           const correctCount = state.correctAnswerCount.get(questionId) ?? 0;
-          const bonuses = config.speedBonuses;
+          const totalPlayers = Math.max(state.playerSockets.size, 1);
+          const maxB = config.speedBonusMax;
+          const minB = config.speedBonusMin;
           const bonus =
-            correctCount < bonuses.length ? bonuses[correctCount] : config.defaultSpeedBonus;
-          score += bonus;
+            totalPlayers <= 1
+              ? maxB
+              : Math.round(maxB - (maxB - minB) * (correctCount / (totalPlayers - 1)));
+          score += Math.max(bonus, minB);
           state.correctAnswerCount.set(questionId, correctCount + 1);
 
           // Streak bonus (game-level settings override global config)
@@ -459,6 +522,12 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         // Notify admin
         io.to(`admin:${sessionId}`).emit('game:answer-received', {
           playerId,
+          answeredCount: answered.size,
+          totalPlayers: state.playerSockets.size,
+        });
+
+        // Broadcast answer count to all players in the session
+        io.to(`session:${sessionId}`).emit('game:answer-count', {
           answeredCount: answered.size,
           totalPlayers: state.playerSockets.size,
         });
@@ -528,6 +597,10 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       });
       io.to(`admin:${data.sessionId}`).emit('game:answer-received', {
         playerId,
+        answeredCount: answered.size,
+        totalPlayers: state.playerSockets.size,
+      });
+      io.to(`session:${data.sessionId}`).emit('game:answer-count', {
         answeredCount: answered.size,
         totalPlayers: state.playerSockets.size,
       });
@@ -626,6 +699,7 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
 
   state.questionPhase = 'question';
   state.lastQuestionPayload = payload;
+  state.questionStartedAt = Date.now();
 
   io.to(`session:${state.sessionId}`).emit('game:question', payload);
 
@@ -694,6 +768,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
 
     state.questionPhase = 'results';
     state.lastResultsPayload = resultsPayload;
+    state.resultsShownAt = Date.now();
 
     io.to(`session:${state.sessionId}`).emit('game:question-results', resultsPayload);
 

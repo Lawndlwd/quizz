@@ -4,6 +4,54 @@ import { Input } from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
 import type { AppConfig } from '../../types';
 
+function computeSpeedBonus(position: number, totalPlayers: number, max: number, min: number) {
+  if (totalPlayers <= 1) return max;
+  return Math.max(Math.round(max - (max - min) * (position / (totalPlayers - 1))), min);
+}
+
+function SpeedBonusPreview({ max, min }: { max: number; min: number }) {
+  const examples = [5, 10, 20];
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        background: 'var(--surface2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '12px 14px',
+      }}
+    >
+      <p style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 8, fontWeight: 600 }}>
+        Preview
+      </p>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {examples.map((n) => (
+          <div key={n} style={{ fontSize: '0.78rem', lineHeight: 1.6 }}>
+            <span style={{ color: 'var(--text2)' }}>{n} players:</span>
+            <br />
+            {Array.from({ length: Math.min(n, 5) }, (_, i) => {
+              const bonus = computeSpeedBonus(i, n, max, min);
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: stable list based on player count
+                <span key={i} style={{ color: 'var(--accent2)' }}>
+                  {i + 1}st={bonus}
+                  {i < Math.min(n, 5) - 1 ? ', ' : ''}
+                </span>
+              );
+            })}
+            {n > 5 && (
+              <span style={{ color: 'var(--text3)' }}>
+                {' '}
+                ... {n}th={computeSpeedBonus(n - 1, n, max, min)}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { token } = useAuth();
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
@@ -135,7 +183,7 @@ export default function Settings() {
 
         {/* Branding */}
         <div className="card mb-6" style={{ maxWidth: 480 }}>
-          <h2 className="mb-1">✏️ App Name</h2>
+          <h2 className="mb-1">✏️ Branding</h2>
           <p className="text-sm text-muted mb-4">
             Shown as{' '}
             <strong style={{ color: 'var(--text)' }}>
@@ -148,8 +196,17 @@ export default function Settings() {
             placeholder="e.g. Scaleway   (leave blank for default)"
             value={cfg.appName ?? ''}
             onChange={(e) => update('appName', e.target.value)}
+          />
+          <Input
+            label="Join page subtitle"
+            placeholder="e.g. Quizz of the day — Cloud Edition"
+            value={cfg.appSubtitle ?? ''}
+            onChange={(e) => update('appSubtitle', e.target.value)}
             noMargin
           />
+          <p className="text-xs text-muted mt-2">
+            Displayed on the player join screen below the logo. Leave blank to hide.
+          </p>
         </div>
 
         <div
@@ -182,15 +239,6 @@ export default function Settings() {
             />
 
             <Input
-              label="Default Speed Bonus (for players beyond top list)"
-              type="number"
-              min={0}
-              step={5}
-              value={cfg.defaultSpeedBonus ?? 25}
-              onChange={(e) => update('defaultSpeedBonus', Number(e.target.value))}
-            />
-
-            <Input
               label="Max Players Per Session"
               type="number"
               min={2}
@@ -200,52 +248,34 @@ export default function Settings() {
             />
 
             <div className="form-group">
-              <p className="form-label">Speed Bonuses (1st correct → 2nd → 3rd → …)</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
-                {(cfg.speedBonuses ?? [200, 150, 100, 50]).map((val, i) => (
-                  <div key={`speed-${i + 1}`} className="flex items-center gap-2">
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text2)', minWidth: 54 }}>
-                      {i + 1}
-                      {i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} correct
-                    </span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={10}
-                      value={val}
-                      style={{ maxWidth: 110 }}
-                      onChange={(e) => {
-                        const bonuses = [...(cfg.speedBonuses ?? [])];
-                        bonuses[i] = Number(e.target.value);
-                        update('speedBonuses', bonuses);
-                      }}
-                    />
-                    {(cfg.speedBonuses ?? []).length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon"
-                        style={{ fontSize: '0.8rem' }}
-                        onClick={() => {
-                          const bonuses = (cfg.speedBonuses ?? []).filter((_, idx) => idx !== i);
-                          update('speedBonuses', bonuses);
-                        }}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => update('speedBonuses', [...(cfg.speedBonuses ?? []), 0])}
-              >
-                + Add Tier
-              </button>
-              <p className="text-xs text-muted mt-2">
-                Players beyond the last tier use the Default Speed Bonus above.
+              <p className="form-label" style={{ marginBottom: 4 }}>
+                Speed Bonus (awarded to correct answerers based on answer speed)
               </p>
+              <p className="text-xs text-muted mb-4">
+                Scales linearly from max to min based on answer position relative to total players.
+                The 1st correct answerer gets the max bonus, the last gets the min.
+              </p>
+              <div className="form-row">
+                <Input
+                  label="Max bonus (1st correct)"
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={cfg.speedBonusMax ?? 200}
+                  onChange={(e) => update('speedBonusMax', Number(e.target.value))}
+                  noMargin
+                />
+                <Input
+                  label="Min bonus (last correct)"
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={cfg.speedBonusMin ?? 10}
+                  onChange={(e) => update('speedBonusMin', Number(e.target.value))}
+                  noMargin
+                />
+              </div>
+              <SpeedBonusPreview max={cfg.speedBonusMax ?? 200} min={cfg.speedBonusMin ?? 10} />
             </div>
 
             <div className="form-group">

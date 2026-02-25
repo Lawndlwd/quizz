@@ -15,6 +15,8 @@ interface Props {
   onDashboard: () => void;
 }
 
+const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
 export function GameEnded({ quizTitle, leaderboard, onViewDetails, onDashboard }: Props) {
   return (
     <div className="main-content">
@@ -29,7 +31,7 @@ export function GameEnded({ quizTitle, leaderboard, onViewDetails, onDashboard }
         <ul className="leaderboard">
           {leaderboard.map((e) => (
             <li key={e.rank} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
-              <div className="lb-rank">{e.rank}</div>
+              <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
               <AvatarDisplay avatar={e.avatar} size={30} />
               <div className="lb-name">{e.username}</div>
               <div className="lb-score">{e.totalScore.toLocaleString()}</div>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AvatarDisplay } from '../../../components/AvatarPicker';
 import type { GameEndedPayload } from '../../../types';
 
@@ -7,6 +8,20 @@ interface Props {
 }
 
 export function PodiumScreen({ leaderboard, onContinue }: Props) {
+  const confettiPieces = useMemo(
+    () =>
+      Array.from({ length: 40 }, (_, i) => ({
+        id: `confetti-${i}`,
+        style: {
+          '--x': `${Math.random() * 200 - 100}vw`,
+          '--r': `${Math.random() * 720 - 360}deg`,
+          '--d': `${0.6 + Math.random() * 1.4}s`,
+          '--h': `${Math.random() * 360}`,
+          left: `${40 + Math.random() * 20}%`,
+        },
+      })),
+    [],
+  );
   const top3 = leaderboard.slice(0, 3);
   const podiumOrder = [
     { entry: top3[1], medal: '🥈', place: 2, color: '#9ca3af', barH: 120 },
@@ -16,7 +31,18 @@ export function PodiumScreen({ leaderboard, onContinue }: Props) {
 
   return (
     <div className="page-center" style={{ flexDirection: 'column', gap: 32 }}>
-      <h1 style={{ textAlign: 'center', fontSize: '2rem' }}>🏁 Game Over!</h1>
+      {/* Confetti burst for 1st place */}
+      <div className="confetti-container" aria-hidden="true">
+        {confettiPieces.map((piece) => (
+          <div
+            key={piece.id}
+            className="confetti-piece"
+            style={piece.style as React.CSSProperties}
+          />
+        ))}
+      </div>
+
+      <h1 style={{ textAlign: 'center', fontSize: '2rem' }}>🏆 Final Podium</h1>
       <div
         style={{
           display: 'flex',

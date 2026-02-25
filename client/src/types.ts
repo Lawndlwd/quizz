@@ -62,6 +62,8 @@ export interface QuestionPayload {
   text: string;
   options: string[];
   timeSec: number;
+  /** Remaining seconds — only present on reconnect; absent means use timeSec */
+  timeRemaining?: number;
   imageUrl?: string;
   questionType: QuestionType;
   correctAnswer?: string; // provided for open_text so player sees what to type (optional reveal)
@@ -110,11 +112,12 @@ export interface GameSettings {
 export interface AppConfig {
   port: number;
   appName: string;
+  appSubtitle: string;
   adminUsername: string;
   questionTimeSec: number;
   defaultBaseScore: number;
-  speedBonuses: number[];
-  defaultSpeedBonus: number;
+  speedBonusMax: number;
+  speedBonusMin: number;
   maxPlayersPerSession: number;
   showLeaderboardAfterQuestion: boolean;
   allowLateJoin: boolean;

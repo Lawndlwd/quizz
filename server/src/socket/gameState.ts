@@ -20,8 +20,12 @@ export interface ActiveSession {
   // playerId → base64 data URI or emoji string
   playerAvatars: Map<number, string>;
   questionTimer: ReturnType<typeof setTimeout> | null;
+  // Timestamp (Date.now()) when the current question was sent to players
+  questionStartedAt: number | null;
   // Auto-advance timer after showing results
   resultsTimer: ReturnType<typeof setTimeout> | null;
+  // Timestamp (Date.now()) when results were shown to players
+  resultsShownAt: number | null;
   status: 'waiting' | 'active' | 'finished';
   // Current phase within an active game
   questionPhase: 'question' | 'results' | null;

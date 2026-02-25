@@ -3,22 +3,25 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type { GameEndedPayload, QuestionPayload, QuestionResults } from '../../types';
 import { AnsweredScreen } from './components/AnsweredScreen';
+import { CountdownScreen } from './components/CountdownScreen';
 import { EndedScreen } from './components/EndedScreen';
 import { PodiumScreen } from './components/PodiumScreen';
 import { QuestionScreen } from './components/QuestionScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { WaitingScreen } from './components/WaitingScreen';
 
-type Phase = 'waiting' | 'question' | 'answered' | 'results' | 'podium' | 'ended';
+type Phase = 'waiting' | 'countdown' | 'question' | 'answered' | 'results' | 'podium' | 'ended';
 
 export default function Game() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const socket = getSocket();
 
-  const playerId = Number(sessionStorage.getItem('playerId'));
-  const username = sessionStorage.getItem('username') ?? 'Player';
-  const myAvatar = sessionStorage.getItem('avatar') ?? '🎮';
+  // Read identity once from sessionStorage, keep in state so clearing storage later
+  // doesn't break the component mid-render.
+  const [playerId] = useState(() => Number(sessionStorage.getItem('playerId')));
+  const [username] = useState(() => sessionStorage.getItem('username') ?? 'Player');
+  const [myAvatar] = useState(() => sessionStorage.getItem('avatar') ?? '🎮');
 
   const [phase, setPhase] = useState<Phase>('waiting');
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
@@ -35,45 +38,58 @@ export default function Game() {
   const [jokersUsed, setJokersUsed] = useState({ pass: false, fiftyFifty: false });
   const [results, setResults] = useState<QuestionResults | null>(null);
   const [finalBoard, setFinalBoard] = useState<GameEndedPayload['leaderboard']>([]);
+  const [countdownSec, setCountdownSec] = useState(3);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!playerId) navigate('/play');
+    if (!playerId) navigate('/play', { replace: true });
   }, [navigate, playerId]);
 
-  // Reconnect: re-emit player:join on socket reconnect
+  // Reconnect: re-emit player:join on socket connect/reconnect
   useEffect(() => {
-    const storedPlayerId = sessionStorage.getItem('playerId');
-    const storedUsername = sessionStorage.getItem('username');
     const storedPin = sessionStorage.getItem('pin');
+    if (!playerId || !username || !storedPin) return;
+
     const storedAvatar = sessionStorage.getItem('avatar');
 
-    if (!storedPlayerId || !storedUsername || !storedPin) return;
-
-    function handleReconnect() {
+    function rejoin() {
       socket.emit('player:join', {
         pin: storedPin,
-        username: storedUsername,
+        username,
         avatar: storedAvatar ?? '',
       });
     }
 
-    socket.on('connect', handleReconnect);
+    if (!socket.connected) {
+      socket.connect();
+    }
+    // Always rejoin on (re)connect — handles both fresh page load and transient disconnects
+    socket.on('connect', rejoin);
+    // If already connected, rejoin immediately (the 'connect' event already fired)
+    if (socket.connected) {
+      rejoin();
+    }
     return () => {
-      socket.off('connect', handleReconnect);
+      socket.off('connect', rejoin);
     };
-  }, [socket.on, socket.off, socket.emit]);
+  }, [socket, playerId, username]);
 
   useSocketEvent<{ jokersEnabled: { pass: boolean; fiftyFifty: boolean } }>(
     'game:started',
     (data) => {
-      setPhase('waiting');
       if (data?.jokersEnabled) setJokersEnabled(data.jokersEnabled);
     },
   );
+
+  useSocketEvent<{ seconds: number }>('game:countdown', (data) => {
+    setCountdownSec(data.seconds);
+    setPhase('countdown');
+  });
 
   useSocketEvent<{
     jokersEnabled: { pass: boolean; fiftyFifty: boolean };
@@ -88,6 +104,11 @@ export default function Game() {
     setJokersUsed((prev) => ({ ...prev, fiftyFifty: true }));
   });
 
+  useSocketEvent<{ answeredCount: number; totalPlayers: number }>('game:answer-count', (data) => {
+    setAnsweredCount(data.answeredCount);
+    setTotalPlayers(data.totalPlayers);
+  });
+
   useSocketEvent<QuestionPayload>('game:question', (data) => {
     setQuestion(data);
     setSelectedIndex(null);
@@ -96,7 +117,9 @@ export default function Game() {
     setAnswerResult(null);
     setResults(null);
     setEliminatedIndices([]);
-    setTimeLeft(data.timeSec);
+    setAnsweredCount(0);
+    // On reconnect the server sends timeRemaining; otherwise use full timeSec
+    setTimeLeft(data.timeRemaining ?? data.timeSec);
     setPhase('question');
 
     if (autoAdvanceRef.current) {
@@ -150,6 +173,12 @@ export default function Game() {
     setPhase('podium');
   });
 
+  function clearGameSession() {
+    sessionStorage.removeItem('playerId');
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('pin');
+  }
+
   function submitAnswer(chosenIndex: number) {
     if (!question || phase !== 'question') return;
     setSelectedIndex(chosenIndex);
@@ -175,6 +204,8 @@ export default function Game() {
 
   if (phase === 'waiting') return <WaitingScreen username={username} avatar={myAvatar} />;
 
+  if (phase === 'countdown') return <CountdownScreen seconds={countdownSec} />;
+
   if (phase === 'question' && question)
     return (
       <QuestionScreen
@@ -184,6 +215,8 @@ export default function Game() {
         openTextInput={openTextInput}
         openTextSubmitted={openTextSubmitted}
         eliminatedIndices={eliminatedIndices}
+        answeredCount={answeredCount}
+        totalPlayers={totalPlayers}
         jokersEnabled={jokersEnabled}
         jokersUsed={jokersUsed}
         onAnswer={submitAnswer}
@@ -207,10 +240,12 @@ export default function Game() {
         isCorrect={answerResult.isCorrect}
         score={answerResult.score}
         wasPassJoker={answerResult.wasPassJoker}
+        answeredCount={answeredCount}
+        totalPlayers={totalPlayers}
       />
     );
 
-  if (phase === 'results' && results && question)
+  if (phase === 'results' && results)
     return (
       <ResultsScreen results={results} playerId={playerId} autoAdvanceLeft={autoAdvanceLeft} />
     );
@@ -223,7 +258,10 @@ export default function Game() {
       <EndedScreen
         leaderboard={finalBoard}
         username={username}
-        onPlayAgain={() => navigate('/play')}
+        onPlayAgain={() => {
+          clearGameSession();
+          navigate('/play');
+        }}
       />
     );
 
