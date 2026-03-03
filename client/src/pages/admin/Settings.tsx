@@ -57,8 +57,10 @@ export default function Settings() {
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [uploadingAvatars, setUploadingAvatars] = useState(false);
   const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
@@ -71,6 +73,12 @@ export default function Settings() {
     fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then(setCfg);
+
+    fetch('/api/admin/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.username) setAdminUsername(data.username);
+      });
 
     fetch('/api/avatars')
       .then((r) => {
@@ -88,17 +96,25 @@ export default function Settings() {
   }, [token]);
 
   async function changePassword() {
-    if (!currentPassword || !newPassword) {
-      alert('Please enter both current and new password');
+    if (!currentPassword) {
+      alert('Please enter your current password');
+      return;
+    }
+    if (!newPassword && !newUsername) {
+      alert('Please enter a new password or username to change');
       return;
     }
 
     setChangingPassword(true);
     try {
+      const body: Record<string, string> = { currentPassword };
+      if (newPassword) body.newPassword = newPassword;
+      if (newUsername && newUsername !== adminUsername) body.newUsername = newUsername;
+
       const response = await fetch('/api/admin/change-password', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -118,6 +134,7 @@ export default function Settings() {
       setChangingPassword(false);
       setCurrentPassword('');
       setNewPassword('');
+      setNewUsername('');
     }
   }
 
@@ -378,26 +395,30 @@ export default function Settings() {
           {/* Admin credentials */}
           <div className="card">
             <h2 className="mb-4">🔐 Admin Credentials</h2>
+            <p className="text-sm text-muted mb-4">
+              Current username: <strong style={{ color: 'var(--text)' }}>{adminUsername || '...'}</strong>
+            </p>
 
-            <Input
-              label="Admin Username"
-              value={cfg.adminUsername ?? 'admin'}
-              onChange={(e) => update('adminUsername', e.target.value)}
-            />
-
-            {/* Replace the current password input with: */}
             <div className="form-group">
-              <h3 className="form-label">Change Password</h3>
               <Input
-                label="Current Password"
+                label="Current Password (required to make changes)"
                 type="password"
+                autoComplete="off"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
               />
               <Input
-                label="New Password"
+                label="New Username (leave blank to keep current)"
+                autoComplete="off"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder={adminUsername || 'admin'}
+              />
+              <Input
+                label="New Password (leave blank to keep current)"
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
@@ -409,7 +430,7 @@ export default function Settings() {
                 disabled={changingPassword}
                 className="btn btn-primary mt-3"
               >
-                {changingPassword ? 'Changing...' : 'Change Password'}
+                {changingPassword ? 'Updating...' : 'Update Credentials'}
               </button>
             </div>
 

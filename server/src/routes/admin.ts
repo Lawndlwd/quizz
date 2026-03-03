@@ -47,11 +47,16 @@ adminRouter.post('/logout', (_req, res) => {
 });
 
 adminRouter.post('/change-password', requireAdmin, async (req: Request, res: Response) => {
-  const { currentPassword, newPassword } = req.body as {
+  const { currentPassword, newPassword, newUsername } = req.body as {
     currentPassword: string;
-    newPassword: string;
+    newPassword?: string;
+    newUsername?: string;
   };
   const adminId = (req as any).user.adminId; // From JWT
+
+  if (!newPassword && !newUsername) {
+    return res.status(400).json({ error: 'Nothing to change' });
+  }
 
   try {
     // Get current admin
@@ -69,22 +74,31 @@ adminRouter.post('/change-password', requireAdmin, async (req: Request, res: Res
       return res.status(401).json({ error: 'Current password incorrect' });
     }
 
-    // Hash and update new password
-    const newHash = await bcrypt.hash(newPassword, 12);
-    await db.run(
-      'UPDATE admins SET password_hash = ?, last_password_change = datetime("now") WHERE id = ?',
-      [newHash, adminId],
-    );
+    // Update username if provided
+    if (newUsername && newUsername !== admin.username) {
+      await db.run('UPDATE admins SET username = ? WHERE id = ?', [newUsername, adminId]);
+    }
+
+    // Hash and update new password if provided
+    if (newPassword) {
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await db.run(
+        'UPDATE admins SET password_hash = ?, last_password_change = datetime("now") WHERE id = ?',
+        [newHash, adminId],
+      );
+    }
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Password change error:', error);
-    res.status(500).json({ error: 'Password change failed' });
+    console.error('Credential change error:', error);
+    res.status(500).json({ error: 'Credential change failed' });
   }
 });
 
-adminRouter.get('/me', requireAdmin, (_req, res) => {
-  res.json({ ok: true });
+adminRouter.get('/me', requireAdmin, async (req, res) => {
+  const adminId = (req as any).user.adminId;
+  const admin = await db.get('SELECT username FROM admins WHERE id = ?', [adminId]);
+  res.json({ ok: true, username: admin?.username });
 });
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -104,7 +118,6 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
     'speedBonusMin',
     'maxPlayersPerSession',
     'showLeaderboardAfterQuestion',
-    'adminUsername',
     'streakBonusEnabled',
     'streakMinimum',
     'streakBonusBase',

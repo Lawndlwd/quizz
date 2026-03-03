@@ -9,11 +9,8 @@ export interface AppConfig {
   port: number;
   appName: string;
   appSubtitle: string;
-  adminUsername: string;
-  adminPassword: string;
   jwtSecret: string;
   questionTimeSec: number;
-  lobbyTimeoutMin: number;
   defaultBaseScore: number;
   speedBonusMax: number;
   speedBonusMin: number;

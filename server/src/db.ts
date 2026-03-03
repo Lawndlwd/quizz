@@ -1,14 +1,44 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { type Database, open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 
-const DB_PATH = process.env.DATA_DIR
-  ? path.join(process.env.DATA_DIR, 'quizz.db')
-  : path.join(process.cwd(), '..', 'quizz.db');
+// All persistent data lives in DATA_DIR (Docker) or <project-root>/data/ (local dev)
+const dataDir = process.env.DATA_DIR || path.join(process.cwd(), '..', 'data');
+const DB_PATH = path.join(dataDir, 'quizz.db');
+
+// ── Migration: move DB from old locations into the unified data dir ──────────
+const OLD_DB_PATHS = [
+  path.join(process.cwd(), '..', 'quizz.db'),  // <root>/quizz.db
+];
+
+function migrateDb(): void {
+  if (fs.existsSync(DB_PATH)) return; // already in the right place
+  fs.mkdirSync(dataDir, { recursive: true });
+
+  for (const oldPath of OLD_DB_PATHS) {
+    if (fs.existsSync(oldPath)) {
+      // Move the main DB file + WAL/SHM sidecar files
+      for (const suffix of ['', '-wal', '-shm']) {
+        const src = oldPath + suffix;
+        const dst = DB_PATH + suffix;
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, dst);
+          fs.unlinkSync(src);
+        }
+      }
+      console.log(`[migrate] Moved database from ${oldPath} → ${DB_PATH}`);
+      return;
+    }
+  }
+}
+
+migrateDb();
 
 export let db: Database;
 
 export async function initDb(): Promise<void> {
+  fs.mkdirSync(dataDir, { recursive: true });
   db = await open({ filename: DB_PATH, driver: sqlite3.Database });
 
   await db.run('PRAGMA journal_mode = WAL');
@@ -98,17 +128,12 @@ export async function initDb(): Promise<void> {
       password: process.env.ADMIN_PASSWORD || 'admin',
     };
 
-    // Check if using default credentials
-    const isDefault = defaultAdmin.username === 'admin' && defaultAdmin.password === 'admin';
-
-    if (!isDefault) {
-      // Only hash non-default passwords
-      const bcrypt = await import('bcrypt');
-      const hashedPassword = await bcrypt.hash(defaultAdmin.password, 12);
-      await db.run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [
-        defaultAdmin.username,
-        hashedPassword,
-      ]);
-    }
+    // Always hash the password and create the admin record
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(defaultAdmin.password, 12);
+    await db.run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [
+      defaultAdmin.username,
+      hashedPassword,
+    ]);
   }
 }
