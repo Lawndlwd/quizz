@@ -57,7 +57,9 @@ export default function Settings() {
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
   const [uploadingAvatars, setUploadingAvatars] = useState(false);
   const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
   const [availableAvatars, setAvailableAvatars] = useState<string[] | null>(null);
@@ -84,6 +86,40 @@ export default function Settings() {
         setAvatarsError('Could not load current avatars.');
       });
   }, [token]);
+
+  async function changePassword() {
+    if (!currentPassword || !newPassword) {
+      alert('Please enter both current and new password');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const response = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'Failed to change password');
+        return;
+      }
+
+      alert('Password changed successfully! Please log in again.');
+      // Log out user
+      localStorage.removeItem('token');
+      window.location.href = '/admin/login';
+    } catch (error) {
+      console.error('Password change failed:', error);
+      alert('Failed to change password');
+    } finally {
+      setChangingPassword(false);
+      setCurrentPassword('');
+      setNewPassword('');
+    }
+  }
 
   async function save() {
     if (!cfg) return;
@@ -350,17 +386,33 @@ export default function Settings() {
               onChange={(e) => update('adminUsername', e.target.value)}
             />
 
-            <Input
-              label={
-                <>
-                  New Password <span className="text-muted">(leave blank to keep current)</span>
-                </>
-              }
-              type="password"
-              value={newPassword}
-              placeholder="Enter new password"
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            {/* Replace the current password input with: */}
+            <div className="form-group">
+              <h3 className="form-label">Change Password</h3>
+              <Input
+                label="Current Password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+              />
+              <Input
+                label="New Password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                noMargin
+              />
+              <button
+                type="button"
+                onClick={changePassword}
+                disabled={changingPassword}
+                className="btn btn-primary mt-3"
+              >
+                {changingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
 
             <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
               ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.
