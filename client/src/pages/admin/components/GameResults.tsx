@@ -7,6 +7,8 @@ interface Props {
   autoAdvanceLeft: number;
   onNextQuestion: () => void;
   onEndGame: () => void;
+  onRemovePoints: (playerId: number, questionId: number) => void;
+  onOpenPlayerAnswers: (playerId: number) => void;
 }
 
 export function GameResults({
@@ -15,6 +17,8 @@ export function GameResults({
   autoAdvanceLeft,
   onNextQuestion,
   onEndGame,
+  onRemovePoints,
+  onOpenPlayerAnswers,
 }: Props) {
   return (
     <div className="main-content">
@@ -88,6 +92,28 @@ export function GameResults({
                 <span className="lb-delta wrong">✗</span>
               )}
               <div className="lb-score">{e.totalScore.toLocaleString()}</div>
+              <div className="flex gap-1" style={{ marginLeft: 8, flexShrink: 0 }}>
+                {e.questionScore > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--danger)', fontSize: '0.7rem', padding: '2px 8px' }}
+                    title="Remove points for this question"
+                    onClick={() => onRemovePoints(e.playerId, results.questionId)}
+                  >
+                    Remove pts
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.8rem', padding: '2px 6px' }}
+                  title="View all answers"
+                  onClick={() => onOpenPlayerAnswers(e.playerId)}
+                >
+                  ...
+                </button>
+              </div>
             </li>
           ))}
         </ul>

@@ -161,6 +161,30 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       }
     });
 
+    // ─── Admin: finish question early ─────────────────────────────────────────
+    socket.on('admin:finish-question', (data: { sessionId: number; token: string }) => {
+      try {
+        jwt.verify(data.token, config.jwtSecret);
+      } catch {
+        socket.emit('error', { message: 'Unauthorized' });
+        return;
+      }
+
+      const pin = sessionIdToPin.get(data.sessionId);
+      const state = pin ? activeSessions.get(pin) : undefined;
+      if (!state || state.status !== 'active' || state.questionPhase !== 'question') return;
+
+      if (state.questionTimer) {
+        clearTimeout(state.questionTimer);
+        state.questionTimer = null;
+      }
+
+      const currentQ = state.questions[state.currentQuestionIndex];
+      if (currentQ) {
+        showResults(io, state, currentQ.id);
+      }
+    });
+
     // ─── Admin: end game ──────────────────────────────────────────────────────
     socket.on('admin:end-game', (data: { sessionId: number; token: string }) => {
       try {
@@ -175,6 +199,119 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       if (!state) return;
       endGame(io, state);
     });
+
+    // ─── Admin: remove points ─────────────────────────────────────────────────
+    socket.on(
+      'admin:remove-points',
+      async (data: { sessionId: number; token: string; playerId: number; questionId: number }) => {
+        try {
+          jwt.verify(data.token, config.jwtSecret);
+        } catch {
+          socket.emit('error', { message: 'Unauthorized' });
+          return;
+        }
+
+        const { sessionId, playerId, questionId } = data;
+
+        const answer = await db.get<{ score: number }>(
+          'SELECT score FROM answers WHERE player_id = ? AND question_id = ? AND session_id = ?',
+          playerId,
+          questionId,
+          sessionId,
+        );
+
+        if (!answer) {
+          socket.emit('error', { message: 'Answer not found' });
+          return;
+        }
+
+        const removedScore = answer.score;
+
+        // Floor total_score at 0
+        await db.run(
+          'UPDATE players SET total_score = MAX(total_score - ?, 0) WHERE id = ?',
+          removedScore,
+          playerId,
+        );
+
+        await db.run(
+          'UPDATE answers SET score = 0 WHERE player_id = ? AND question_id = ? AND session_id = ?',
+          playerId,
+          questionId,
+          sessionId,
+        );
+
+        const player = await db.get<DbPlayer>('SELECT * FROM players WHERE id = ?', playerId);
+        const newTotalScore = player?.total_score ?? 0;
+
+        socket.emit('admin:points-removed', {
+          playerId,
+          questionId,
+          removedScore,
+          newTotalScore,
+        });
+
+        // Broadcast updated leaderboard to session
+        const pin = sessionIdToPin.get(sessionId);
+        if (pin) {
+          const players = await db.all<DbPlayer[]>(
+            'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC',
+            sessionId,
+          );
+          const state = activeSessions.get(pin);
+          const leaderboard = players.map((p, i) => ({
+            rank: i + 1,
+            playerId: p.id,
+            username: p.username,
+            totalScore: p.total_score,
+            avatar: state?.playerAvatars.get(p.id),
+          }));
+          io.to(`session:${sessionId}`).emit('game:leaderboard-update', { leaderboard });
+        }
+      },
+    );
+
+    // ─── Admin: get player answers ──────────────────────────────────────────────
+    socket.on(
+      'admin:get-player-answers',
+      async (data: { sessionId: number; token: string; playerId: number }) => {
+        try {
+          jwt.verify(data.token, config.jwtSecret);
+        } catch {
+          socket.emit('error', { message: 'Unauthorized' });
+          return;
+        }
+
+        const { sessionId, playerId } = data;
+
+        const answers = await db.all<
+          Array<{
+            question_id: number;
+            score: number;
+            is_correct: number;
+            text: string;
+          }>
+        >(
+          `SELECT a.question_id, a.score, a.is_correct, q.text
+           FROM answers a
+           JOIN questions q ON q.id = a.question_id
+           WHERE a.player_id = ? AND a.session_id = ?
+           ORDER BY q.order_index`,
+          playerId,
+          sessionId,
+        );
+
+        socket.emit('admin:player-answers', {
+          playerId,
+          answers: answers.map((a) => ({
+            questionId: a.question_id,
+            questionText: a.text,
+            score: a.score,
+            isCorrect: a.is_correct === 1,
+          })),
+        });
+      },
+    );
 
     // ─── Player: join (also handles reconnection) ─────────────────────────────
     socket.on('player:join', async (data: { pin: string; username: string; avatar?: string }) => {

@@ -6,6 +6,7 @@ interface Props {
   answeredCount: number;
   totalPlayers: number;
   onEndGame: () => void;
+  onFinishQuestion: () => void;
 }
 
 export function GameQuestion({
@@ -14,6 +15,7 @@ export function GameQuestion({
   answeredCount,
   totalPlayers,
   onEndGame,
+  onFinishQuestion,
 }: Props) {
   const pct = (timeLeft / question.timeSec) * 100;
   const urgent = timeLeft <= 5;
@@ -25,9 +27,14 @@ export function GameQuestion({
         <h2>
           Question {question.questionIndex + 1} / {question.totalQuestions}
         </h2>
-        <button type="button" onClick={onEndGame} className="btn btn-ghost btn-sm">
-          End Game
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={onFinishQuestion} className="btn btn-primary btn-sm">
+            Finish Question
+          </button>
+          <button type="button" onClick={onEndGame} className="btn btn-ghost btn-sm">
+            End Game
+          </button>
+        </div>
       </div>
 
       <div className="card card-lg mb-4 min-w-full">

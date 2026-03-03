@@ -15,6 +15,7 @@ import { GameEnded } from './components/GameEnded';
 import { GameLobby } from './components/GameLobby';
 import { GameQuestion } from './components/GameQuestion';
 import { GameResults } from './components/GameResults';
+import { RemovePointsModal } from './components/RemovePointsModal';
 
 interface PlayerInfo {
   id: number;
@@ -28,6 +29,13 @@ interface SessionState {
   questionCount: number;
   gameSettings?: GameSettings;
   jokersUsed?: { pass: boolean; fiftyFifty: boolean };
+}
+
+interface PlayerAnswer {
+  questionId: number;
+  questionText: string;
+  score: number;
+  isCorrect: boolean;
 }
 
 type Phase = 'lobby' | 'countdown' | 'question' | 'results' | 'ended';
@@ -52,6 +60,10 @@ export default function GameControl() {
   const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
   const [shareUrl, setShareUrl] = useState('');
   const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Remove points modal state
+  const [modalPlayerId, setModalPlayerId] = useState<number | null>(null);
+  const [modalPlayerAnswers, setModalPlayerAnswers] = useState<PlayerAnswer[]>([]);
 
   useEffect(() => {
     if (!token || !sessionId) return;
@@ -148,6 +160,45 @@ export default function GameControl() {
     }
   });
 
+  // Listen for points-removed response to update leaderboard in results
+  useSocketEvent<{
+    playerId: number;
+    questionId: number;
+    removedScore: number;
+    newTotalScore: number;
+  }>('admin:points-removed', (data) => {
+    setResults((prev) => {
+      if (!prev) return prev;
+      const updated = prev.leaderboard
+        .map((e) => {
+          if (e.playerId !== data.playerId) return e;
+          return {
+            ...e,
+            totalScore: data.newTotalScore,
+            questionScore: data.questionId === prev.questionId ? 0 : e.questionScore,
+          };
+        })
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .map((e, i) => ({ ...e, rank: i + 1 }));
+      return { ...prev, leaderboard: updated };
+    });
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === data.playerId ? { ...p, totalScore: data.newTotalScore } : p)),
+    );
+    // Update modal answers if open for this player
+    if (modalPlayerId === data.playerId) {
+      setModalPlayerAnswers((prev) =>
+        prev.map((a) => (a.questionId === data.questionId ? { ...a, score: 0 } : a)),
+      );
+    }
+  });
+
+  // Listen for player answers (for the modal)
+  useSocketEvent<{ playerId: number; answers: PlayerAnswer[] }>('admin:player-answers', (data) => {
+    setModalPlayerId(data.playerId);
+    setModalPlayerAnswers(data.answers);
+  });
+
   // Countdown timer (display only — real timer is server-driven)
   useEffect(() => {
     if (phase !== 'question' || timeLeft <= 0) return;
@@ -175,6 +226,36 @@ export default function GameControl() {
     if (!confirm('End the game now?')) return;
     socket.emit('admin:end-game', { sessionId: Number(sessionId), token });
   }, [sessionId, token, socket.emit]);
+
+  const finishQuestion = useCallback(() => {
+    socket.emit('admin:finish-question', { sessionId: Number(sessionId), token });
+  }, [sessionId, token, socket.emit]);
+
+  const removePoints = useCallback(
+    (playerId: number, questionId: number) => {
+      socket.emit('admin:remove-points', {
+        sessionId: Number(sessionId),
+        token,
+        playerId,
+        questionId,
+      });
+    },
+    [sessionId, token, socket.emit],
+  );
+
+  const openPlayerAnswers = useCallback(
+    (playerId: number) => {
+      socket.emit('admin:get-player-answers', {
+        sessionId: Number(sessionId),
+        token,
+        playerId,
+      });
+    },
+    [sessionId, token, socket.emit],
+  );
+
+  const modalPlayerName =
+    players.find((p) => p.id === modalPlayerId)?.username ?? `Player #${modalPlayerId}`;
 
   if (!sessionState)
     return (
@@ -216,6 +297,7 @@ export default function GameControl() {
           answeredCount={answeredCount}
           totalPlayers={players.length}
           onEndGame={endGame}
+          onFinishQuestion={finishQuestion}
         />
       )}
       {phase === 'results' && results && (
@@ -225,6 +307,8 @@ export default function GameControl() {
           autoAdvanceLeft={autoAdvanceLeft}
           onNextQuestion={nextQuestion}
           onEndGame={endGame}
+          onRemovePoints={removePoints}
+          onOpenPlayerAnswers={openPlayerAnswers}
         />
       )}
       {phase === 'ended' && (
@@ -234,6 +318,14 @@ export default function GameControl() {
           sessionId={sessionId ?? ''}
           onViewDetails={() => navigate(`/admin/sessions/${sessionId ?? ''}`)}
           onDashboard={() => navigate('/admin')}
+        />
+      )}
+      {modalPlayerId !== null && (
+        <RemovePointsModal
+          playerName={modalPlayerName}
+          answers={modalPlayerAnswers}
+          onRemovePoints={(questionId) => removePoints(modalPlayerId, questionId)}
+          onClose={() => setModalPlayerId(null)}
         />
       )}
     </div>
