@@ -6,28 +6,6 @@ import type { AppConfig } from './types';
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), '..', 'data');
 const configPath = path.join(dataDir, 'config.json');
 
-// ── Migration: move config from old locations into the unified data dir ──────
-const OLD_CONFIG_PATHS = [
-  path.join(process.cwd(), 'data', 'config.json'),   // server/data/config.json
-  path.join(process.cwd(), '..', 'config.json'),      // <root>/config.json
-];
-
-function migrateConfig(): void {
-  if (fs.existsSync(configPath)) return; // already in the right place
-  fs.mkdirSync(dataDir, { recursive: true });
-
-  for (const oldPath of OLD_CONFIG_PATHS) {
-    if (fs.existsSync(oldPath)) {
-      fs.copyFileSync(oldPath, configPath);
-      fs.unlinkSync(oldPath);
-      console.log(`[migrate] Moved config from ${oldPath} → ${configPath}`);
-      return;
-    }
-  }
-}
-
-migrateConfig();
-
 // Defaults ensure any field added to the codebase after a deployment
 // still has a sane value even if the persisted config.json pre-dates it.
 const DEFAULTS: AppConfig = {
@@ -55,23 +33,9 @@ export function loadConfig(): AppConfig {
   }
 
   const raw = fs.readFileSync(configPath, 'utf-8');
-  const saved = JSON.parse(raw) as Record<string, unknown>;
-
-  // Strip legacy credential fields — auth now lives in the database
-  let dirty = false;
-  for (const key of ['adminUsername', 'adminPassword', 'lobbyTimeoutMin']) {
-    if (key in saved) {
-      delete saved[key];
-      dirty = true;
-    }
-  }
-  if (dirty) {
-    fs.writeFileSync(configPath, JSON.stringify(saved, null, 2), 'utf-8');
-    console.log('[migrate] Removed legacy credential fields from config.json');
-  }
-
+  const saved = JSON.parse(raw) as Partial<AppConfig>;
   // Merge: saved values win; any key missing from the file falls back to DEFAULTS
-  const cfg = { ...DEFAULTS, ...(saved as Partial<AppConfig>) };
+  const cfg = { ...DEFAULTS, ...saved };
   // Env vars always win over file — useful for Docker deployments
   if (process.env.JWT_SECRET) cfg.jwtSecret = process.env.JWT_SECRET;
   return cfg;

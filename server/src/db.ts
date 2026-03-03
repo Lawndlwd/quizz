@@ -7,34 +7,6 @@ import sqlite3 from 'sqlite3';
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), '..', 'data');
 const DB_PATH = path.join(dataDir, 'quizz.db');
 
-// ── Migration: move DB from old locations into the unified data dir ──────────
-const OLD_DB_PATHS = [
-  path.join(process.cwd(), '..', 'quizz.db'),  // <root>/quizz.db
-];
-
-function migrateDb(): void {
-  if (fs.existsSync(DB_PATH)) return; // already in the right place
-  fs.mkdirSync(dataDir, { recursive: true });
-
-  for (const oldPath of OLD_DB_PATHS) {
-    if (fs.existsSync(oldPath)) {
-      // Move the main DB file + WAL/SHM sidecar files
-      for (const suffix of ['', '-wal', '-shm']) {
-        const src = oldPath + suffix;
-        const dst = DB_PATH + suffix;
-        if (fs.existsSync(src)) {
-          fs.copyFileSync(src, dst);
-          fs.unlinkSync(src);
-        }
-      }
-      console.log(`[migrate] Moved database from ${oldPath} → ${DB_PATH}`);
-      return;
-    }
-  }
-}
-
-migrateDb();
-
 export let db: Database;
 
 export async function initDb(): Promise<void> {

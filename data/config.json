@@ -1,10 +1,10 @@
 {
   "port": 3000,
-  "appName": "Scaleway",
-  "appSubtitle": "hellllllooooooo",
+  "appName": "",
+  "appSubtitle": "",
   "jwtSecret": "change-this-secret-in-production",
   "questionTimeSec": 20,
-  "defaultBaseScore": 300,
+  "defaultBaseScore": 500,
   "speedBonusMax": 200,
   "speedBonusMin": 10,
   "maxPlayersPerSession": 50,

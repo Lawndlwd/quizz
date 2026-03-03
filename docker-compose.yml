@@ -11,24 +11,22 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
     volumes:
       - ./data:/data
-      # Avatars live on the host — drop image files here and they appear in the picker
-      - ./avatars:/data/avatars
 
-  caddy:
-    image: caddy:latest
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN=${DOMAIN:-}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - ./site:/srv
-      - caddy_data:/data
-      - caddy_config:/config
+  # caddy:
+  #   image: caddy:latest
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - app
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     - DOMAIN=${DOMAIN:-}
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - ./site:/srv
+  #     - caddy_data:/data
+  #     - caddy_config:/config
 
 volumes:
   caddy_data:
