@@ -10,7 +10,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
     volumes:
-      - quizz-data:/data
+      - ./data:/data
       # Avatars live on the host — drop image files here and they appear in the picker
       - ./avatars:/data/avatars
 
@@ -31,6 +31,5 @@ services:
       - caddy_config:/config
 
 volumes:
-  quizz-data:
   caddy_data:
   caddy_config:

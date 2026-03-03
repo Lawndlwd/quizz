@@ -113,7 +113,6 @@ export interface AppConfig {
   port: number;
   appName: string;
   appSubtitle: string;
-  adminUsername: string;
   questionTimeSec: number;
   defaultBaseScore: number;
   speedBonusMax: number;
