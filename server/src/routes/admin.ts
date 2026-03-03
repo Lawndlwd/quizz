@@ -47,7 +47,6 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
     'speedBonusMin',
     'maxPlayersPerSession',
     'showLeaderboardAfterQuestion',
-    'allowLateJoin',
     'adminUsername',
     'adminPassword',
     'streakBonusEnabled',

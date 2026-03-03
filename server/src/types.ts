@@ -19,7 +19,6 @@ export interface AppConfig {
   speedBonusMin: number;
   maxPlayersPerSession: number;
   showLeaderboardAfterQuestion: boolean;
-  allowLateJoin: boolean;
   streakBonusEnabled: boolean;
   streakMinimum: number;
   streakBonusBase: number;

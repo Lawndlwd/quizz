@@ -29,7 +29,6 @@ const DEFAULTS: AppConfig = {
   speedBonusMin: 10,
   maxPlayersPerSession: 50,
   showLeaderboardAfterQuestion: true,
-  allowLateJoin: true,
   streakBonusEnabled: true,
   streakMinimum: 2,
   streakBonusBase: 50,

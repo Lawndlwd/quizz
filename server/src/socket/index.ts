@@ -350,11 +350,6 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       }
 
       // ── New player join path ───────────────────────────────────────────────
-      if (session.status === 'active' && !config.allowLateJoin) {
-        socket.emit('player:error', { message: 'Game already in progress' });
-        return;
-      }
-
       const result = await db.run(
         'INSERT INTO players (session_id, username) VALUES (?, ?)',
         session.id,
