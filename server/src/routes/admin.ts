@@ -10,20 +10,77 @@ export const adminRouter = Router();
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-adminRouter.post('/login', (req: Request, res: Response) => {
+adminRouter.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body as { username: string; password: string };
-  if (username === config.adminUsername && password === config.adminPassword) {
-    const token = jwt.sign({ role: 'admin' }, config.jwtSecret, { expiresIn: '8h' });
-    res.cookie('adminToken', token, { httpOnly: true, sameSite: 'lax' });
-    res.json({ ok: true, token });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+
+  try {
+    // Check database for admin
+    const admin = await db.get('SELECT * FROM admins WHERE username = ?', [username]);
+
+    if (!admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Compare hashed password
+    const bcrypt = await import('bcrypt');
+    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ username: admin.username, adminId: admin.id }, config.jwtSecret, {
+      expiresIn: '7d',
+    });
+
+    res.json({ token });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 
 adminRouter.post('/logout', (_req, res) => {
   res.clearCookie('adminToken');
   res.json({ ok: true });
+});
+
+adminRouter.post('/change-password', requireAdmin, async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword: string;
+    newPassword: string;
+  };
+  const adminId = (req as any).user.adminId; // From JWT
+
+  try {
+    // Get current admin
+    const admin = await db.get('SELECT * FROM admins WHERE id = ?', [adminId]);
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    // Verify current password
+    const bcrypt = await import('bcrypt');
+    const valid = await bcrypt.compare(currentPassword, admin.password_hash);
+
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password incorrect' });
+    }
+
+    // Hash and update new password
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await db.run(
+      'UPDATE admins SET password_hash = ?, last_password_change = datetime("now") WHERE id = ?',
+      [newHash, adminId],
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Password change error:', error);
+    res.status(500).json({ error: 'Password change failed' });
+  }
 });
 
 adminRouter.get('/me', requireAdmin, (_req, res) => {
@@ -48,7 +105,6 @@ adminRouter.put('/config', requireAdmin, (req: Request, res: Response) => {
     'maxPlayersPerSession',
     'showLeaderboardAfterQuestion',
     'adminUsername',
-    'adminPassword',
     'streakBonusEnabled',
     'streakMinimum',
     'streakBonusBase',

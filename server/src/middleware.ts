@@ -9,7 +9,8 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
     return;
   }
   try {
-    jwt.verify(token, config.jwtSecret);
+    const decoded = jwt.verify(token, config.jwtSecret) as { username: string; adminId: number };
+    (req as any).user = { username: decoded.username, adminId: decoded.adminId };
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
