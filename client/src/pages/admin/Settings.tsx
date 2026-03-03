@@ -294,19 +294,6 @@ export default function Settings() {
                 noMargin
               />
             </div>
-
-            <div className="form-group flex items-center gap-3" style={{ marginBottom: 0 }}>
-              <input
-                type="checkbox"
-                id="lateJoin"
-                style={{ width: 'auto' }}
-                checked={cfg.allowLateJoin ?? false}
-                onChange={(e) => update('allowLateJoin', e.target.checked)}
-              />
-              <label htmlFor="lateJoin" style={{ marginBottom: 0 }}>
-                Allow late join (players can join mid-game)
-              </label>
-            </div>
           </div>
 
           {/* Streak bonus settings */}
