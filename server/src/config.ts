@@ -3,14 +3,33 @@ import path from 'node:path';
 import type { AppConfig } from './types';
 
 const defaultConfigPath = path.join(process.cwd(), '..', 'config.json');
+const localDataConfigPath = path.join(process.cwd(), 'data', 'config.json');
 const configPath = process.env.DATA_DIR
   ? path.join(process.env.DATA_DIR, 'config.json')
-  : defaultConfigPath;
+  : fs.existsSync(localDataConfigPath)
+    ? localDataConfigPath
+    : defaultConfigPath;
 
 // On first run inside Docker the data volume is empty — seed from bundled default
 if (process.env.DATA_DIR && !fs.existsSync(configPath)) {
   fs.mkdirSync(process.env.DATA_DIR, { recursive: true });
   fs.copyFileSync(defaultConfigPath, configPath);
+}
+
+// For local development, prefer data/config.json if it exists
+if (
+  !process.env.DATA_DIR &&
+  !fs.existsSync(localDataConfigPath) &&
+  fs.existsSync(defaultConfigPath)
+) {
+  // Create data directory and copy config if it doesn't exist
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  if (fs.existsSync(defaultConfigPath)) {
+    fs.copyFileSync(defaultConfigPath, localDataConfigPath);
+  }
 }
 
 // Defaults ensure any field added to the codebase after a deployment
@@ -23,7 +42,6 @@ const DEFAULTS: AppConfig = {
   adminPassword: 'admin',
   jwtSecret: 'change-this-secret-in-production',
   questionTimeSec: 20,
-  lobbyTimeoutMin: 30,
   defaultBaseScore: 500,
   speedBonusMax: 200,
   speedBonusMin: 10,

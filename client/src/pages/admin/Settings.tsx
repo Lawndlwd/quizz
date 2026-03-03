@@ -125,7 +125,7 @@ export default function Settings() {
     if (!cfg) return;
     setSaving(true);
     const payload: Record<string, unknown> = { ...cfg };
-    if (newPassword.trim()) payload.adminPassword = newPassword.trim();
+    // Password changes now go through separate endpoint (changePassword function)
     await fetch('/api/admin/config', {
       method: 'PUT',
       headers,
@@ -133,7 +133,6 @@ export default function Settings() {
     });
     setSaving(false);
     setSaved(true);
-    setNewPassword('');
     setTimeout(() => setSaved(false), 2500);
   }
 
