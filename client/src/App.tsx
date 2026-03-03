@@ -11,6 +11,7 @@ import Settings from './pages/admin/Settings';
 import Game from './pages/play/Game';
 import Join from './pages/play/Join';
 
+
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin, checking } = useAuth();
   if (checking)
