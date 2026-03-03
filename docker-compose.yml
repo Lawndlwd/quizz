@@ -12,21 +12,21 @@ services:
     volumes:
       - ./data:/data
 
-  # caddy:
-  #   image: caddy:latest
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - app
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   environment:
-  #     - DOMAIN=${DOMAIN:-}
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile
-  #     - ./site:/srv
-  #     - caddy_data:/data
-  #     - caddy_config:/config
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./site:/srv
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   caddy_data:
