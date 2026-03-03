@@ -64,6 +64,14 @@ export async function initDb(): Promise<void> {
       answer_order INTEGER NOT NULL DEFAULT 0,
       answered_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS admins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_password_change TEXT
+    );
   `);
 
   // Column migrations (safe to run multiple times)
@@ -78,6 +86,29 @@ export async function initDb(): Promise<void> {
       await db.run(sql);
     } catch {
       /* column already exists */
+    }
+  }
+
+  // Migrate admin from config to database if needed
+  const adminCount = await db.get('SELECT COUNT(*) as count FROM admins');
+  if (adminCount.count === 0) {
+    // Only create default admin if none exists
+    const defaultAdmin = {
+      username: process.env.ADMIN_USERNAME || 'admin',
+      password: process.env.ADMIN_PASSWORD || 'admin',
+    };
+
+    // Check if using default credentials
+    const isDefault = defaultAdmin.username === 'admin' && defaultAdmin.password === 'admin';
+
+    if (!isDefault) {
+      // Only hash non-default passwords
+      const bcrypt = await import('bcrypt');
+      const hashedPassword = await bcrypt.hash(defaultAdmin.password, 12);
+      await db.run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [
+        defaultAdmin.username,
+        hashedPassword,
+      ]);
     }
   }
 }
