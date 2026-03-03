@@ -13,6 +13,7 @@ services:
       - quizz-data:/data
       # Avatars live on the host — drop image files here and they appear in the picker
       - ./avatars:/data/avatars
+      - ./data:/data  # Add this line to mount local data directory
 
   caddy:
     image: caddy:latest
