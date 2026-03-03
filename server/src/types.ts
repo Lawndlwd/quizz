@@ -8,17 +8,17 @@ export interface GameSettings {
 export interface AppConfig {
   port: number;
   appName: string;
+  appSubtitle: string;
   adminUsername: string;
   adminPassword: string;
   jwtSecret: string;
   questionTimeSec: number;
   lobbyTimeoutMin: number;
   defaultBaseScore: number;
-  speedBonuses: number[];
-  defaultSpeedBonus: number;
+  speedBonusMax: number;
+  speedBonusMin: number;
   maxPlayersPerSession: number;
   showLeaderboardAfterQuestion: boolean;
-  allowLateJoin: boolean;
   streakBonusEnabled: boolean;
   streakMinimum: number;
   streakBonusBase: number;

@@ -15,7 +15,9 @@ app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
 
 // ── Public config (no auth) ───────────────────────────────────────────────────
-app.get('/api/public', (_req, res) => res.json({ appName: config.appName ?? '' }));
+app.get('/api/public', (_req, res) =>
+  res.json({ appName: config.appName ?? '', appSubtitle: config.appSubtitle ?? '' }),
+);
 
 // ── Avatars ──────────────────────────────────────────────────────────────────
 initAvatars();

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AvatarDisplay,
@@ -15,7 +15,7 @@ export default function Join() {
   const navigate = useNavigate();
   const socket = getSocket();
 
-  const { appName } = useApp();
+  const { appName, appSubtitle } = useApp();
   const [pin, setPin] = useState(pinParam ?? '');
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState<string>(loadSavedAvatar);
@@ -23,14 +23,51 @@ export default function Join() {
   const [joining, setJoining] = useState(false);
   const [step, setStep] = useState<'form' | 'avatar'>('form');
 
-  useSocketEvent<{ playerId: number; sessionId: number; status: string }>(
+  // Auto-rejoin: if we have a previous session in sessionStorage, reconnect automatically
+  useEffect(() => {
+    const storedPlayerId = sessionStorage.getItem('playerId');
+    const storedUsername = sessionStorage.getItem('username');
+    const storedPin = sessionStorage.getItem('pin');
+    const storedAvatar = sessionStorage.getItem('avatar');
+    const storedSessionId = sessionStorage.getItem('sessionId');
+
+    if (!storedPlayerId || !storedUsername || !storedPin || !storedSessionId) return;
+
+    setJoining(true);
+
+    function doRejoin() {
+      socket.emit('player:join', {
+        pin: storedPin,
+        username: storedUsername,
+        avatar: storedAvatar ?? '',
+      });
+    }
+
+    if (socket.connected) {
+      doRejoin();
+    } else {
+      socket.connect();
+      socket.once('connect', doRejoin);
+    }
+
+    return () => {
+      socket.off('connect', doRejoin);
+    };
+  }, [socket]);
+
+  useSocketEvent<{ playerId: number; sessionId: number; status: string; username?: string }>(
     'player:joined',
     (data) => {
       sessionStorage.setItem('playerId', String(data.playerId));
-      sessionStorage.setItem('username', username.trim());
-      sessionStorage.setItem('avatar', avatar);
-      sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
-      saveAvatar(avatar);
+      sessionStorage.setItem('sessionId', String(data.sessionId));
+      // Only overwrite sessionStorage with form values when user actually filled the form
+      // (not during auto-rejoin where local state is still at defaults)
+      if (username.trim()) {
+        sessionStorage.setItem('username', data.username ?? username.trim());
+        sessionStorage.setItem('avatar', avatar);
+        sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
+        saveAvatar(avatar);
+      }
       navigate(`/play/game/${data.sessionId}`);
     },
   );
@@ -39,6 +76,10 @@ export default function Join() {
     setError(data.message);
     setJoining(false);
     setStep('form');
+    // Clear stale session data so auto-rejoin doesn't loop
+    sessionStorage.removeItem('playerId');
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('pin');
   });
 
   function handleFormNext(e: FormEvent) {
@@ -60,12 +101,19 @@ export default function Join() {
   function handleJoin() {
     setError('');
     setJoining(true);
-    socket.connect();
-    socket.emit('player:join', {
+
+    const payload = {
       pin: pin.trim().replace(/\s/g, ''),
       username: username.trim(),
       avatar,
-    });
+    };
+
+    if (socket.connected) {
+      socket.emit('player:join', payload);
+    } else {
+      socket.connect();
+      socket.once('connect', () => socket.emit('player:join', payload));
+    }
   }
 
   return (
@@ -93,6 +141,11 @@ export default function Join() {
               '⚡ Quizz'
             )}
           </div>
+          {appSubtitle && step === 'form' && (
+            <p className="mt-2" style={{ color: 'var(--text)', fontSize: '1rem', fontWeight: 500 }}>
+              {appSubtitle}
+            </p>
+          )}
           <p className="subtitle mt-2">
             {step === 'form'
               ? `Enter a PIN to join${appName ? ` ${appName}` : ''}`

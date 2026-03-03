@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from '
 
 interface AppContextValue {
   appName: string;
+  appSubtitle: string;
   /** Full display string: "Scaleway by ⚡ Quizz" or "⚡ Quizz" */
   displayName: string;
   /** Short brand string: "Scaleway" or "⚡ Quizz" */
@@ -10,26 +11,30 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue>({
   appName: '',
+  appSubtitle: '',
   displayName: '⚡ Quizz',
   brandName: '⚡ Quizz',
 });
 
-function buildDisplay(appName: string): AppContextValue {
+function buildDisplay(appName: string, appSubtitle: string): AppContextValue {
   const trimmed = appName.trim();
   return {
     appName: trimmed,
+    appSubtitle: appSubtitle.trim(),
     displayName: trimmed ? `${trimmed} by ⚡ Quizz` : '⚡ Quizz',
     brandName: trimmed || '⚡ Quizz',
   };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [value, setValue] = useState<AppContextValue>(buildDisplay(''));
+  const [value, setValue] = useState<AppContextValue>(buildDisplay('', ''));
 
   useEffect(() => {
     fetch('/api/public')
       .then((r) => r.json())
-      .then(({ appName }: { appName: string }) => setValue(buildDisplay(appName)))
+      .then(({ appName, appSubtitle }: { appName: string; appSubtitle: string }) =>
+        setValue(buildDisplay(appName, appSubtitle ?? '')),
+      )
       .catch(() => {});
   }, []);
 

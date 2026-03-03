@@ -517,9 +517,9 @@ tbody tr:hover td {
 }
 .timer-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  gap: 8px;
   margin: 16px 0 0;
 }
 .timer-value {
@@ -535,12 +535,11 @@ tbody tr:hover td {
   animation: pulse 0.6s infinite alternate;
 }
 .progress-bar {
-  flex: 1;
+  width: 100%;
   height: 8px;
   background: var(--border);
   border-radius: 4px;
   overflow: hidden;
-  max-width: 260px;
 }
 .progress-fill {
   height: 100%;
@@ -1010,4 +1009,219 @@ tbody tr:hover td {
 }
 .podium-column {
   animation-fill-mode: both;
+}
+
+/* ── Game countdown (3-2-1-GO) ───────────────────────────── */
+.countdown-number {
+  font-size: clamp(6rem, 20vw, 12rem);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: countdownPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  filter: drop-shadow(0 0 40px rgba(168, 85, 247, 0.3));
+}
+
+@keyframes countdownPop {
+  0% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Staggered option fade-up ────────────────────────────── */
+.option-stagger {
+  animation: optionSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes optionSlideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ── Answer counter (player view) ────────────────────────── */
+.answer-counter {
+  font-size: 0.82rem;
+  color: var(--text2);
+  margin-top: 8px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ── Timer bar color shift ───────────────────────────────── */
+.progress-fill.warning {
+  background: linear-gradient(90deg, var(--warn), #f97316);
+}
+
+/* ── Score pop on results ────────────────────────────────── */
+.score-pop {
+  display: inline-block;
+  animation: scoreBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-weight: 800;
+}
+@keyframes scoreBounce {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Result answer reveal animation ──────────────────────── */
+.result-reveal {
+  animation: resultReveal 0.3s ease both;
+}
+.result-reveal.correct {
+  animation: resultCorrectFlash 0.5s ease both;
+}
+.result-reveal.wrong {
+  animation: resultWrongShake 0.4s ease both;
+}
+@keyframes resultReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes resultCorrectFlash {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+@keyframes resultWrongShake {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* ── Result flash on my result alert ─────────────────────── */
+.result-flash-correct {
+  animation: flashGreen 0.6s ease;
+}
+.result-flash-wrong {
+  animation: flashRed 0.6s ease;
+}
+@keyframes flashGreen {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 24px 4px rgba(34, 197, 94, 0.3);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+@keyframes flashRed {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 24px 4px rgba(239, 68, 68, 0.3);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+/* ── Leaderboard slide-in ────────────────────────────────── */
+.lb-slide {
+  animation: lbSlideIn 0.35s ease both;
+}
+@keyframes lbSlideIn {
+  from {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Confetti ────────────────────────────────────────────── */
+.confetti-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 200;
+}
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: hsl(var(--h, 0) 90% 65%);
+  animation: confettiFall var(--d, 1.2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes confettiFall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) translateX(var(--x, 0)) rotate(var(--r, 360deg));
+    opacity: 0;
+  }
 }

@@ -7,15 +7,28 @@ interface Props {
   onPlayAgain: () => void;
 }
 
+const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+function getRankMessage(rank: number, total: number): { icon: string; title: string } {
+  if (rank === 1) return { icon: '🏆', title: 'Champion!' };
+  if (rank === 2) return { icon: '🥈', title: 'Almost there!' };
+  if (rank === 3) return { icon: '🥉', title: 'On the podium!' };
+  if (rank <= Math.ceil(total / 2)) return { icon: '💪', title: 'Well played!' };
+  return { icon: '🎮', title: 'Nice try!' };
+}
+
 export function EndedScreen({ leaderboard, username, onPlayAgain }: Props) {
   const myRank = leaderboard.find((e) => e.username === username);
+  const { icon, title } = myRank
+    ? getRankMessage(myRank.rank, leaderboard.length)
+    : { icon: '🏁', title: 'Game Over!' };
 
   return (
     <div className="page-center">
       <div className="card card-md">
         <div className="text-center mb-6">
-          <div style={{ fontSize: '3.5rem', marginBottom: 12 }}>🏁</div>
-          <h1>Game Over!</h1>
+          <div style={{ fontSize: '3.5rem', marginBottom: 12 }}>{icon}</div>
+          <h1>{title}</h1>
           {myRank && (
             <p className="subtitle mt-2">
               You finished <strong style={{ color: 'var(--accent2)' }}>#{myRank.rank}</strong> with{' '}
@@ -37,7 +50,7 @@ export function EndedScreen({ leaderboard, username, onPlayAgain }: Props) {
                   : {}
               }
             >
-              <div className="lb-rank">{e.rank}</div>
+              <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
               <AvatarDisplay avatar={e.avatar} size={30} />
               <div className="lb-name">
                 {e.username}
