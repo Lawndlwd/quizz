@@ -11,6 +11,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
     volumes:
       - ./data:/data
+      - ./avatars:/data/avatars
 
   caddy:
     image: caddy:latest
