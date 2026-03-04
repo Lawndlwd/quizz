@@ -24,9 +24,6 @@ initAvatars();
 app.use('/avatars', express.static(avatarsDir));
 app.get('/api/avatars', (_req, res) => res.json(listAvatars()));
 
-// ── Health check ─────────────────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-
 app.use('/api/admin', adminRouter);
 
 // In production serve the built React app
