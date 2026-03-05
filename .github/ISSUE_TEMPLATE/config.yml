@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or Support Request
+    url: https://github.com/Lawndlwd/quizz/discussions
+    about: Please ask questions and get support in our discussions
+  - name: Security Vulnerability
+    url: mailto:lwdlwd95@gmail.com
+    about: Please report security vulnerabilities responsibly

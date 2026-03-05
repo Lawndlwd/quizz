@@ -8,3 +8,5 @@ server/dist
 *.db-wal
 *.db-shm
 .env
+*.md
+.github
