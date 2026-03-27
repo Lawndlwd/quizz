@@ -14,7 +14,19 @@ adminRouter.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body as { username: string; password: string };
 
   try {
-    // Check database for admin
+    // 1. Check env super-admin first (never stored in DB)
+    const envUser = process.env.ADMIN_USERNAME || 'admin';
+    const envPass = process.env.ADMIN_PASSWORD;
+    if (envPass && username === envUser && password === envPass) {
+      const token = jwt.sign(
+        { username: envUser, adminId: 0, isSuperAdmin: true },
+        config.jwtSecret,
+        { expiresIn: '7d' },
+      );
+      return res.json({ token });
+    }
+
+    // 2. Check database for admin
     const admin = await db.get('SELECT * FROM admins WHERE username = ?', [username]);
 
     if (!admin) {
@@ -47,6 +59,12 @@ adminRouter.post('/logout', (_req, res) => {
 });
 
 adminRouter.post('/change-password', requireAdmin, async (req: Request, res: Response) => {
+  if ((req as any).user.isSuperAdmin) {
+    return res
+      .status(400)
+      .json({ error: 'Super admin password is managed via environment variables' });
+  }
+
   const { currentPassword, newPassword, newUsername } = req.body as {
     currentPassword: string;
     newPassword?: string;
@@ -96,9 +114,41 @@ adminRouter.post('/change-password', requireAdmin, async (req: Request, res: Res
 });
 
 adminRouter.get('/me', requireAdmin, async (req, res) => {
-  const adminId = (req as any).user.adminId;
-  const admin = await db.get('SELECT username FROM admins WHERE id = ?', [adminId]);
-  res.json({ ok: true, username: admin?.username });
+  const user = (req as any).user;
+  if (user.isSuperAdmin) {
+    return res.json({ ok: true, username: user.username, isSuperAdmin: true });
+  }
+  const admin = await db.get('SELECT username FROM admins WHERE id = ?', [user.adminId]);
+  res.json({ ok: true, username: admin?.username, isSuperAdmin: false });
+});
+
+// ─── Admin Management (super admin only) ────────────────────────────────────
+
+adminRouter.get('/admins', requireAdmin, async (req, res) => {
+  if (!(req as any).user.isSuperAdmin) {
+    return res.status(403).json({ error: 'Only super admin can list admins' });
+  }
+  const admins = await db.all(
+    'SELECT id, username, created_at, last_password_change FROM admins',
+  );
+  res.json({ admins });
+});
+
+adminRouter.post('/admins/:id/reset-password', requireAdmin, async (req, res) => {
+  if (!(req as any).user.isSuperAdmin) {
+    return res.status(403).json({ error: 'Only super admin can reset passwords' });
+  }
+  const { newPassword } = req.body as { newPassword?: string };
+  if (!newPassword) {
+    return res.status(400).json({ error: 'newPassword required' });
+  }
+  const bcrypt = await import('bcrypt');
+  const hash = await bcrypt.hash(newPassword, 12);
+  await db.run(
+    'UPDATE admins SET password_hash = ?, last_password_change = datetime("now") WHERE id = ?',
+    [hash, req.params.id],
+  );
+  res.json({ success: true });
 });
 
 // ─── Config ───────────────────────────────────────────────────────────────────
