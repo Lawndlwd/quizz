@@ -2,6 +2,13 @@
 
 Self-hosted real-time multiplayer quiz platform. Players join with a room code from any device — no app, no account.
 
+
+
+
+https://github.com/user-attachments/assets/7fb399b8-2768-45ca-8501-c9042cfe27e7
+
+
+
 ## Deploy
 
 ```sh
