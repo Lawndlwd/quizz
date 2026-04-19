@@ -565,10 +565,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         sessionId: number;
         questionId: number;
         chosenIndex: number;
+        chosenIndices?: number[];
         playerId: number;
         chosenText?: string;
       }) => {
-        const { sessionId, questionId, chosenIndex, playerId, chosenText } = data;
+        const { sessionId, questionId, chosenIndex, chosenIndices, playerId, chosenText } = data;
 
         const pin = sessionIdToPin.get(sessionId);
         const state = pin ? activeSessions.get(pin) : undefined;
@@ -592,6 +593,13 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           const submitted = (chosenText ?? '').toLowerCase().trim();
           const expected = (currentQ.correct_answer ?? '').toLowerCase().trim();
           isCorrect = submitted.length > 0 && submitted === expected;
+        } else if (currentQ.question_type === 'multi_select') {
+          const correctIndices = JSON.parse(currentQ.correct_indices ?? '[]') as number[];
+          const chosen = chosenIndices ?? [];
+          isCorrect =
+            chosen.length === correctIndices.length &&
+            correctIndices.every((i) => chosen.includes(i)) &&
+            chosen.every((i) => correctIndices.includes(i));
         } else {
           isCorrect = chosenIndex === currentQ.correct_index;
         }
@@ -627,10 +635,19 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         }
 
         const answerOrder = answered.size;
-        const storedIndex = currentQ.question_type === 'open_text' ? -1 : chosenIndex;
+        const storedIndex =
+          currentQ.question_type === 'open_text'
+            ? -1
+            : currentQ.question_type === 'multi_select'
+              ? -3
+              : chosenIndex;
+        const storedChosenIndices =
+          currentQ.question_type === 'multi_select'
+            ? JSON.stringify(chosenIndices ?? [])
+            : null;
 
         await db.run(
-          'INSERT INTO answers (player_id, session_id, question_id, chosen_index, is_correct, score, answer_order, chosen_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO answers (player_id, session_id, question_id, chosen_index, is_correct, score, answer_order, chosen_text, chosen_indices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           playerId,
           sessionId,
           questionId,
@@ -639,6 +656,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           score,
           answerOrder,
           chosenText ?? null,
+          storedChosenIndices,
         );
 
         if (isCorrect) {
@@ -857,6 +875,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
         player_id: number;
         username: string;
         chosen_index: number;
+        chosen_indices: string | null;
         is_correct: number;
         score: number;
         chosen_text: string | null;
@@ -877,6 +896,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
         username: p.username,
         totalScore: p.total_score,
         chosenIndex: ans?.chosen_index ?? null,
+        chosenIndices: ans?.chosen_indices ? (JSON.parse(ans.chosen_indices) as number[]) : null,
         chosenText: ans?.chosen_text ?? null,
         isCorrect: (ans?.is_correct ?? 0) === 1,
         questionScore: ans?.score ?? 0,
@@ -885,11 +905,16 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
     });
 
     const autoAdvanceSec = config.resultsAutoAdvanceSec ?? 5;
+    const correctIndices =
+      q.question_type === 'multi_select' && q.correct_indices
+        ? (JSON.parse(q.correct_indices) as number[])
+        : undefined;
 
     const resultsPayload = {
       questionId,
       questionText: q.text,
       correctIndex: q.correct_index,
+      correctIndices,
       correctAnswer: q.correct_answer,
       questionType: q.question_type,
       options: JSON.parse(q.options) as string[],

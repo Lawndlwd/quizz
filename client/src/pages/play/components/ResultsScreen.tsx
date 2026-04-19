@@ -10,6 +10,7 @@ interface Props {
 export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
   const myEntry = results.leaderboard.find((e) => e.playerId === playerId);
   const isOpenText = (results.questionType as QuestionType) === 'open_text';
+  const isMultiSelect = (results.questionType as QuestionType) === 'multi_select';
 
   return (
     <div
@@ -39,8 +40,12 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
         ) : (
           <div className="options-grid" style={{ padding: 0, gap: 8 }}>
             {results.options.map((opt, i) => {
-              const isCorrect = i === results.correctIndex;
-              const myChoice = myEntry?.chosenIndex === i;
+              const isCorrect = isMultiSelect
+                ? (results.correctIndices ?? []).includes(i)
+                : i === results.correctIndex;
+              const myChoice = isMultiSelect
+                ? (myEntry?.chosenIndices ?? []).includes(i)
+                : myEntry?.chosenIndex === i;
               return (
                 <div
                   key={String.fromCharCode(65 + i)}

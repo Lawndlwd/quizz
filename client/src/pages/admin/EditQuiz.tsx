@@ -35,6 +35,7 @@ export default function EditQuiz() {
               text: string;
               options: string[];
               correct_index: number;
+              correct_indices?: number[] | null;
               base_score: number;
               time_sec: number;
               image_url?: string;
@@ -44,6 +45,7 @@ export default function EditQuiz() {
               text: q.text,
               options: q.options,
               correctIndex: q.correct_index,
+              correctIndices: q.correct_indices ?? undefined,
               baseScore: q.base_score,
               timeSec: q.time_sec,
               imageUrl: q.image_url ?? undefined,
@@ -78,8 +80,15 @@ export default function EditQuiz() {
         setError(`Question ${i + 1} needs a correct answer`);
         return;
       }
-      if (type === 'multiple_choice' && q.options.some((o) => !o.trim())) {
+      if (
+        (type === 'multiple_choice' || type === 'multi_select') &&
+        q.options.some((o) => !o.trim())
+      ) {
         setError(`Question ${i + 1} has empty options`);
+        return;
+      }
+      if (type === 'multi_select' && (!q.correctIndices || q.correctIndices.length < 2)) {
+        setError(`Question ${i + 1} needs at least 2 correct answers selected`);
         return;
       }
     }
