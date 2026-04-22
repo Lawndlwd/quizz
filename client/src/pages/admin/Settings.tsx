@@ -53,7 +53,7 @@ function SpeedBonusPreview({ max, min }: { max: number; min: number }) {
 }
 
 export default function Settings() {
-  const { token } = useAuth();
+  const { token, isSuperAdmin } = useAuth();
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +66,13 @@ export default function Settings() {
   const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
   const [availableAvatars, setAvailableAvatars] = useState<string[] | null>(null);
   const [avatarsError, setAvatarsError] = useState<string | null>(null);
+
+  // Super admin: admin management
+  const [dbAdmins, setDbAdmins] = useState<
+    { id: number; username: string; created_at: string; last_password_change: string | null }[]
+  >([]);
+  const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({});
+  const [resettingId, setResettingId] = useState<number | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -93,7 +100,16 @@ export default function Settings() {
         setAvailableAvatars([]);
         setAvatarsError('Could not load current avatars.');
       });
-  }, [token]);
+
+    if (isSuperAdmin) {
+      fetch('/api/admin/admins', { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.admins) setDbAdmins(data.admins);
+        })
+        .catch(() => {});
+    }
+  }, [token, isSuperAdmin]);
 
   async function changePassword() {
     if (!currentPassword) {
@@ -393,51 +409,124 @@ export default function Settings() {
           </div>
 
           {/* Admin credentials */}
-          <div className="card">
-            <h2 className="mb-4">🔐 Admin Credentials</h2>
-            <p className="text-sm text-muted mb-4">
-              Current username: <strong style={{ color: 'var(--text)' }}>{adminUsername || '...'}</strong>
-            </p>
+          {isSuperAdmin ? (
+            <div className="card">
+              <h2 className="mb-4">🔐 Admin Management (Super Admin)</h2>
+              <div className="alert alert-warn mb-4" style={{ fontSize: '0.85rem' }}>
+                You are logged in as the super admin. Your password is managed via the
+                ADMIN_PASSWORD environment variable.
+              </div>
 
-            <div className="form-group">
-              <Input
-                label="Current Password (required to make changes)"
-                type="password"
-                autoComplete="off"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
-              />
-              <Input
-                label="New Username (leave blank to keep current)"
-                autoComplete="off"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                placeholder={adminUsername || 'admin'}
-              />
-              <Input
-                label="New Password (leave blank to keep current)"
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-                noMargin
-              />
-              <button
-                type="button"
-                onClick={changePassword}
-                disabled={changingPassword}
-                className="btn btn-primary mt-3"
-              >
-                {changingPassword ? 'Updating...' : 'Update Credentials'}
-              </button>
+              {dbAdmins.length === 0 ? (
+                <p className="text-sm text-muted">No database admins found.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {dbAdmins.map((admin) => (
+                    <div
+                      key={admin.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 14px',
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <strong style={{ flex: 1, minWidth: 100 }}>{admin.username}</strong>
+                      <Input
+                        label=""
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="New password"
+                        value={resetPasswords[admin.id] || ''}
+                        onChange={(e) =>
+                          setResetPasswords((prev) => ({ ...prev, [admin.id]: e.target.value }))
+                        }
+                        noMargin
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={resettingId === admin.id || !resetPasswords[admin.id]}
+                        onClick={async () => {
+                          setResettingId(admin.id);
+                          try {
+                            const res = await fetch(`/api/admin/admins/${admin.id}/reset-password`, {
+                              method: 'POST',
+                              headers,
+                              body: JSON.stringify({ newPassword: resetPasswords[admin.id] }),
+                            });
+                            if (res.ok) {
+                              alert(`Password reset for ${admin.username}`);
+                              setResetPasswords((prev) => ({ ...prev, [admin.id]: '' }));
+                            } else {
+                              const err = await res.json();
+                              alert(err.error || 'Reset failed');
+                            }
+                          } catch {
+                            alert('Reset failed');
+                          } finally {
+                            setResettingId(null);
+                          }
+                        }}
+                      >
+                        {resettingId === admin.id ? 'Resetting...' : 'Reset Password'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="card">
+              <h2 className="mb-4">🔐 Admin Credentials</h2>
+              <p className="text-sm text-muted mb-4">
+                Current username: <strong style={{ color: 'var(--text)' }}>{adminUsername || '...'}</strong>
+              </p>
 
-            <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
-              ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.
+              <div className="form-group">
+                <Input
+                  label="Current Password (required to make changes)"
+                  type="password"
+                  autoComplete="off"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                />
+                <Input
+                  label="New Username (leave blank to keep current)"
+                  autoComplete="off"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder={adminUsername || 'admin'}
+                />
+                <Input
+                  label="New Password (leave blank to keep current)"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  noMargin
+                />
+                <button
+                  type="button"
+                  onClick={changePassword}
+                  disabled={changingPassword}
+                  className="btn btn-primary mt-3"
+                >
+                  {changingPassword ? 'Updating...' : 'Update Credentials'}
+                </button>
+              </div>
+
+              <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
+                ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Avatar / emoji library */}
           <div className="card">
