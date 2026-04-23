@@ -82,6 +82,8 @@ export async function initDb(): Promise<void> {
     `ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT 'multiple_choice'`,
     `ALTER TABLE questions ADD COLUMN correct_answer TEXT`,
     `ALTER TABLE answers ADD COLUMN chosen_text TEXT`,
+    `ALTER TABLE questions ADD COLUMN correct_indices TEXT`,
+    `ALTER TABLE answers ADD COLUMN chosen_indices TEXT`,
   ];
   for (const sql of columnMigrations) {
     try {

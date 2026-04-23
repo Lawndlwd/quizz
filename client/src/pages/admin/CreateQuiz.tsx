@@ -22,6 +22,15 @@ const PLACEHOLDER = JSON.stringify(
         imageUrl: 'https://example.com/image.jpg',
       },
       {
+        text: 'Which of these are prime numbers?',
+        options: ['2', '4', '7', '9'],
+        correctIndex: 0,
+        correctIndices: [0, 2],
+        baseScore: 600,
+        timeSec: 25,
+        questionType: 'multi_select',
+      },
+      {
         text: 'The Earth is flat.',
         options: ['True', 'False'],
         correctIndex: 1,
@@ -107,8 +116,15 @@ export default function CreateQuiz() {
         setJsonError(`Question ${i + 1} needs a correct answer`);
         return;
       }
-      if (type === 'multiple_choice' && q.options.some((o) => !o.trim())) {
+      if (
+        (type === 'multiple_choice' || type === 'multi_select') &&
+        q.options.some((o) => !o.trim())
+      ) {
         setJsonError(`Question ${i + 1} has empty options`);
+        return;
+      }
+      if (type === 'multi_select' && (!q.correctIndices || q.correctIndices.length < 2)) {
+        setJsonError(`Question ${i + 1} needs at least 2 correct answers selected`);
         return;
       }
     }
@@ -154,7 +170,8 @@ export default function CreateQuiz() {
             <h2 className="mb-4">Paste JSON</h2>
             <div className="alert alert-info mb-4" style={{ fontSize: '0.85rem' }}>
               Use an AI (ChatGPT, Claude, etc.) to generate the JSON below. Supports{' '}
-              <strong>multiple_choice</strong>, <strong>true_false</strong>, and{' '}
+              <strong>multiple_choice</strong>, <strong>multi_select</strong> (use{' '}
+              <code>correctIndices</code> array), <strong>true_false</strong>, and{' '}
               <strong>open_text</strong> question types.
             </div>
             <div className="form-group">

@@ -1,4 +1,4 @@
-export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text';
+export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text' | 'multi_select';
 
 export interface Quiz {
   id: number;
@@ -14,6 +14,7 @@ export interface Question {
   text: string;
   options: string[];
   correct_index: number;
+  correct_indices?: number[];
   base_score: number;
   time_sec: number;
   order_index: number;
@@ -49,6 +50,7 @@ export interface LeaderboardEntry {
   username: string;
   totalScore: number;
   chosenIndex: number | null;
+  chosenIndices?: number[] | null;
   chosenText?: string | null;
   isCorrect: boolean;
   questionScore: number;
@@ -73,6 +75,7 @@ export interface QuestionResults {
   questionId: number;
   questionText: string;
   correctIndex: number;
+  correctIndices?: number[];
   correctAnswer: string | null;
   questionType: QuestionType;
   options: string[];
@@ -89,6 +92,7 @@ export interface ImportQuestion {
   text: string;
   options: string[];
   correctIndex: number;
+  correctIndices?: number[];
   baseScore: number;
   timeSec?: number;
   imageUrl?: string;

@@ -22,12 +22,13 @@ export interface AppConfig {
   resultsAutoAdvanceSec: number;
 }
 
-export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text';
+export type QuestionType = 'multiple_choice' | 'true_false' | 'open_text' | 'multi_select';
 
 export interface QuizQuestion {
   text: string;
   options: string[];
   correctIndex: number;
+  correctIndices?: number[];
   baseScore: number;
   timeSec?: number;
   imageUrl?: string;
@@ -55,6 +56,7 @@ export interface DbQuestion {
   text: string;
   options: string; // JSON string
   correct_index: number;
+  correct_indices: string | null; // JSON array string, used for multi_select
   base_score: number;
   time_sec: number;
   order_index: number;
@@ -89,6 +91,7 @@ export interface DbAnswer {
   session_id: number;
   question_id: number;
   chosen_index: number;
+  chosen_indices: string | null; // JSON array string, used for multi_select
   is_correct: number;
   score: number;
   answer_order: number;
@@ -106,6 +109,7 @@ export interface PlayerAnswerPayload {
   sessionId: number;
   questionId: number;
   chosenIndex: number;
+  chosenIndices?: number[];
   chosenText?: string;
 }
 

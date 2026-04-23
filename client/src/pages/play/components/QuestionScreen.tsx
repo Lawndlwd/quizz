@@ -4,6 +4,8 @@ interface Props {
   question: QuestionPayload;
   timeLeft: number;
   selectedIndex: number | null;
+  selectedIndices: number[];
+  multiSelectSubmitted: boolean;
   openTextInput: string;
   openTextSubmitted: boolean;
   eliminatedIndices: number[];
@@ -12,6 +14,8 @@ interface Props {
   jokersEnabled: { pass: boolean; fiftyFifty: boolean };
   jokersUsed: { pass: boolean; fiftyFifty: boolean };
   onAnswer: (index: number) => void;
+  onToggleMultiSelect: (index: number) => void;
+  onMultiSelectSubmit: () => void;
   onOpenTextChange: (value: string) => void;
   onOpenTextSubmit: () => void;
   onPassJoker: () => void;
@@ -22,6 +26,8 @@ export function QuestionScreen({
   question,
   timeLeft,
   selectedIndex,
+  selectedIndices,
+  multiSelectSubmitted,
   openTextInput,
   openTextSubmitted,
   eliminatedIndices,
@@ -30,6 +36,8 @@ export function QuestionScreen({
   jokersEnabled,
   jokersUsed,
   onAnswer,
+  onToggleMultiSelect,
+  onMultiSelectSubmit,
   onOpenTextChange,
   onOpenTextSubmit,
   onPassJoker,
@@ -39,9 +47,12 @@ export function QuestionScreen({
   const urgent = timeLeft <= 5;
   const isTrueFalse = question.questionType === 'true_false';
   const isOpenText = question.questionType === 'open_text';
+  const isMultiSelect = question.questionType === 'multi_select';
 
   // Timer bar color: green > 50%, yellow 20-50%, red < 20%
   const timerColorClass = pct > 50 ? '' : pct > 20 ? 'warning' : 'urgent';
+
+  const hasAnswered = selectedIndex !== null || openTextSubmitted || multiSelectSubmitted;
 
   return (
     <div className="page-vcenter">
@@ -67,6 +78,18 @@ export function QuestionScreen({
           <div className="question-text" style={{ marginTop: question.imageUrl ? 12 : 0 }}>
             {question.text}
           </div>
+          {isMultiSelect && (
+            <p
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text2)',
+                margin: '4px 0 0',
+                textAlign: 'center',
+              }}
+            >
+              Select all correct answers
+            </p>
+          )}
           <div className="timer-wrap">
             <div className="progress-bar">
               <div className={`progress-fill ${timerColorClass}`} style={{ width: `${pct}%` }} />
@@ -82,45 +105,43 @@ export function QuestionScreen({
         </div>
 
         {/* Joker buttons */}
-        {(jokersEnabled.pass || jokersEnabled.fiftyFifty) &&
-          selectedIndex === null &&
-          !openTextSubmitted && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                padding: '0 20px 4px',
-                justifyContent: 'flex-end',
-              }}
-            >
-              {jokersEnabled.pass && (
-                <button
-                  type="button"
-                  className="btn btn-warning btn-sm"
-                  disabled={jokersUsed.pass}
-                  title={
-                    jokersUsed.pass
-                      ? 'Pass already used'
-                      : 'Skip this question and receive the base score'
-                  }
-                  onClick={onPassJoker}
-                >
-                  {jokersUsed.pass ? '✓ Pass' : '⏭ Pass'}
-                </button>
-              )}
-              {jokersEnabled.fiftyFifty && !isTrueFalse && !isOpenText && (
-                <button
-                  type="button"
-                  className="btn btn-warning btn-sm"
-                  disabled={jokersUsed.fiftyFifty}
-                  title={jokersUsed.fiftyFifty ? '50/50 already used' : 'Eliminate 2 wrong answers'}
-                  onClick={onFiftyFiftyJoker}
-                >
-                  {jokersUsed.fiftyFifty ? '✓ 50/50' : '50/50'}
-                </button>
-              )}
-            </div>
-          )}
+        {(jokersEnabled.pass || jokersEnabled.fiftyFifty) && !hasAnswered && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              padding: '0 20px 4px',
+              justifyContent: 'flex-end',
+            }}
+          >
+            {jokersEnabled.pass && (
+              <button
+                type="button"
+                className="btn btn-warning btn-sm"
+                disabled={jokersUsed.pass}
+                title={
+                  jokersUsed.pass
+                    ? 'Pass already used'
+                    : 'Skip this question and receive the base score'
+                }
+                onClick={onPassJoker}
+              >
+                {jokersUsed.pass ? '✓ Pass' : '⏭ Pass'}
+              </button>
+            )}
+            {jokersEnabled.fiftyFifty && !isTrueFalse && !isOpenText && !isMultiSelect && (
+              <button
+                type="button"
+                className="btn btn-warning btn-sm"
+                disabled={jokersUsed.fiftyFifty}
+                title={jokersUsed.fiftyFifty ? '50/50 already used' : 'Eliminate 2 wrong answers'}
+                onClick={onFiftyFiftyJoker}
+              >
+                {jokersUsed.fiftyFifty ? '✓ 50/50' : '50/50'}
+              </button>
+            )}
+          </div>
+        )}
 
         {isTrueFalse ? (
           <div
@@ -197,6 +218,46 @@ export function QuestionScreen({
                 {openTextSubmitted ? 'Submitted!' : 'Submit Answer →'}
               </button>
             </div>
+          </div>
+        ) : isMultiSelect ? (
+          <div style={{ padding: '20px' }}>
+            <div className="options-grid" style={{ padding: 0 }}>
+              {question.options.map((opt, i) => {
+                const isSelected = selectedIndices.includes(i);
+                return (
+                  <button
+                    type="button"
+                    key={String.fromCharCode(65 + i)}
+                    disabled={multiSelectSubmitted}
+                    onClick={() => onToggleMultiSelect(i)}
+                    className={`option-btn option-stagger ${isSelected ? 'selected' : ''}`}
+                    style={{ animationDelay: `${i * 0.08}s` }}
+                  >
+                    <div
+                      className="option-letter"
+                      style={{
+                        background: isSelected ? 'var(--success)' : undefined,
+                        borderRadius: 6,
+                      }}
+                    >
+                      {isSelected ? '✓' : String.fromCharCode(65 + i)}
+                    </div>
+                    <div className="option-text">{opt}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={onMultiSelectSubmit}
+              disabled={multiSelectSubmitted || selectedIndices.length === 0}
+              className="btn btn-primary btn-full btn-lg"
+              style={{ marginTop: 16 }}
+            >
+              {multiSelectSubmitted
+                ? 'Submitted!'
+                : `Submit ${selectedIndices.length > 0 ? `(${selectedIndices.length} selected)` : ''} →`}
+            </button>
           </div>
         ) : (
           <div className="options-grid">

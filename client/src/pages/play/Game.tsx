@@ -26,6 +26,8 @@ export default function Game() {
   const [phase, setPhase] = useState<Phase>('waiting');
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [multiSelectSubmitted, setMultiSelectSubmitted] = useState(false);
   const [openTextInput, setOpenTextInput] = useState('');
   const [openTextSubmitted, setOpenTextSubmitted] = useState(false);
   const [answerResult, setAnswerResult] = useState<{
@@ -112,6 +114,8 @@ export default function Game() {
   useSocketEvent<QuestionPayload>('game:question', (data) => {
     setQuestion(data);
     setSelectedIndex(null);
+    setSelectedIndices([]);
+    setMultiSelectSubmitted(false);
     setOpenTextInput('');
     setOpenTextSubmitted(false);
     setAnswerResult(null);
@@ -202,6 +206,25 @@ export default function Game() {
     });
   }
 
+  function toggleMultiSelectIndex(index: number) {
+    if (multiSelectSubmitted) return;
+    setSelectedIndices((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
+    );
+  }
+
+  function submitMultiSelect() {
+    if (!question || phase !== 'question' || multiSelectSubmitted) return;
+    setMultiSelectSubmitted(true);
+    socket.emit('player:answer', {
+      sessionId: Number(sessionId),
+      questionId: question.questionId,
+      chosenIndex: -3,
+      chosenIndices: selectedIndices,
+      playerId,
+    });
+  }
+
   if (phase === 'waiting') return <WaitingScreen username={username} avatar={myAvatar} />;
 
   if (phase === 'countdown') return <CountdownScreen seconds={countdownSec} />;
@@ -212,6 +235,8 @@ export default function Game() {
         question={question}
         timeLeft={timeLeft}
         selectedIndex={selectedIndex}
+        selectedIndices={selectedIndices}
+        multiSelectSubmitted={multiSelectSubmitted}
         openTextInput={openTextInput}
         openTextSubmitted={openTextSubmitted}
         eliminatedIndices={eliminatedIndices}
@@ -220,6 +245,8 @@ export default function Game() {
         jokersEnabled={jokersEnabled}
         jokersUsed={jokersUsed}
         onAnswer={submitAnswer}
+        onToggleMultiSelect={toggleMultiSelectIndex}
+        onMultiSelectSubmit={submitMultiSelect}
         onOpenTextChange={setOpenTextInput}
         onOpenTextSubmit={submitOpenText}
         onPassJoker={() => {

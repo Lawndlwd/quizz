@@ -221,7 +221,11 @@ adminRouter.get('/quizzes/:id', requireAdmin, async (req: Request, res: Response
   );
   res.json({
     ...quiz,
-    questions: questions.map((q: DbQuestion) => ({ ...q, options: JSON.parse(q.options) })),
+    questions: questions.map((q: DbQuestion) => ({
+      ...q,
+      options: JSON.parse(q.options),
+      correct_indices: q.correct_indices ? JSON.parse(q.correct_indices) : null,
+    })),
   });
 });
 
@@ -242,7 +246,7 @@ adminRouter.post('/quizzes', requireAdmin, async (req: Request, res: Response) =
     for (let i = 0; i < body.questions.length; i++) {
       const q = body.questions[i];
       await db.run(
-        'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer, correct_indices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         quizId,
         q.text,
         JSON.stringify(q.options),
@@ -253,6 +257,7 @@ adminRouter.post('/quizzes', requireAdmin, async (req: Request, res: Response) =
         q.imageUrl ?? null,
         q.questionType ?? 'multiple_choice',
         q.correctAnswer ?? null,
+        q.correctIndices ? JSON.stringify(q.correctIndices) : null,
       );
     }
     await db.run('COMMIT');
@@ -284,7 +289,7 @@ adminRouter.put('/quizzes/:id', requireAdmin, async (req: Request, res: Response
     for (let i = 0; i < body.questions.length; i++) {
       const q = body.questions[i];
       await db.run(
-        'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer, correct_indices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         req.params.id,
         q.text,
         JSON.stringify(q.options),
@@ -295,6 +300,7 @@ adminRouter.put('/quizzes/:id', requireAdmin, async (req: Request, res: Response
         q.imageUrl ?? null,
         q.questionType ?? 'multiple_choice',
         q.correctAnswer ?? null,
+        q.correctIndices ? JSON.stringify(q.correctIndices) : null,
       );
     }
     await db.run('COMMIT');
@@ -389,7 +395,11 @@ adminRouter.get('/sessions/:id', requireAdmin, async (req: Request, res: Respons
   res.json({
     session,
     players,
-    questions: questions.map((q: DbQuestion) => ({ ...q, options: JSON.parse(q.options) })),
+    questions: questions.map((q: DbQuestion) => ({
+      ...q,
+      options: JSON.parse(q.options),
+      correct_indices: q.correct_indices ? JSON.parse(q.correct_indices) : null,
+    })),
     answers,
   });
 });

@@ -28,10 +28,16 @@ export function QuestionEditor({ q, qi, onChange, onRemove, canRemove }: Props) 
     if (t === 'true_false') {
       onChange('options', ['True', 'False']);
       onChange('correctIndex', 0);
+      onChange('correctIndices', undefined);
     } else if (t === 'open_text') {
       onChange('options', []);
+      onChange('correctIndices', undefined);
+    } else if (t === 'multi_select') {
+      if ((q.options ?? []).length < 2) onChange('options', ['', '', '', '']);
+      onChange('correctIndices', [0]);
     } else {
       if ((q.options ?? []).length < 2) onChange('options', ['', '', '', '']);
+      onChange('correctIndices', undefined);
     }
   }
 
@@ -47,10 +53,26 @@ export function QuestionEditor({ q, qi, onChange, onRemove, canRemove }: Props) 
 
   function removeOption(oi: number) {
     const opts = (q.options ?? []).filter((_, i) => i !== oi);
-    const newCorrect =
-      q.correctIndex >= oi && q.correctIndex > 0 ? q.correctIndex - 1 : q.correctIndex;
+    if (type === 'multi_select') {
+      const newIndices = (q.correctIndices ?? [])
+        .filter((i) => i !== oi)
+        .map((i) => (i > oi ? i - 1 : i));
+      onChange('correctIndices', newIndices);
+    } else {
+      const newCorrect =
+        q.correctIndex >= oi && q.correctIndex > 0 ? q.correctIndex - 1 : q.correctIndex;
+      onChange('correctIndex', Math.min(newCorrect, opts.length - 1));
+    }
     onChange('options', opts);
-    onChange('correctIndex', Math.min(newCorrect, opts.length - 1));
+  }
+
+  function toggleCorrectIndex(oi: number) {
+    const current = q.correctIndices ?? [];
+    if (current.includes(oi)) {
+      onChange('correctIndices', current.filter((i) => i !== oi));
+    } else {
+      onChange('correctIndices', [...current, oi]);
+    }
   }
 
   return (
@@ -105,20 +127,24 @@ export function QuestionEditor({ q, qi, onChange, onRemove, canRemove }: Props) 
       <div className="form-group">
         <p className="form-label">Question Type</p>
         <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-          {(['multiple_choice', 'true_false', 'open_text'] as QuestionType[]).map((t) => (
-            <button
-              type="button"
-              key={t}
-              onClick={() => setType(t)}
-              className={`btn btn-sm ${type === t ? 'btn-primary' : 'btn-ghost'}`}
-            >
-              {t === 'multiple_choice'
-                ? 'Multiple Choice'
-                : t === 'true_false'
-                  ? 'True / False'
-                  : 'Open Text'}
-            </button>
-          ))}
+          {(['multiple_choice', 'multi_select', 'true_false', 'open_text'] as QuestionType[]).map(
+            (t) => (
+              <button
+                type="button"
+                key={t}
+                onClick={() => setType(t)}
+                className={`btn btn-sm ${type === t ? 'btn-primary' : 'btn-ghost'}`}
+              >
+                {t === 'multiple_choice'
+                  ? 'Single Choice'
+                  : t === 'multi_select'
+                    ? 'Multiple Answers'
+                    : t === 'true_false'
+                      ? 'True / False'
+                      : 'Open Text'}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -153,7 +179,7 @@ export function QuestionEditor({ q, qi, onChange, onRemove, canRemove }: Props) 
         />
       )}
 
-      {/* Options */}
+      {/* Options for single choice */}
       {type === 'multiple_choice' && (
         <div className="mb-3">
           <p
@@ -205,6 +231,80 @@ export function QuestionEditor({ q, qi, onChange, onRemove, canRemove }: Props) 
               )}
             </div>
           ))}
+          <button
+            type="button"
+            onClick={addOption}
+            className="btn btn-ghost btn-sm mt-1"
+            style={{ fontSize: '0.8rem' }}
+          >
+            + Add Option
+          </button>
+        </div>
+      )}
+
+      {/* Options for multi select */}
+      {type === 'multi_select' && (
+        <div className="mb-3">
+          <p
+            style={{
+              display: 'block',
+              fontSize: '0.82rem',
+              color: 'var(--text2)',
+              marginBottom: 4,
+              fontWeight: 500,
+            }}
+          >
+            Answer Options{' '}
+            <span style={{ fontWeight: 400, color: 'var(--text3)' }}>
+              — check all correct answers
+            </span>
+          </p>
+          {(q.options ?? []).map((opt, oi) => {
+            const isChecked = (q.correctIndices ?? []).includes(oi);
+            return (
+              <div key={String.fromCharCode(65 + oi)} className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => toggleCorrectIndex(oi)}
+                  title={isChecked ? 'Mark as incorrect' : 'Mark as correct'}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: isChecked ? 'var(--success)' : 'var(--border)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    flexShrink: 0,
+                    color: isChecked ? '#fff' : 'var(--text2)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isChecked ? '✓' : String.fromCharCode(65 + oi)}
+                </button>
+                <Input
+                  style={{ flex: 1, marginBottom: 0 }}
+                  value={opt}
+                  onChange={(e) => updateOption(oi, e.target.value)}
+                  placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                />
+                {(q.options ?? []).length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(oi)}
+                    className="btn-icon"
+                    style={{ flexShrink: 0 }}
+                    title="Remove option"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
           <button
             type="button"
             onClick={addOption}
