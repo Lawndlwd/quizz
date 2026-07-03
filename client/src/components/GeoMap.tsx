@@ -7,10 +7,11 @@ export interface LatLng {
   lng: number;
 }
 
-// Wikimedia's "osm-intl" raster layer prefers English / romanised place names.
-const TILE_URL = 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png';
+// Standard OpenStreetMap raster tiles. Wikimedia's osm-intl layer 403s for
+// non-Wikimedia referers (their tiles are for Wikimedia projects only).
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Wikimedia';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const MAP_OPTS: L.MapOptions = {
   worldCopyJump: true,
@@ -94,8 +95,9 @@ export function MapPicker({
       onChangeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
     mapRef.current = map;
-    setTimeout(() => map.invalidateSize(), 60);
+    const t = setTimeout(() => map.invalidateSize(), 60);
     return () => {
+      clearTimeout(t);
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
@@ -209,8 +211,9 @@ export function MapReveal({
       map.setView([correct.lat, correct.lng], 4);
     }
     mapRef.current = map;
-    setTimeout(() => map.invalidateSize(), 60);
+    const t = setTimeout(() => map.invalidateSize(), 60);
     return () => {
+      clearTimeout(t);
       map.remove();
       mapRef.current = null;
     };
