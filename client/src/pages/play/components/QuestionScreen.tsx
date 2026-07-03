@@ -1,4 +1,16 @@
-import type { QuestionPayload } from '../../../types';
+import { useState } from 'react';
+import { type LatLng, MapPicker } from '@/components/GeoMap';
+import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
+import { TimerBar } from '@/components/game/TimerBar';
+import { PageVCenter } from '@/components/layout';
+import { OptionText } from '@/components/OptionText';
+import { QuestionImage } from '@/components/QuestionImage';
+import { QuestionMedia } from '@/components/QuestionMedia';
+import { QuestionText } from '@/components/QuestionText';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { countBlanks, hasQuestionImage, quadColor } from '@/helpers';
+import type { QuestionPayload } from '@/types';
 
 interface Props {
   question: QuestionPayload;
@@ -8,6 +20,8 @@ interface Props {
   multiSelectSubmitted: boolean;
   openTextInput: string;
   openTextSubmitted: boolean;
+  closestValue: number;
+  closestSubmitted: boolean;
   eliminatedIndices: number[];
   answeredCount: number;
   totalPlayers: number;
@@ -18,8 +32,13 @@ interface Props {
   onMultiSelectSubmit: () => void;
   onOpenTextChange: (value: string) => void;
   onOpenTextSubmit: () => void;
+  onClosestChange: (value: number) => void;
+  onClosestSubmit: () => void;
   onPassJoker: () => void;
   onFiftyFiftyJoker: () => void;
+  onFillSubmit: (answers: string[]) => void;
+  onOrderSubmit: (order: number[]) => void;
+  onGeoSubmit: (lat: number, lng: number) => void;
 }
 
 export function QuestionScreen({
@@ -30,6 +49,8 @@ export function QuestionScreen({
   multiSelectSubmitted,
   openTextInput,
   openTextSubmitted,
+  closestValue,
+  closestSubmitted,
   eliminatedIndices,
   answeredCount,
   totalPlayers,
@@ -40,44 +61,117 @@ export function QuestionScreen({
   onMultiSelectSubmit,
   onOpenTextChange,
   onOpenTextSubmit,
+  onClosestChange,
+  onClosestSubmit,
   onPassJoker,
   onFiftyFiftyJoker,
+  onFillSubmit,
+  onOrderSubmit,
+  onGeoSubmit,
 }: Props) {
-  const pct = (timeLeft / question.timeSec) * 100;
-  const urgent = timeLeft <= 5;
   const isTrueFalse = question.questionType === 'true_false';
   const isOpenText = question.questionType === 'open_text';
+  const isClosestTo = question.questionType === 'closest_to';
   const isMultiSelect = question.questionType === 'multi_select';
+  const isMultipleChoice = question.questionType === 'multiple_choice';
+  const isFillBlank = question.questionType === 'fill_blank';
+  const isOrdering = question.questionType === 'ordering';
+  const isGeo = question.questionType === 'geo';
+  const rangeMin = question.rangeMin ?? 0;
+  const rangeMax = question.rangeMax ?? 100;
 
-  // Timer bar color: green > 50%, yellow 20-50%, red < 20%
-  const timerColorClass = pct > 50 ? '' : pct > 20 ? 'warning' : 'urgent';
+  // Ephemeral answer state for the newer types. Lazy-initialised from the
+  // question (this component remounts per question), then reset below if the
+  // same instance ever receives a new questionId.
+  const blankCount = question.blankCount ?? countBlanks(question.text);
+  const [fillValues, setFillValues] = useState<string[]>(() =>
+    Array.from({ length: blankCount }, () => ''),
+  );
+  const [order, setOrder] = useState<number[]>(() => question.options.map((_, i) => i));
+  const [localSubmitted, setLocalSubmitted] = useState(false);
+  const [pinPoint, setPinPoint] = useState<LatLng | null>(null);
 
-  const hasAnswered = selectedIndex !== null || openTextSubmitted || multiSelectSubmitted;
+  // Reset ephemeral answer state when a new question arrives — the React
+  // "reset state on prop change" pattern (runs during render, no effect needed).
+  const [renderedFor, setRenderedFor] = useState(question.questionId);
+  if (renderedFor !== question.questionId) {
+    setRenderedFor(question.questionId);
+    setFillValues(Array.from({ length: blankCount }, () => ''));
+    setOrder(question.options.map((_, i) => i));
+    setLocalSubmitted(false);
+    setPinPoint(null);
+  }
+
+  const hasAnswered =
+    selectedIndex !== null ||
+    openTextSubmitted ||
+    multiSelectSubmitted ||
+    closestSubmitted ||
+    localSubmitted;
+  const showImage = hasQuestionImage(question.imageUrl);
+
+  function submitFill() {
+    if (localSubmitted) return;
+    setLocalSubmitted(true);
+    onFillSubmit(fillValues);
+  }
+
+  function moveOrder(from: number, dir: -1 | 1) {
+    setOrder((prev) => {
+      const to = from + dir;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
+  }
+
+  function submitOrder() {
+    if (localSubmitted) return;
+    setLocalSubmitted(true);
+    onOrderSubmit(order);
+  }
+
+  function submitGeo() {
+    if (localSubmitted || !pinPoint) return;
+    setLocalSubmitted(true);
+    onGeoSubmit(pinPoint.lat, pinPoint.lng);
+  }
 
   return (
-    <div className="page-vcenter">
-      <div style={{ maxWidth: 700, margin: '0 auto', width: '100%' }}>
+    <PageVCenter>
+      <div
+        className={
+          showImage ? 'mx-auto w-full max-w-[min(900px,95vw)]' : 'mx-auto w-full max-w-[700px]'
+        }
+      >
         <div className="question-header">
           <div className="question-counter">
             Question {question.questionIndex + 1} of {question.totalQuestions}
           </div>
-          {question.imageUrl && (
-            <img
-              src={question.imageUrl}
-              alt="Question"
-              style={{
-                width: '100%',
-                maxHeight: 340,
-                borderRadius: 12,
-                margin: '12px 0 0',
-                display: 'block',
-                objectFit: 'cover',
-              }}
-            />
+          {question.mediaType ? (
+            <QuestionMedia url={question.mediaUrl} kind={question.mediaType} className="my-3" />
+          ) : (
+            <QuestionImage src={question.imageUrl} className="question-image" />
           )}
-          <div className="question-text" style={{ marginTop: question.imageUrl ? 12 : 0 }}>
-            {question.text}
+          <div
+            className="question-text"
+            style={{ marginTop: question.mediaType || showImage ? 12 : 0 }}
+          >
+            <QuestionText text={question.text} />
           </div>
+          {isClosestTo && (
+            <p
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text2)',
+                margin: '4px 0 0',
+                textAlign: 'center',
+              }}
+            >
+              Pick the closest number ({rangeMin}–{rangeMax})
+            </p>
+          )}
           {isMultiSelect && (
             <p
               style={{
@@ -90,12 +184,7 @@ export function QuestionScreen({
               Select all correct answers
             </p>
           )}
-          <div className="timer-wrap">
-            <div className="progress-bar">
-              <div className={`progress-fill ${timerColorClass}`} style={{ width: `${pct}%` }} />
-            </div>
-            <div className={`timer-value ${urgent ? 'urgent' : ''}`}>{timeLeft}</div>
-          </div>
+          <TimerBar timeLeft={timeLeft} totalSec={question.timeSec} className="mt-4 gap-3" />
           {/* Answer counter */}
           {totalPlayers > 0 && (
             <div className="answer-counter">
@@ -115,9 +204,10 @@ export function QuestionScreen({
             }}
           >
             {jokersEnabled.pass && (
-              <button
+              <Button
                 type="button"
-                className="btn btn-warning btn-sm"
+                variant="warning"
+                size="sm"
                 disabled={jokersUsed.pass}
                 title={
                   jokersUsed.pass
@@ -127,54 +217,104 @@ export function QuestionScreen({
                 onClick={onPassJoker}
               >
                 {jokersUsed.pass ? '✓ Pass' : '⏭ Pass'}
-              </button>
+              </Button>
             )}
-            {jokersEnabled.fiftyFifty && !isTrueFalse && !isOpenText && !isMultiSelect && (
-              <button
+            {jokersEnabled.fiftyFifty && isMultipleChoice && (
+              <Button
                 type="button"
-                className="btn btn-warning btn-sm"
+                variant="warning"
+                size="sm"
                 disabled={jokersUsed.fiftyFifty}
                 title={jokersUsed.fiftyFifty ? '50/50 already used' : 'Eliminate 2 wrong answers'}
                 onClick={onFiftyFiftyJoker}
               >
                 {jokersUsed.fiftyFifty ? '✓ 50/50' : '50/50'}
-              </button>
+              </Button>
             )}
           </div>
         )}
 
         {isTrueFalse ? (
-          <div
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, padding: '20px' }}
-          >
-            {['True', 'False'].map((label, i) => (
-              <button
-                type="button"
-                key={label}
-                disabled={selectedIndex !== null}
-                onClick={() => onAnswer(i)}
-                className={`option-btn option-stagger ${selectedIndex === i ? 'selected' : ''}`}
-                style={{
-                  justifyContent: 'center',
-                  fontSize: '1.2rem',
-                  fontWeight: 700,
-                  minHeight: 90,
-                  animationDelay: `${i * 0.08}s`,
-                  background:
-                    i === 0
-                      ? selectedIndex === 0
-                        ? undefined
-                        : 'rgba(34,197,94,.08)'
-                      : selectedIndex === 1
-                        ? undefined
-                        : 'rgba(239,68,68,.08)',
-                  borderColor: i === 0 ? 'var(--success)' : 'var(--danger)',
-                }}
-              >
-                <span style={{ fontSize: '1.8rem' }}>{i === 0 ? '✓' : '✗'}</span>
-                {label}
-              </button>
-            ))}
+          <QuadOptionGrid
+            className="p-5"
+            options={['True', 'False']}
+            selectedIndex={selectedIndex}
+            colorFor={(i) => (i === 0 ? '#1f9d57' : '#e2455a')}
+            badgeFor={(i) => (i === 0 ? '✓' : '✗')}
+            optionClassName="justify-center"
+            labelClassName="flex-none"
+            onSelect={onAnswer}
+          />
+        ) : isClosestTo ? (
+          <div style={{ padding: '20px' }}>
+            <div
+              className="option-stagger"
+              style={{
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '20px',
+              }}
+            >
+              {(() => {
+                const outOfRange =
+                  !Number.isInteger(closestValue) ||
+                  closestValue < rangeMin ||
+                  closestValue > rangeMax;
+                return (
+                  <>
+                    <label
+                      htmlFor="closest-answer"
+                      className="mb-2 block text-sm font-medium text-muted-foreground"
+                    >
+                      Your answer — whole number between {rangeMin} and {rangeMax}
+                    </label>
+                    <Input
+                      id="closest-answer"
+                      type="number"
+                      inputMode="numeric"
+                      min={rangeMin}
+                      max={rangeMax}
+                      step={1}
+                      value={Number.isNaN(closestValue) ? '' : closestValue}
+                      disabled={closestSubmitted}
+                      aria-invalid={outOfRange}
+                      onKeyDown={(e) => {
+                        if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                          e.preventDefault();
+                        } else if (e.key === 'Enter' && !closestSubmitted && !outOfRange) {
+                          onClosestSubmit();
+                        }
+                      }}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') return;
+                        const next = Math.trunc(Number(raw));
+                        if (!Number.isNaN(next)) onClosestChange(next);
+                      }}
+                      className="mb-2 text-center text-lg"
+                    />
+                    <p
+                      className={`mb-3 text-sm ${outOfRange ? 'text-destructive' : 'text-muted-foreground'}`}
+                    >
+                      {outOfRange
+                        ? `Enter a whole number from ${rangeMin} to ${rangeMax}.`
+                        : `Range: ${rangeMin} – ${rangeMax}`}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="lg"
+                      className="w-full"
+                      onClick={onClosestSubmit}
+                      disabled={closestSubmitted || outOfRange}
+                    >
+                      {closestSubmitted ? 'Submitted!' : 'Submit Answer →'}
+                    </Button>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         ) : isOpenText ? (
           <div style={{ padding: '20px' }}>
@@ -199,7 +339,7 @@ export function QuestionScreen({
               >
                 Your answer
               </label>
-              <input
+              <Input
                 id="open-text-answer"
                 type="text"
                 value={openTextInput}
@@ -207,79 +347,179 @@ export function QuestionScreen({
                 onKeyDown={(e) => e.key === 'Enter' && !openTextSubmitted && onOpenTextSubmit()}
                 disabled={openTextSubmitted}
                 placeholder="Type your answer…"
-                style={{ width: '100%', marginBottom: 12, fontSize: '1.1rem' }}
+                className="mb-3 text-lg"
               />
-              <button
+              <Button
                 type="button"
+                variant="default"
+                size="lg"
+                className="w-full"
                 onClick={onOpenTextSubmit}
                 disabled={openTextSubmitted || !openTextInput.trim()}
-                className="btn btn-primary btn-full btn-lg"
               >
                 {openTextSubmitted ? 'Submitted!' : 'Submit Answer →'}
-              </button>
+              </Button>
             </div>
           </div>
         ) : isMultiSelect ? (
-          <div style={{ padding: '20px' }}>
-            <div className="options-grid" style={{ padding: 0 }}>
-              {question.options.map((opt, i) => {
-                const isSelected = selectedIndices.includes(i);
-                return (
-                  <button
-                    type="button"
-                    key={String.fromCharCode(65 + i)}
-                    disabled={multiSelectSubmitted}
-                    onClick={() => onToggleMultiSelect(i)}
-                    className={`option-btn option-stagger ${isSelected ? 'selected' : ''}`}
-                    style={{ animationDelay: `${i * 0.08}s` }}
-                  >
-                    <div
-                      className="option-letter"
-                      style={{
-                        background: isSelected ? 'var(--success)' : undefined,
-                        borderRadius: 6,
-                      }}
-                    >
-                      {isSelected ? '✓' : String.fromCharCode(65 + i)}
-                    </div>
-                    <div className="option-text">{opt}</div>
-                  </button>
-                );
-              })}
-            </div>
-            <button
+          <div className="p-5">
+            <QuadOptionGrid
+              options={question.options}
+              selectedIndices={selectedIndices}
+              selectedBadge="✓"
+              disabled={multiSelectSubmitted}
+              onSelect={onToggleMultiSelect}
+            />
+            <Button
               type="button"
+              variant="default"
+              size="lg"
+              className="mt-4 w-full"
               onClick={onMultiSelectSubmit}
               disabled={multiSelectSubmitted || selectedIndices.length === 0}
-              className="btn btn-primary btn-full btn-lg"
-              style={{ marginTop: 16 }}
             >
               {multiSelectSubmitted
                 ? 'Submitted!'
                 : `Submit ${selectedIndices.length > 0 ? `(${selectedIndices.length} selected)` : ''} →`}
-            </button>
+            </Button>
+          </div>
+        ) : isFillBlank ? (
+          <div className="p-5">
+            <div
+              className="option-stagger"
+              style={{
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '20px',
+              }}
+            >
+              <p className="text-[1.05rem] leading-loose">
+                {question.text.split(/_{3,}/).map((frag, fi) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: fragments are positional
+                  <span key={fi}>
+                    {frag}
+                    {fi < blankCount && (
+                      <input
+                        type="text"
+                        value={fillValues[fi] ?? ''}
+                        disabled={localSubmitted}
+                        onChange={(e) =>
+                          setFillValues((v) => {
+                            const n = [...v];
+                            n[fi] = e.target.value;
+                            return n;
+                          })
+                        }
+                        onKeyDown={(e) => e.key === 'Enter' && submitFill()}
+                        placeholder={`#${fi + 1}`}
+                        className="mx-1 inline-block w-[120px] rounded-md border border-border bg-background px-2 py-1 text-center align-middle text-base"
+                      />
+                    )}
+                  </span>
+                ))}
+              </p>
+              <Button
+                type="button"
+                variant="default"
+                size="lg"
+                className="mt-4 w-full"
+                onClick={submitFill}
+                disabled={localSubmitted || fillValues.slice(0, blankCount).some((v) => !v.trim())}
+              >
+                {localSubmitted ? 'Submitted!' : 'Submit Answer →'}
+              </Button>
+            </div>
+          </div>
+        ) : isOrdering ? (
+          <div className="p-5">
+            <p className="mb-2 text-center text-sm" style={{ color: 'var(--text2)' }}>
+              Arrange the items into the correct order
+            </p>
+            <div className="flex flex-col gap-2">
+              {order.map((optIdx, pos) => (
+                <div
+                  key={optIdx}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-[var(--surface2)] p-3"
+                >
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.8rem] font-extrabold text-white"
+                    style={{ background: quadColor(pos) }}
+                  >
+                    {pos + 1}
+                  </span>
+                  <span className="flex-1">
+                    <OptionText value={question.options[optIdx]} imgClassName="option-img-sm" />
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={pos === 0 || localSubmitted}
+                    onClick={() => moveOrder(pos, -1)}
+                    title="Move up"
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={pos === order.length - 1 || localSubmitted}
+                    onClick={() => moveOrder(pos, 1)}
+                    title="Move down"
+                  >
+                    ↓
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="mt-4 w-full"
+              onClick={submitOrder}
+              disabled={localSubmitted}
+            >
+              {localSubmitted ? 'Submitted!' : 'Submit Order →'}
+            </Button>
+          </div>
+        ) : isGeo ? (
+          <div className="p-5">
+            <p className="mb-2 text-center text-sm" style={{ color: 'var(--text2)' }}>
+              Drop your pin on the map — closest to the real spot wins
+            </p>
+            <MapPicker
+              value={pinPoint}
+              onChange={localSubmitted ? () => {} : setPinPoint}
+              height="52vh"
+            />
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="mt-4 w-full"
+              onClick={submitGeo}
+              disabled={localSubmitted || !pinPoint}
+            >
+              {localSubmitted
+                ? 'Submitted!'
+                : pinPoint
+                  ? 'Submit pin →'
+                  : 'Tap the map to place your pin'}
+            </Button>
           </div>
         ) : (
-          <div className="options-grid">
-            {question.options.map((opt, i) => {
-              const isEliminated = eliminatedIndices.includes(i);
-              return (
-                <button
-                  type="button"
-                  key={String.fromCharCode(65 + i)}
-                  disabled={selectedIndex !== null || isEliminated}
-                  onClick={() => onAnswer(i)}
-                  className={`option-btn option-stagger ${selectedIndex === i ? 'selected' : ''} ${isEliminated ? 'eliminated' : ''}`}
-                  style={{ animationDelay: `${i * 0.08}s` }}
-                >
-                  <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                  <div className="option-text">{isEliminated ? '—' : opt}</div>
-                </button>
-              );
-            })}
-          </div>
+          <QuadOptionGrid
+            className="p-5"
+            options={question.options}
+            selectedIndex={selectedIndex}
+            eliminatedIndices={eliminatedIndices}
+            onSelect={onAnswer}
+          />
         )}
       </div>
-    </div>
+    </PageVCenter>
   );
 }

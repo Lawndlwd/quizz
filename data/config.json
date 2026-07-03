@@ -1,8 +1,9 @@
 {
   "port": 3000,
-  "appName": "",
+  "appName": "SCaleway",
   "appSubtitle": "",
   "jwtSecret": "change-this-secret-in-production",
+  "allowedDomain": "test.local",
   "questionTimeSec": 20,
   "defaultBaseScore": 500,
   "speedBonusMax": 200,
@@ -12,5 +13,6 @@
   "streakBonusEnabled": true,
   "streakMinimum": 2,
   "streakBonusBase": 50,
-  "resultsAutoAdvanceSec": 0
+  "resultsAutoAdvanceSec": 0,
+  "chooseQuizMaker": true
 }

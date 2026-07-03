@@ -1,15 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { type QuestionWithKey, withKey } from '@/helpers';
-import AdminNav from '../../components/AdminNav';
+import { AppAlert } from '@/components/AppAlert';
+import {
+  FormRow,
+  MainContent,
+  Page,
+  PageCenter,
+  SectionDivider,
+  Subtitle,
+} from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { QuizPreviewModal } from '@/components/QuizPreviewModal';
+import { mapDbQuestionToImport, type QuestionWithKey, validateQuizPayload, withKey } from '@/helpers';
+import CreatorNav from '../../components/CreatorNav';
 import { Input } from '../../components/Input';
-import { useAuth } from '../../context/AuthContext';
-import type { ImportPayload, ImportQuestion, QuestionType } from '../../types';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { useCreatorBase } from '../../hooks/useCreatorBase';
+import type { ImportPayload, ImportQuestion } from '../../types';
 import { blankQuestion, QuestionEditor } from './components/QuestionEditor';
 
 export default function EditQuiz() {
-  const { token } = useAuth();
+  const api = useAuthFetch();
   const navigate = useNavigate();
+  const basePath = useCreatorBase();
   const { id } = useParams<{ id: string }>();
 
   const [loading, setLoading] = useState(true);
@@ -19,40 +33,27 @@ export default function EditQuiz() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [coverImage, setCoverImage] = useState('');
   const [questions, setQuestions] = useState<QuestionWithKey[]>([]);
-
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/admin/quizzes/${id}`, { headers })
-      .then((r) => r.json())
-      .then((data) => {
+    api
+      .get<{ title: string; description: string; cover_image?: string | null; questions: unknown[] }>(
+        `/api/admin/quizzes/${id}`,
+      )
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setError('Failed to load quiz');
+          setLoading(false);
+          return;
+        }
         setTitle(data.title ?? '');
         setDescription(data.description ?? '');
+        setCoverImage(data.cover_image ?? '');
         setQuestions(
-          (data.questions ?? []).map(
-            (q: {
-              text: string;
-              options: string[];
-              correct_index: number;
-              correct_indices?: number[] | null;
-              base_score: number;
-              time_sec: number;
-              image_url?: string;
-              question_type?: QuestionType;
-              correct_answer?: string;
-            }) => ({
-              text: q.text,
-              options: q.options,
-              correctIndex: q.correct_index,
-              correctIndices: q.correct_indices ?? undefined,
-              baseScore: q.base_score,
-              timeSec: q.time_sec,
-              imageUrl: q.image_url ?? undefined,
-              questionType: q.question_type ?? 'multiple_choice',
-              correctAnswer: q.correct_answer ?? undefined,
-              _key: crypto.randomUUID(),
-            }),
+          (data.questions ?? []).map((q) =>
+            mapDbQuestionToImport(q as Parameters<typeof mapDbQuestionToImport>[0]),
           ),
         );
         setLoading(false);
@@ -61,50 +62,28 @@ export default function EditQuiz() {
         setError('Failed to load quiz');
         setLoading(false);
       });
-  }, [id, headers]);
+  }, [id, api]);
 
   async function handleSubmit() {
     setError('');
-    if (!title.trim()) {
-      setError('Title is required');
+    const validationError = validateQuizPayload(title, questions);
+    if (validationError) {
+      setError(validationError);
       return;
-    }
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i];
-      if (!q.text.trim()) {
-        setError(`Question ${i + 1} has no text`);
-        return;
-      }
-      const type = q.questionType ?? 'multiple_choice';
-      if (type === 'open_text' && !q.correctAnswer?.trim()) {
-        setError(`Question ${i + 1} needs a correct answer`);
-        return;
-      }
-      if (
-        (type === 'multiple_choice' || type === 'multi_select') &&
-        q.options.some((o) => !o.trim())
-      ) {
-        setError(`Question ${i + 1} has empty options`);
-        return;
-      }
-      if (type === 'multi_select' && (!q.correctIndices || q.correctIndices.length < 2)) {
-        setError(`Question ${i + 1} needs at least 2 correct answers selected`);
-        return;
-      }
     }
 
     setSaving(true);
-    const payload: ImportPayload = { title, description, questions };
-    const res = await fetch(`/api/admin/quizzes/${id}`, {
-      method: 'PUT',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
+    const payload: ImportPayload = {
+      title,
+      description,
+      coverImage: coverImage || undefined,
+      questions,
+    };
+    const { ok, data } = await api.put<{ error?: string }>(`/api/admin/quizzes/${id}`, payload);
     setSaving(false);
-    if (res.ok) {
+    if (ok) {
       setSuccess('Quiz updated!');
-      setTimeout(() => navigate('/admin'), 1200);
+      setTimeout(() => navigate(basePath), 1200);
     } else {
       setError(data.error ?? 'Failed to update quiz');
     }
@@ -116,84 +95,112 @@ export default function EditQuiz() {
 
   if (loading)
     return (
-      <div className="page">
-        <AdminNav />
-        <div className="page-center">
-          <p className="text-muted">Loading quiz…</p>
-        </div>
-      </div>
+      <Page>
+        <CreatorNav />
+        <PageCenter>
+          <p className="text-muted-foreground">Loading quiz…</p>
+        </PageCenter>
+      </Page>
     );
 
   return (
-    <div className="page">
-      <AdminNav />
-      <div className="main-content">
+    <Page>
+      <CreatorNav />
+      <MainContent>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1>Edit Quiz</h1>
-            <p className="subtitle">Update questions, options, scores and timings</p>
+            <Subtitle>Update questions, options, scores and timings</Subtitle>
           </div>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
+        {error && <AppAlert variant="error">{error}</AppAlert>}
+        {success && <AppAlert variant="success">{success}</AppAlert>}
 
-        <div className="card card-lg">
-          <h2 className="mb-4">Quiz Details</h2>
-          <div className="form-row mb-4">
+        <Card className="w-full max-w-4xl">
+          <CardContent className="p-6">
+            <h2 className="mb-4">Quiz Details</h2>
+            <FormRow className="mb-4">
+              <Input
+                noMargin
+                label="Title *"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="My Awesome Quiz"
+              />
+              <Input
+                noMargin
+                label="Subtitle / description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Shown to players in the lobby"
+              />
+            </FormRow>
             <Input
-              noMargin
-              label="Title *"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="My Awesome Quiz"
+              label="Cover image URL (optional)"
+              type="url"
+              value={coverImage}
+              onChange={(e) => setCoverImage(e.target.value)}
+              placeholder="https://example.com/cover.jpg — shown on the players' waiting screen"
             />
-            <Input
-              noMargin
-              label="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional"
-            />
-          </div>
+            {coverImage.trim() && (
+              <img
+                src={coverImage}
+                alt="Cover preview"
+                className="mb-4 max-h-[160px] w-full rounded-lg object-cover"
+              />
+            )}
 
-          <div className="divider" />
-          <h2 className="mb-4">Questions</h2>
+            <SectionDivider />
+            <h2 className="mb-4">Questions</h2>
 
-          {questions.map((q, qi) => (
-            <QuestionEditor
-              key={q._key}
-              q={q}
-              qi={qi}
-              onChange={(field, value) => updateQuestion(qi, field, value)}
-              onRemove={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}
-              canRemove={questions.length > 1}
-            />
-          ))}
+            {questions.map((q, qi) => (
+              <QuestionEditor
+                key={q._key}
+                q={q}
+                qi={qi}
+                onChange={(field, value) => updateQuestion(qi, field, value)}
+                onRemove={() => setQuestions((prev) => prev.filter((_, idx) => idx !== qi))}
+                canRemove={questions.length > 1}
+              />
+            ))}
 
-          <button
-            type="button"
-            onClick={() => setQuestions((prev) => [...prev, withKey(blankQuestion())])}
-            className="btn btn-ghost btn-full mb-4"
-          >
-            + Add Question
-          </button>
-
-          <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => navigate('/admin')} className="btn btn-ghost">
-              Cancel
-            </button>
-            <button
+            <Button
               type="button"
-              onClick={handleSubmit}
-              disabled={saving}
-              className="btn btn-primary btn-lg"
+              variant="ghost"
+              className="mb-4 w-full"
+              onClick={() => setQuestions((prev) => [...prev, withKey(blankQuestion())])}
             >
-              {saving ? 'Saving…' : '✓ Save Changes'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+              + Add Question
+            </Button>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => navigate(basePath)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="secondary"
+                onClick={() => setPreviewing(true)}
+                disabled={questions.length === 0}
+              >
+                👁 Preview
+              </Button>
+              <Button type="button" size="lg" onClick={handleSubmit} disabled={saving}>
+                {saving ? 'Saving…' : '✓ Save Changes'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </MainContent>
+      {previewing && (
+        <QuizPreviewModal
+          title={title}
+          questions={questions}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
+    </Page>
   );
 }

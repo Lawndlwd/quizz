@@ -1,14 +1,23 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AppAlert } from '@/components/AppAlert';
 import {
   AvatarDisplay,
   AvatarPicker,
   loadSavedAvatar,
   saveAvatar,
-} from '../../components/AvatarPicker';
-import { Input } from '../../components/Input';
-import { useApp } from '../../context/AppContext';
-import { getSocket, useSocketEvent } from '../../hooks/useSocket';
+} from '@/components/AvatarPicker';
+import { Input } from '@/components/Input';
+import { AppLogo, AuthCard, PageCenter, Subtitle } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { useApp } from '@/context/AppContext';
+import {
+  cleanPin,
+  clearPlayerSession,
+  loadPlayerSession,
+  savePlayerSession,
+} from '@/helpers/playerSession';
+import { getSocket, useSocketEvent } from '@/hooks/useSocket';
 
 export default function Join() {
   const { pin: pinParam } = useParams<{ pin?: string }>();
@@ -23,51 +32,34 @@ export default function Join() {
   const [joining, setJoining] = useState(false);
   const [step, setStep] = useState<'form' | 'avatar'>('form');
 
-  // Auto-rejoin: if we have a previous session in sessionStorage, reconnect automatically
   useEffect(() => {
-    const storedPlayerId = sessionStorage.getItem('playerId');
-    const storedUsername = sessionStorage.getItem('username');
-    const storedPin = sessionStorage.getItem('pin');
-    const storedAvatar = sessionStorage.getItem('avatar');
-    const storedSessionId = sessionStorage.getItem('sessionId');
+    const stored = loadPlayerSession();
 
-    if (!storedPlayerId || !storedUsername || !storedPin || !storedSessionId) return;
+    if (!stored.playerId || !stored.username || !stored.pin || !stored.sessionId) return;
 
     setJoining(true);
 
-    function doRejoin() {
-      socket.emit('player:join', {
-        pin: storedPin,
-        username: storedUsername,
-        avatar: storedAvatar ?? '',
-      });
-    }
-
-    if (socket.connected) {
-      doRejoin();
-    } else {
-      socket.connect();
-      socket.once('connect', doRejoin);
-    }
-
-    return () => {
-      socket.off('connect', doRejoin);
-    };
+    // socket.io buffers emits until connected — no 'connect' listener needed.
+    socket.connect();
+    socket.emit('player:join', {
+      pin: stored.pin,
+      username: stored.username,
+      avatar: stored.avatar ?? '',
+      playerId: Number(stored.playerId),
+    });
   }, [socket]);
 
   useSocketEvent<{ playerId: number; sessionId: number; status: string; username?: string }>(
     'player:joined',
     (data) => {
-      sessionStorage.setItem('playerId', String(data.playerId));
-      sessionStorage.setItem('sessionId', String(data.sessionId));
-      // Only overwrite sessionStorage with form values when user actually filled the form
-      // (not during auto-rejoin where local state is still at defaults)
-      if (username.trim()) {
-        sessionStorage.setItem('username', data.username ?? username.trim());
-        sessionStorage.setItem('avatar', avatar);
-        sessionStorage.setItem('pin', pin.trim().replace(/\s/g, ''));
-        saveAvatar(avatar);
-      }
+      savePlayerSession({
+        playerId: data.playerId,
+        sessionId: data.sessionId,
+        username: data.username,
+        avatar,
+        pin: cleanPin(pin),
+      });
+      if (avatar) saveAvatar(avatar);
       navigate(`/play/game/${data.sessionId}`);
     },
   );
@@ -76,18 +68,18 @@ export default function Join() {
     setError(data.message);
     setJoining(false);
     setStep('form');
-    // Clear stale session data so auto-rejoin doesn't loop
-    sessionStorage.removeItem('playerId');
-    sessionStorage.removeItem('sessionId');
-    sessionStorage.removeItem('pin');
+    // Only clear session on hard failures — keep storage for retry on reload/reconnect
+    if (data.message === 'Invalid PIN' || data.message === 'Game has ended') {
+      clearPlayerSession();
+    }
   });
 
   function handleFormNext(e: FormEvent) {
     e.preventDefault();
     setError('');
-    const cleanPin = pin.trim().replace(/\s/g, '');
+    const cleanedPin = cleanPin(pin);
     const cleanName = username.trim();
-    if (!cleanPin || cleanPin.length < 4) {
+    if (!cleanedPin || cleanedPin.length < 4) {
       setError('Enter a valid PIN');
       return;
     }
@@ -99,61 +91,46 @@ export default function Join() {
   }
 
   function handleJoin() {
+    if (joining) return;
     setError('');
     setJoining(true);
 
-    const payload = {
-      pin: pin.trim().replace(/\s/g, ''),
+    // socket.io buffers emits until connected — no 'connect' listener needed.
+    socket.connect();
+    socket.emit('player:join', {
+      pin: cleanPin(pin),
       username: username.trim(),
       avatar,
-    };
-
-    if (socket.connected) {
-      socket.emit('player:join', payload);
-    } else {
-      socket.connect();
-      socket.once('connect', () => socket.emit('player:join', payload));
-    }
+    });
   }
 
   return (
-    <div className="page-center" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <div className="card" style={{ maxWidth: 420, width: '100%' }}>
+    <PageCenter className="min-h-screen bg-background">
+      <AuthCard maxWidth="lg" className="max-w-[420px]">
         <div className="text-center mb-6">
-          <div className="logo">
+          <AppLogo>
             {appName ? (
               <>
                 {appName}{' '}
-                <span
-                  style={{
-                    fontWeight: 400,
-                    fontSize: '0.6em',
-                    display: 'block',
-                    marginTop: 4,
-                    WebkitTextFillColor: 'var(--text2)',
-                    opacity: 0.85,
-                  }}
-                >
+                <span className="mt-1 block text-[0.6em] font-normal text-muted-foreground opacity-85">
                   by ⚡ Quizz
                 </span>
               </>
             ) : (
               '⚡ Quizz'
             )}
-          </div>
+          </AppLogo>
           {appSubtitle && step === 'form' && (
-            <p className="mt-2" style={{ color: 'var(--text)', fontSize: '1rem', fontWeight: 500 }}>
-              {appSubtitle}
-            </p>
+            <p className="mt-2 text-base font-medium text-foreground">{appSubtitle}</p>
           )}
-          <p className="subtitle mt-2">
+          <Subtitle className="mt-2">
             {step === 'form'
               ? `Enter a PIN to join${appName ? ` ${appName}` : ''}`
               : 'Choose your avatar'}
-          </p>
+          </Subtitle>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && <AppAlert variant="error">{error}</AppAlert>}
 
         {step === 'form' ? (
           <form onSubmit={handleFormNext}>
@@ -166,12 +143,7 @@ export default function Join() {
               placeholder="123456"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              style={{
-                fontSize: '1.6rem',
-                fontWeight: 700,
-                letterSpacing: '0.12em',
-                textAlign: 'center',
-              }}
+              className="text-center text-[1.6rem] font-bold tracking-[0.12em]"
               autoFocus={!pinParam}
               required
             />
@@ -186,38 +158,27 @@ export default function Join() {
               autoFocus={!!pinParam}
               required
             />
-            <button type="submit" className="btn btn-primary btn-full btn-lg mt-2">
+            <Button type="submit" variant="default" size="lg" className="mt-2 w-full">
               Next: Pick Avatar →
-            </button>
+            </Button>
           </form>
         ) : (
           <div>
-            {/* Name recap */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                marginBottom: 24,
-                padding: '10px 14px',
-                borderRadius: 10,
-                background: 'var(--surface2)',
-                border: '1px solid var(--border)',
-              }}
-            >
+            <div className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-3.5 py-2.5">
               <AvatarDisplay avatar={avatar} size={40} />
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 700, fontSize: '1rem' }}>{username}</p>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>PIN: {pin}</p>
+              <div className="flex-1">
+                <p className="text-base font-bold">{username}</p>
+                <p className="text-[0.78rem] text-muted-foreground">PIN: {pin}</p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                className="text-[0.78rem]"
                 onClick={() => setStep('form')}
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: '0.78rem' }}
               >
                 Edit
-              </button>
+              </Button>
             </div>
 
             <AvatarPicker
@@ -228,18 +189,23 @@ export default function Join() {
               }}
             />
 
-            <button
+            <Button
               type="button"
+              variant="default"
+              size="lg"
+              className="mt-5 w-full"
               onClick={handleJoin}
               disabled={joining}
-              className="btn btn-primary btn-full btn-lg"
-              style={{ marginTop: 20 }}
             >
               {joining ? 'Joining…' : 'Join Game →'}
-            </button>
+            </Button>
           </div>
         )}
-      </div>
-    </div>
+
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          <a href="/login">Sign in</a> · <a href="/register">Register</a> · <a href="/">Home</a>
+        </p>
+      </AuthCard>
+    </PageCenter>
   );
 }

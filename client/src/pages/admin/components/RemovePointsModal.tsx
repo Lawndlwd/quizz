@@ -1,3 +1,6 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+
 interface PlayerAnswer {
   questionId: number;
   questionText: string;
@@ -15,76 +18,53 @@ interface Props {
 export function RemovePointsModal({ playerName, answers, onClose, onRemovePoints }: Props) {
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,.7)',
-        zIndex: 200,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        className="card card-md"
-        style={{ maxWidth: 520, width: '100%', zIndex: 201, maxHeight: '90vh', overflowY: 'auto' }}
-      >
-        <h2 className="mb-1">Remove Points — {playerName}</h2>
-        <p className="text-muted text-sm mb-4">
-          Select a question to remove its points from this player.
-        </p>
+      <Card className="z-[201] max-h-[90vh] w-full max-w-lg overflow-y-auto">
+        <CardContent className="p-6">
+          <h2 className="mb-1">Remove Points — {playerName}</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Select a question to remove its points from this player.
+          </p>
 
-        {answers.length === 0 && <p className="text-muted">No answers found.</p>}
+          {answers.length === 0 && <p className="text-muted-foreground">No answers found.</p>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {answers.map((a) => (
-            <div
-              key={a.questionId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '10px 12px',
-                background: 'var(--surface2)',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 2 }}>
-                  {a.questionText}
-                </p>
-                <p className="text-muted text-sm">
-                  {a.isCorrect ? 'Correct' : 'Wrong'} — {a.score} pts
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={a.score === 0}
-                onClick={() => onRemovePoints(a.questionId)}
-                style={{
-                  color: a.score > 0 ? 'var(--danger)' : undefined,
-                  opacity: a.score === 0 ? 0.4 : 1,
-                  flexShrink: 0,
-                }}
+          <div className="flex flex-col gap-2">
+            {answers.map((a) => (
+              <div
+                key={a.questionId}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5"
               >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-0.5 text-[0.9rem] font-semibold">{a.questionText}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {a.isCorrect ? 'Correct' : 'Wrong'} — {a.score} pts
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={a.score === 0}
+                  onClick={() => onRemovePoints(a.questionId)}
+                  className="shrink-0 text-destructive disabled:opacity-40"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
 
-        <div className="flex gap-2 mt-6">
-          <button type="button" className="btn btn-ghost" onClick={onClose} style={{ flex: 1 }}>
-            Close
-          </button>
-        </div>
-      </div>
+          <div className="mt-6 flex gap-2">
+            <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

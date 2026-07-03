@@ -1,52 +1,63 @@
-import { AvatarDisplay } from '../../../components/AvatarPicker';
-
-interface LeaderboardEntry {
-  rank: number;
-  username: string;
-  totalScore: number;
-  avatar?: string;
-}
+import { Confetti } from '@/components/game/Confetti';
+import { FinalLeaderboard } from '@/components/game/LeaderboardList';
+import { Podium } from '@/components/game/Podium';
+import { QuizMakerPicker } from '@/components/game/QuizMakerPicker';
+import { MainContent, Subtitle } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import type { FinalLeaderboardEntry } from '@/types';
 
 interface Props {
   quizTitle?: string;
-  leaderboard: LeaderboardEntry[];
-  sessionId: string;
+  leaderboard: FinalLeaderboardEntry[];
+  chooseQuizMaker?: boolean;
   onViewDetails: () => void;
   onDashboard: () => void;
 }
 
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
-
-export function GameEnded({ quizTitle, leaderboard, onViewDetails, onDashboard }: Props) {
+export function GameEnded({
+  quizTitle,
+  leaderboard,
+  chooseQuizMaker,
+  onViewDetails,
+  onDashboard,
+}: Props) {
   return (
-    <div className="main-content">
-      <div className="text-center mb-6">
-        <div style={{ fontSize: '4rem', marginBottom: 12 }}>🏁</div>
-        <h1>Game Over!</h1>
-        <p className="subtitle mt-2">{quizTitle}</p>
+    <MainContent>
+      <Confetti />
+
+      <div className="mb-6 text-center">
+        <h1 className="text-[2rem]">🏆 Final Podium</h1>
+        <Subtitle className="mt-1">{quizTitle}</Subtitle>
       </div>
 
-      <div className="card card-md" style={{ margin: '0 auto' }}>
-        <h2 className="mb-4 text-center">🏆 Final Leaderboard</h2>
-        <ul className="leaderboard">
-          {leaderboard.map((e) => (
-            <li key={e.rank} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
-              <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
-              <AvatarDisplay avatar={e.avatar} size={30} />
-              <div className="lb-name">{e.username}</div>
-              <div className="lb-score">{e.totalScore.toLocaleString()}</div>
-            </li>
-          ))}
-        </ul>
-        <div className="flex gap-2 mt-6">
-          <button type="button" onClick={onViewDetails} className="btn btn-secondary btn-full">
-            View Details
-          </button>
-          <button type="button" onClick={onDashboard} className="btn btn-primary btn-full">
-            ← Dashboard
-          </button>
-        </div>
-      </div>
-    </div>
+      {leaderboard.length > 0 && <Podium leaderboard={leaderboard} className="mx-auto mb-8" />}
+
+      {chooseQuizMaker && leaderboard.length > 0 && <QuizMakerPicker players={leaderboard} />}
+
+      <Card className="mx-auto w-full max-w-xl">
+        <CardContent className="p-6">
+          <h2 className="mb-4 text-center">🏆 Final Leaderboard</h2>
+          <FinalLeaderboard
+            entries={leaderboard}
+            footer={
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={onViewDetails}
+                >
+                  View Details
+                </Button>
+                <Button type="button" className="w-full" onClick={onDashboard}>
+                  ← Dashboard
+                </Button>
+              </div>
+            }
+          />
+        </CardContent>
+      </Card>
+    </MainContent>
   );
 }

@@ -6,9 +6,12 @@ services:
       - "3000:3000"
     environment:
       - DATA_DIR=/data
+      # Set these in a .env file next to this compose file. No insecure defaults:
+      # the app refuses to start without a strong JWT_SECRET, and seeds a random
+      # admin password (printed once in the logs) if ADMIN_PASSWORD is unset.
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
     volumes:
       - ./data:/data
       - ./avatars:/data/avatars

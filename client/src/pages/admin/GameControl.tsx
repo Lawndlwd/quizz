@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import AdminNav from '../../components/AdminNav';
+import { MainContent, Page, PageLoading } from '@/components/layout';
+import { useCountdown } from '@/hooks/useCountdown';
+import CreatorNav from '../../components/CreatorNav';
 import { useAuth } from '../../context/AuthContext';
+import { useCreatorBase } from '../../hooks/useCreatorBase';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type {
+  FinalLeaderboardEntry,
   GameEndedPayload,
   GameSettings,
+  NextPreview,
+  PlayerInfo,
   QuestionPayload,
   QuestionResults,
+  QuizIntro,
   Session,
 } from '../../types';
 import { CountdownScreen } from '../play/components/CountdownScreen';
@@ -17,18 +24,13 @@ import { GameQuestion } from './components/GameQuestion';
 import { GameResults } from './components/GameResults';
 import { RemovePointsModal } from './components/RemovePointsModal';
 
-interface PlayerInfo {
-  id: number;
-  username: string;
-  totalScore: number;
-  avatar?: string;
-}
 interface SessionState {
   session: Session;
   players: PlayerInfo[];
   questionCount: number;
   gameSettings?: GameSettings;
   jokersUsed?: { pass: boolean; fiftyFifty: boolean };
+  quizIntro?: QuizIntro;
 }
 
 interface PlayerAnswer {
@@ -44,6 +46,7 @@ export default function GameControl() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { token } = useAuth();
   const navigate = useNavigate();
+  const basePath = useCreatorBase();
   const socket = getSocket();
 
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -51,28 +54,36 @@ export default function GameControl() {
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [results, setResults] = useState<QuestionResults | null>(null);
-  const [finalBoard, setFinalBoard] = useState<
-    { rank: number; username: string; totalScore: number; avatar?: string }[]
-  >([]);
+  const [finalBoard, setFinalBoard] = useState<FinalLeaderboardEntry[]>([]);
   const [countdownSec, setCountdownSec] = useState(3);
-  const [timeLeft, setTimeLeft] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
-  const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
   const [shareUrl, setShareUrl] = useState('');
-  const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [chooseQuizMaker, setChooseQuizMaker] = useState(false);
+  const [nextPreview, setNextPreview] = useState<NextPreview | null>(null);
 
-  // Remove points modal state
+  const questionTimer = useCountdown(0);
+  const autoAdvanceTimer = useCountdown(0);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        if (cfg) setChooseQuizMaker(!!cfg.chooseQuizMaker);
+      })
+      .catch(() => {});
+  }, [token]);
+
   const [modalPlayerId, setModalPlayerId] = useState<number | null>(null);
   const [modalPlayerAnswers, setModalPlayerAnswers] = useState<PlayerAnswer[]>([]);
 
   useEffect(() => {
     if (!token || !sessionId) return;
+    // Shared singleton socket: never disconnect it here — other pages use it.
+    // socket.io buffers emits until connected, so no 'connect' listener needed.
     socket.connect();
     socket.emit('admin:join-session', { sessionId: Number(sessionId), token });
-    return () => {
-      socket.disconnect();
-    };
-  }, [sessionId, token, socket.connect, socket.disconnect, socket.emit]);
+  }, [sessionId, token, socket]);
 
   useSocketEvent<SessionState>('session:state', (data) => {
     setSessionState(data);
@@ -99,24 +110,22 @@ export default function GameControl() {
     setPlayers((prev) => prev.filter((p) => p.id !== data.playerId));
   });
 
-  useSocketEvent<Record<string, never>>('game:started', () => {
-    // Phase will be set by game:countdown or game:question
-  });
-
   useSocketEvent<{ seconds: number }>('game:countdown', (data) => {
     setCountdownSec(data.seconds);
     setPhase('countdown');
   });
 
+  useSocketEvent<typeof nextPreview>('game:next-preview', (data) => {
+    setNextPreview(data);
+  });
+
   useSocketEvent<QuestionPayload>('game:question', (data) => {
     setQuestion(data);
     setAnsweredCount(0);
-    setTimeLeft(data.timeSec);
+    setNextPreview(null);
     setPhase('question');
-    if (autoAdvanceRef.current) {
-      clearInterval(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
+    autoAdvanceTimer.stop();
+    questionTimer.start(data.timeRemaining ?? data.timeSec);
   });
 
   useSocketEvent<{ answeredCount: number; totalPlayers: number }>(
@@ -129,6 +138,7 @@ export default function GameControl() {
   useSocketEvent<QuestionResults>('game:question-results', (data) => {
     setResults(data);
     setPhase('results');
+    questionTimer.stop();
     setPlayers(
       data.leaderboard.map((e) => ({
         id: e.playerId,
@@ -137,30 +147,16 @@ export default function GameControl() {
         avatar: e.avatar,
       })),
     );
-
-    setAutoAdvanceLeft(data.autoAdvanceSec);
-    if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
-    autoAdvanceRef.current = setInterval(() => {
-      setAutoAdvanceLeft((t) => {
-        if (t <= 1) {
-          if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    autoAdvanceTimer.start(data.autoAdvanceSec);
   });
 
   useSocketEvent<GameEndedPayload>('game:ended', (data) => {
     setFinalBoard(data.leaderboard);
     setPhase('ended');
-    if (autoAdvanceRef.current) {
-      clearInterval(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
+    questionTimer.stop();
+    autoAdvanceTimer.stop();
   });
 
-  // Listen for points-removed response to update leaderboard in results
   useSocketEvent<{
     playerId: number;
     questionId: number;
@@ -185,7 +181,6 @@ export default function GameControl() {
     setPlayers((prev) =>
       prev.map((p) => (p.id === data.playerId ? { ...p, totalScore: data.newTotalScore } : p)),
     );
-    // Update modal answers if open for this player
     if (modalPlayerId === data.playerId) {
       setModalPlayerAnswers((prev) =>
         prev.map((a) => (a.questionId === data.questionId ? { ...a, score: 0 } : a)),
@@ -193,18 +188,10 @@ export default function GameControl() {
     }
   });
 
-  // Listen for player answers (for the modal)
   useSocketEvent<{ playerId: number; answers: PlayerAnswer[] }>('admin:player-answers', (data) => {
     setModalPlayerId(data.playerId);
     setModalPlayerAnswers(data.answers);
   });
-
-  // Countdown timer (display only — real timer is server-driven)
-  useEffect(() => {
-    if (phase !== 'question' || timeLeft <= 0) return;
-    const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
-    return () => clearInterval(id);
-  }, [phase, timeLeft]);
 
   const startGame = useCallback(() => {
     const stored = sessionStorage.getItem(`gameSettings:${sessionId}`);
@@ -212,24 +199,21 @@ export default function GameControl() {
       ? JSON.parse(stored)
       : { jokersEnabled: { pass: false, fiftyFifty: false } };
     socket.emit('admin:start-game', { sessionId: Number(sessionId), token, gameSettings });
-  }, [sessionId, token, socket.emit]);
+  }, [sessionId, token, socket]);
 
   const nextQuestion = useCallback(() => {
-    if (autoAdvanceRef.current) {
-      clearInterval(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
+    autoAdvanceTimer.stop();
     socket.emit('admin:next-question', { sessionId: Number(sessionId), token });
-  }, [sessionId, token, socket.emit]);
+  }, [sessionId, token, socket, autoAdvanceTimer]);
 
   const endGame = useCallback(() => {
     if (!confirm('End the game now?')) return;
     socket.emit('admin:end-game', { sessionId: Number(sessionId), token });
-  }, [sessionId, token, socket.emit]);
+  }, [sessionId, token, socket]);
 
   const finishQuestion = useCallback(() => {
     socket.emit('admin:finish-question', { sessionId: Number(sessionId), token });
-  }, [sessionId, token, socket.emit]);
+  }, [sessionId, token, socket]);
 
   const removePoints = useCallback(
     (playerId: number, questionId: number) => {
@@ -240,7 +224,7 @@ export default function GameControl() {
         questionId,
       });
     },
-    [sessionId, token, socket.emit],
+    [sessionId, token, socket],
   );
 
   const openPlayerAnswers = useCallback(
@@ -251,32 +235,25 @@ export default function GameControl() {
         playerId,
       });
     },
-    [sessionId, token, socket.emit],
+    [sessionId, token, socket],
   );
 
   const modalPlayerName =
     players.find((p) => p.id === modalPlayerId)?.username ?? `Player #${modalPlayerId}`;
 
-  if (!sessionState)
-    return (
-      <div className="page">
-        <AdminNav />
-        <div className="page-center">
-          <p className="text-muted">Connecting…</p>
-        </div>
-      </div>
-    );
+  if (!sessionState) return <PageLoading message="Connecting…" />;
 
   const pin = sessionState.session.pin;
   const totalQ = sessionState.questionCount;
 
   return (
-    <div className="page">
-      <AdminNav />
+    <Page>
+      <CreatorNav />
       {phase === 'lobby' && (
         <GameLobby
           quizTitle={sessionState.session.quiz_title ?? ''}
           questionCount={totalQ}
+          intro={sessionState.quizIntro ?? null}
           pin={pin}
           shareUrl={shareUrl}
           players={players}
@@ -286,14 +263,14 @@ export default function GameControl() {
         />
       )}
       {phase === 'countdown' && (
-        <div className="main-content">
+        <MainContent>
           <CountdownScreen seconds={countdownSec} />
-        </div>
+        </MainContent>
       )}
       {phase === 'question' && question && (
         <GameQuestion
           question={question}
-          timeLeft={timeLeft}
+          timeLeft={questionTimer.seconds}
           answeredCount={answeredCount}
           totalPlayers={players.length}
           onEndGame={endGame}
@@ -304,7 +281,8 @@ export default function GameControl() {
         <GameResults
           results={results}
           questionIndex={question?.questionIndex ?? 0}
-          autoAdvanceLeft={autoAdvanceLeft}
+          autoAdvanceLeft={autoAdvanceTimer.seconds}
+          nextPreview={nextPreview}
           onNextQuestion={nextQuestion}
           onEndGame={endGame}
           onRemovePoints={removePoints}
@@ -315,9 +293,9 @@ export default function GameControl() {
         <GameEnded
           quizTitle={sessionState.session.quiz_title ?? ''}
           leaderboard={finalBoard}
-          sessionId={sessionId ?? ''}
-          onViewDetails={() => navigate(`/admin/sessions/${sessionId ?? ''}`)}
-          onDashboard={() => navigate('/admin')}
+          chooseQuizMaker={chooseQuizMaker}
+          onViewDetails={() => navigate(`${basePath}/sessions/${sessionId ?? ''}`)}
+          onDashboard={() => navigate(basePath)}
         />
       )}
       {modalPlayerId !== null && (
@@ -328,6 +306,6 @@ export default function GameControl() {
           onClose={() => setModalPlayerId(null)}
         />
       )}
-    </div>
+    </Page>
   );
 }

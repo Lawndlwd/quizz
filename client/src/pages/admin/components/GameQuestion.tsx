@@ -1,3 +1,12 @@
+import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
+import { TimerBar } from '@/components/game/TimerBar';
+import { MainContent } from '@/components/layout';
+import { QuestionImage } from '@/components/QuestionImage';
+import { QuestionMedia } from '@/components/QuestionMedia';
+import { QuestionText } from '@/components/QuestionText';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { hasQuestionImage } from '@/helpers';
 import type { QuestionPayload } from '../../../types';
 
 interface Props {
@@ -17,102 +26,91 @@ export function GameQuestion({
   onEndGame,
   onFinishQuestion,
 }: Props) {
-  const pct = (timeLeft / question.timeSec) * 100;
-  const urgent = timeLeft <= 5;
-  const answerPct = totalPlayers > 0 ? (answeredCount / totalPlayers) * 100 : 0;
+  const showImage = hasQuestionImage(question.imageUrl);
+  const isOptionBased =
+    question.questionType !== 'open_text' && question.questionType !== 'closest_to';
+
+  const options =
+    question.questionType === 'true_false' && question.options.length === 0
+      ? ['True', 'False']
+      : question.options;
 
   return (
-    <div className="main-content">
-      <div className="gc-header mb-4">
-        <h2>
-          Question {question.questionIndex + 1} / {question.totalQuestions}
-        </h2>
-        <div className="flex gap-2">
-          <button type="button" onClick={onFinishQuestion} className="btn btn-primary btn-sm">
-            Finish Question
-          </button>
-          <button type="button" onClick={onEndGame} className="btn btn-ghost btn-sm">
-            End Game
-          </button>
-        </div>
+    <MainContent>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" size="sm" onClick={onFinishQuestion}>
+          Finish Question
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onEndGame}>
+          End Game
+        </Button>
       </div>
 
-      <div className="card card-lg mb-4 min-w-full">
-        <div className="gc-question-top mb-4">
-          <div style={{ flex: 1 }}>
-            <p className="text-muted text-sm mb-2">Question {question.questionIndex + 1}</p>
-            {question.imageUrl && (
-              <img
-                src={question.imageUrl}
-                alt="Question"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: 180,
-                  borderRadius: 8,
-                  marginBottom: 10,
-                  objectFit: 'contain',
-                }}
-              />
-            )}
-            <h2 style={{ fontSize: '1.3rem' }}>{question.text}</h2>
+      <Card className="w-full max-w-5xl min-w-full">
+        <CardContent className="flex flex-col p-8 md:p-10">
+          {/* Counter row */}
+          <div className="mb-4 flex items-center justify-between">
+            <span className="mono-label">
+              Question {question.questionIndex + 1} of {question.totalQuestions}
+            </span>
+            <span className="mono-label">{question.timeSec}s</span>
           </div>
-          <div
-            className={`timer-value ${urgent ? 'urgent' : ''}`}
-            style={{ marginLeft: 24, minWidth: 60, flexShrink: 0 }}
-          >
-            {timeLeft}
-          </div>
-        </div>
-        <div className="progress-bar">
-          <div className={`progress-fill ${urgent ? 'urgent' : ''}`} style={{ width: `${pct}%` }} />
-        </div>
 
-        {question.questionType !== 'open_text' && (
-          <div className="options-grid mt-4">
-            {question.options.map((opt, i) => (
-              <div key={opt} className="option-btn" style={{ cursor: 'default' }}>
-                <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                <div className="option-text">{opt}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {question.questionType === 'open_text' && (
+          {question.mediaType ? (
+            <QuestionMedia url={question.mediaUrl} kind={question.mediaType} className="mb-5" />
+          ) : (
+            showImage && (
+              <QuestionImage src={question.imageUrl} className="question-image-host mb-5" />
+            )
+          )}
+
+          {/* Big centered question */}
           <div
+            className="mx-auto mb-5 max-w-[820px] text-center font-extrabold"
             style={{
-              marginTop: 16,
-              padding: '12px 16px',
-              background: 'var(--surface2)',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
+              fontSize: 'clamp(1.6rem, 4vw, 42px)',
+              lineHeight: 1.16,
+              letterSpacing: '-0.02em',
             }}
           >
-            <p className="text-muted text-sm">Open-text question — players type their answer</p>
+            <QuestionText text={question.text} />
           </div>
-        )}
-      </div>
 
-      <div className="gc-grid gap-4">
-        <div className="stat-card">
-          <div className="stat-value">
-            {answeredCount} / {totalPlayers}
+          {/* Timer bar + number */}
+          <TimerBar timeLeft={timeLeft} totalSec={question.timeSec} className="mb-2 gap-4" />
+
+          <div className="mb-6 text-center text-[13px] text-[#64748b]">
+            {answeredCount} / {totalPlayers} answered
           </div>
-          <div className="stat-label">Answered</div>
-          <div className="answer-bar mt-2">
-            <div className="answer-bar-fill" style={{ width: `${answerPct}%` }} />
-          </div>
-        </div>
-        <div
-          className="stat-card"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <p className="text-muted text-sm text-center">
-            Results show automatically
-            <br />
-            when timer ends or everyone answers
-          </p>
-        </div>
-      </div>
-    </div>
+
+          {isOptionBased && (
+            <QuadOptionGrid
+              options={options}
+              interactive={false}
+              glyphSize={26}
+              staggerSec={0.07}
+            />
+          )}
+
+          {question.questionType === 'closest_to' && (
+            <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-center">
+              <p className="text-sm text-muted-foreground">
+                Closest-to question — players pick a number from{' '}
+                <strong>
+                  {question.rangeMin ?? 0} to {question.rangeMax ?? 100}
+                </strong>
+              </p>
+            </div>
+          )}
+          {question.questionType === 'open_text' && (
+            <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-center">
+              <p className="text-sm text-muted-foreground">
+                Open-text question — players type their answer
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </MainContent>
   );
 }

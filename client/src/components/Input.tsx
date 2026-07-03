@@ -4,6 +4,10 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
+import { Input as ShadcnInput } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea as ShadcnTextarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: ReactNode;
@@ -12,16 +16,18 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, hint, noMargin, ...props }, ref) => {
-    const el = <input ref={ref} {...props} />;
+  ({ label, hint, noMargin, className, id, ...props }, ref) => {
+    const el = <ShadcnInput ref={ref} id={id} className={className} {...props} />;
 
     if (!label) return el;
 
     return (
-      <div className="form-group" style={noMargin ? { marginBottom: 0 } : undefined}>
-        <label htmlFor={props.id}>{label}</label>
+      <div className={cn('flex flex-col gap-2', !noMargin && 'mb-5')}>
+        <Label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </Label>
         {el}
-        {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
+        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
       </div>
     );
   },
@@ -36,16 +42,18 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, hint, noMargin, ...props }, ref) => {
-    const el = <textarea ref={ref} {...props} />;
+  ({ label, hint, noMargin, className, id, ...props }, ref) => {
+    const el = <ShadcnTextarea ref={ref} id={id} className={className} {...props} />;
 
     if (!label) return el;
 
     return (
-      <div className="form-group" style={noMargin ? { marginBottom: 0 } : undefined}>
-        <label htmlFor={props.id}>{label}</label>
+      <div className={cn('flex flex-col gap-2', !noMargin && 'mb-5')}>
+        <Label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </Label>
         {el}
-        {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
+        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
       </div>
     );
   },

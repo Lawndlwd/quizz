@@ -1,10 +1,15 @@
-import { AvatarDisplay } from '../../../components/AvatarPicker';
-import type { QuestionResults } from '../../../types';
+import { ClosestGuessesList, LeaderboardList } from '@/components/game/LeaderboardList';
+import { QuestionDistribution } from '@/components/game/QuestionDistribution';
+import { MainContent } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import type { NextPreview, QuestionResults } from '../../../types';
 
 interface Props {
   results: QuestionResults;
   questionIndex: number;
   autoAdvanceLeft: number;
+  nextPreview?: NextPreview | null;
   onNextQuestion: () => void;
   onEndGame: () => void;
   onRemovePoints: (playerId: number, questionId: number) => void;
@@ -15,109 +20,114 @@ export function GameResults({
   results,
   questionIndex,
   autoAdvanceLeft,
+  nextPreview,
   onNextQuestion,
   onEndGame,
   onRemovePoints,
   onOpenPlayerAnswers,
 }: Props) {
+  const isClosestTo = results.questionType === 'closest_to';
+  const closestList = results.closestRanking ?? [];
+
   return (
-    <div className="main-content">
-      <div className="gc-header mb-4">
+    <MainContent>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h2>Results — Q{questionIndex + 1}</h2>
-        <div className="flex gap-2 gc-results-actions">
-          <button type="button" onClick={onEndGame} className="btn btn-ghost btn-sm">
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" size="lg" onClick={onEndGame}>
             End Game
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="lg"
             onClick={onNextQuestion}
-            className="btn btn-primary btn-lg"
-            style={{ position: 'relative', minWidth: 180 }}
+            className="relative min-w-[180px]"
           >
             {results.isLastQuestion ? '🏁 Final Scores' : `Next →`}
             {results.autoAdvanceSec > 0 && (
-              <span style={{ fontSize: '0.75rem', opacity: 0.8, marginLeft: 6 }}>
-                ({autoAdvanceLeft}s)
-              </span>
+              <span className="ml-1.5 text-[0.75rem] opacity-80">({autoAdvanceLeft}s)</span>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="card card-lg mb-4">
-        <p className="text-muted text-sm mb-2">Question</p>
-        <h2 style={{ marginBottom: 16 }}>{results.questionText}</h2>
-        {results.questionType === 'open_text' ? (
-          <div
-            style={{
-              background: 'rgba(34,197,94,.1)',
-              border: '1px solid rgba(34,197,94,.3)',
-              borderRadius: 8,
-              padding: '12px 16px',
-            }}
-          >
-            <p style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 4 }}>
-              Correct answer
-            </p>
-            <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--success)' }}>
-              {results.correctAnswer}
-            </p>
-          </div>
-        ) : (
-          <div className="options-grid">
-            {results.options.map((opt, i) => (
-              <div
-                key={String.fromCharCode(65 + i)}
-                className={`option-btn ${i === results.correctIndex ? 'correct' : ''}`}
-                style={{ cursor: 'default' }}
-              >
-                <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                <div className="option-text">{opt}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card card-lg">
-        <h2 className="mb-4">Leaderboard</h2>
-        <ul className="leaderboard">
-          {results.leaderboard.slice(0, 10).map((e) => (
-            <li key={e.playerId} className={`lb-item rank-${Math.min(e.rank, 4)}`}>
-              <div className="lb-rank">{e.rank}</div>
-              <AvatarDisplay avatar={e.avatar} size={30} />
-              <div className="lb-name">{e.username}</div>
-              {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
-              {e.chosenIndex !== null && e.chosenIndex !== -1 && !e.isCorrect && (
-                <span className="lb-delta wrong">✗</span>
+      {nextPreview &&
+        (nextPreview.hasNext ? (
+          <Card className="mb-4 w-full max-w-4xl border-blue-500/30 bg-blue-500/[0.06]">
+            <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
+              <span className="mono-label text-blue-300">
+                Up next · Q{nextPreview.index + 1} of {nextPreview.total}
+              </span>
+              {nextPreview.mediaType && (
+                <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                  {nextPreview.mediaType === 'audio' ? '🎵 Audio' : '🎬 Video'}
+                </span>
               )}
-              <div className="lb-score">{e.totalScore.toLocaleString()}</div>
-              <div className="flex gap-1" style={{ marginLeft: 8, flexShrink: 0 }}>
+              <span className="w-full text-[1.05rem] font-semibold">{nextPreview.text}</span>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-4 w-full max-w-4xl border-amber-500/30 bg-amber-500/[0.06]">
+            <CardContent className="p-4">
+              <span className="mono-label text-amber-300">
+                Last question — final scores next 🏁
+              </span>
+            </CardContent>
+          </Card>
+        ))}
+
+      <Card className="mb-4 w-full max-w-4xl">
+        <CardContent className="p-6">
+          <p className="mb-3 text-sm text-muted-foreground">{results.questionText}</p>
+          <QuestionDistribution results={results} />
+        </CardContent>
+      </Card>
+
+      {isClosestTo && closestList.length > 0 && (
+        <Card className="mb-4 w-full max-w-4xl">
+          <CardContent className="p-6">
+            <h2 className="mb-4">Closest Guesses</h2>
+            <ClosestGuessesList entries={closestList} limit={10} />
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="w-full max-w-4xl">
+        <CardContent className="p-6">
+          <h2 className="mb-4">🏆 Standings</h2>
+          <LeaderboardList
+            entries={results.leaderboard}
+            limit={10}
+            showQuestionScore
+            renderActions={(e) => (
+              <div className="ml-2 flex shrink-0 gap-1">
                 {e.questionScore > 0 && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-ghost btn-sm"
-                    style={{ color: 'var(--danger)', fontSize: '0.7rem', padding: '2px 8px' }}
+                    variant="ghost"
+                    size="sm"
+                    className="px-2 py-0.5 text-[0.7rem] text-destructive"
                     title="Remove points for this question"
                     onClick={() => onRemovePoints(e.playerId, results.questionId)}
                   >
                     Remove pts
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '0.8rem', padding: '2px 6px' }}
+                  variant="ghost"
+                  size="sm"
+                  className="px-1.5 py-0.5 text-[0.8rem]"
                   title="View all answers"
                   onClick={() => onOpenPlayerAnswers(e.playerId)}
                 >
                   ...
-                </button>
+                </Button>
               </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+            )}
+          />
+        </CardContent>
+      </Card>
+    </MainContent>
   );
 }
