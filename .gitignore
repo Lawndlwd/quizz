@@ -13,3 +13,6 @@ server/.DS_Store
 .DS_Store
 
 docs
+
+# Runtime data (config with secrets, sqlite db)
+data/

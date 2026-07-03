@@ -1,11 +1,14 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppAlert } from '@/components/AppAlert';
+import { AppLogo, AuthCard, PageCenter, Subtitle } from '@/components/layout';
+import { Button } from '@/components/ui/button';
 import { Input } from '../../components/Input';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { loginSuperAdmin } = useAuth();
   const { appName } = useApp();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -17,41 +20,32 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const err = await login(username, password);
+    const err = await loginSuperAdmin(username, password);
     setLoading(false);
     if (err) setError(err);
     else navigate('/admin');
   }
 
   return (
-    <div className="page-center">
-      <div className="card">
+    <PageCenter>
+      <AuthCard>
         <div className="text-center mb-6">
-          <div className="logo">
+          <AppLogo>
             {appName ? (
               <>
                 {appName}{' '}
-                <span
-                  style={{
-                    fontWeight: 400,
-                    fontSize: '0.6em',
-                    display: 'block',
-                    marginTop: 4,
-                    WebkitTextFillColor: 'var(--text2)',
-                    opacity: 0.85,
-                  }}
-                >
+                <span className="mt-1 block text-[0.6em] font-normal text-muted-foreground opacity-85">
                   by ⚡ Quizz
                 </span>
               </>
             ) : (
               '⚡ Quizz'
             )}
-          </div>
-          <p className="subtitle mt-2">Admin Panel</p>
+          </AppLogo>
+          <Subtitle className="mt-2">Admin Panel</Subtitle>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && <AppAlert variant="error">{error}</AppAlert>}
 
         <form onSubmit={handleSubmit}>
           <Input
@@ -74,11 +68,17 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button type="submit" disabled={loading} className="btn btn-primary btn-full btn-lg mt-2">
+          <Button
+            type="submit"
+            disabled={loading}
+            variant="default"
+            size="lg"
+            className="mt-2 w-full"
+          >
             {loading ? 'Signing in…' : 'Sign in'}
-          </button>
+          </Button>
         </form>
-      </div>
-    </div>
+      </AuthCard>
+    </PageCenter>
   );
 }

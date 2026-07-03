@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import AdminNav from '../../components/AdminNav';
-import { useAuth } from '../../context/AuthContext';
+import { MainContent, Page, PageLoading, Subtitle } from '@/components/layout';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import CreatorNav from '../../components/CreatorNav';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { useCreatorBase } from '../../hooks/useCreatorBase';
 import type { Player, Question, Session } from '../../types';
 
 interface FullSession {
@@ -20,24 +25,22 @@ interface FullSession {
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
-  const { token } = useAuth();
+  const api = useAuthFetch();
+  const basePath = useCreatorBase();
   const [data, setData] = useState<FullSession | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/admin/sessions/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then(setData);
-  }, [id, token]);
+    api
+      .get<FullSession>(`/api/admin/sessions/${id}`)
+      .then(({ ok, data: d }) => {
+        if (ok && d?.session) setData(d);
+        else setError('Could not load this session.');
+      })
+      .catch(() => setError('Could not load this session.'));
+  }, [api, id]);
 
-  if (!data)
-    return (
-      <div className="page">
-        <AdminNav />
-        <div className="page-center">
-          <p className="text-muted">Loading…</p>
-        </div>
-      </div>
-    );
+  if (!data) return <PageLoading message={error ?? 'Loading…'} />;
 
   const { session, players, questions, answers } = data;
   const answerMap = new Map(answers.map((a) => [`${a.player_id}:${a.question_id}`, a]));
@@ -45,132 +48,128 @@ export default function SessionDetail() {
   const sortedPlayers = [...players].sort((a, b) => b.total_score - a.total_score);
 
   return (
-    <div className="page">
-      <AdminNav />
-      <div className="main-content">
-        <div className="flex items-center gap-4 mb-6">
-          <Link to="/admin/history" className="btn btn-ghost btn-sm">
-            ← Back
-          </Link>
+    <Page>
+      <CreatorNav />
+      <MainContent>
+        <div className="mb-6 flex items-center gap-4">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={`${basePath}/history`}>← Back</Link>
+          </Button>
           <div>
             <h1>{session.quiz_title}</h1>
-            <p className="subtitle">
-              Session{' '}
-              <code className="font-mono" style={{ color: 'var(--accent2)' }}>
-                #{session.id}
-              </code>{' '}
-              · PIN{' '}
-              <code className="font-mono" style={{ color: 'var(--accent2)' }}>
-                {session.pin}
-              </code>
+            <Subtitle>
+              Session <code className="font-mono text-blue-400">#{session.id}</code> · PIN{' '}
+              <code className="font-mono text-blue-400">{session.pin}</code>
               {session.finished_at && ` · ${new Date(session.finished_at).toLocaleString()}`}
-            </p>
+            </Subtitle>
           </div>
-          <span className={`badge badge-${session.status}`} style={{ marginLeft: 'auto' }}>
-            {session.status}
-          </span>
+          <StatusBadge status={session.status} className="ml-auto" />
         </div>
 
-        {/* Stats */}
-        <div className="grid-3 mb-6">
-          <div className="stat-card">
-            <div className="stat-value">{players.length}</div>
-            <div className="stat-label">Players</div>
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
+            <div className="text-3xl font-extrabold text-blue-400">{players.length}</div>
+            <div className="mt-1 text-sm text-muted-foreground">Players</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-value">{questions.length}</div>
-            <div className="stat-label">Questions</div>
+          <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
+            <div className="text-3xl font-extrabold text-blue-400">{questions.length}</div>
+            <div className="mt-1 text-sm text-muted-foreground">Questions</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-value">{sortedPlayers[0]?.total_score ?? 0}</div>
-            <div className="stat-label">Top Score</div>
-          </div>
-        </div>
-
-        <div className="grid-2 gap-6">
-          {/* Leaderboard */}
-          <div className="card">
-            <h2 className="mb-4">🏆 Final Leaderboard</h2>
-            <ul className="leaderboard" style={{ gap: 6 }}>
-              {sortedPlayers.map((p, i) => (
-                <li key={p.id} className={`lb-item rank-${Math.min(i + 1, 4)}`}>
-                  <div className="lb-rank">{i + 1}</div>
-                  <div className="lb-name">{p.username}</div>
-                  <div className="lb-score">{p.total_score.toLocaleString()}</div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Per-question breakdown */}
-          <div className="card">
-            <h2 className="mb-4">📊 Question Breakdown</h2>
-            {questions.map((q, qi) => {
-              const qAnswers = players.map((p) => answerMap.get(`${p.id}:${q.id}`));
-              const correct = qAnswers.filter((a) => a?.is_correct).length;
-              const pct = players.length ? Math.round((correct / players.length) * 100) : 0;
-              return (
-                <div key={q.id} className="mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm" style={{ fontWeight: 600 }}>
-                      Q{qi + 1}: {q.text.slice(0, 60)}
-                      {q.text.length > 60 ? '…' : ''}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {correct}/{players.length} ({pct}%)
-                    </span>
-                  </div>
-                  <div className="answer-bar">
-                    <div className="answer-bar-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="text-xs text-muted mt-1">
-                    Correct: {q.options[q.correct_index]}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
+            <div className="text-3xl font-extrabold text-blue-400">
+              {sortedPlayers[0]?.total_score ?? 0}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">Top Score</div>
           </div>
         </div>
 
-        {/* Full answer matrix */}
-        <div className="card card-xl mt-6" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="p-4">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="mb-4">🏆 Final Leaderboard</h2>
+              <ul className="leaderboard" style={{ gap: 6 }}>
+                {sortedPlayers.map((p, i) => (
+                  <li key={p.id} className={`lb-item rank-${Math.min(i + 1, 4)}`}>
+                    <div className="lb-rank">{i + 1}</div>
+                    <div className="lb-name">{p.username}</div>
+                    <div className="lb-score">{p.total_score.toLocaleString()}</div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="mb-4">📊 Question Breakdown</h2>
+              {questions.map((q, qi) => {
+                const qAnswers = players.map((p) => answerMap.get(`${p.id}:${q.id}`));
+                const correct = qAnswers.filter((a) => a?.is_correct).length;
+                const pct = players.length ? Math.round((correct / players.length) * 100) : 0;
+                return (
+                  <div key={q.id} className="mb-4">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-semibold">
+                        Q{qi + 1}: {q.text.slice(0, 60)}
+                        {q.text.length > 60 ? '…' : ''}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {correct}/{players.length} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="answer-bar">
+                      <div className="answer-bar-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Correct: {q.options[q.correct_index]}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="mt-6 w-full max-w-6xl overflow-hidden">
+          <CardContent className="p-6 pb-0">
             <h2>Answer Matrix</h2>
-            <p className="subtitle">Every player&apos;s answer for each question</p>
-          </div>
-          <div className="table-wrap">
-            <table>
+            <Subtitle>Every player&apos;s answer for each question</Subtitle>
+          </CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
               <thead>
-                <tr>
-                  <th>Player</th>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Player</th>
                   {questions.map((q, i) => (
-                    <th key={q.id}>Q{i + 1}</th>
+                    <th key={q.id} className="px-4 py-3 font-medium">
+                      Q{i + 1}
+                    </th>
                   ))}
-                  <th>Total</th>
+                  <th className="px-4 py-3 font-medium">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedPlayers.map((p, pi) => (
-                  <tr key={p.id}>
-                    <td style={{ fontWeight: pi < 3 ? 700 : 400 }}>
+                  <tr key={p.id} className="border-b border-border last:border-0">
+                    <td className={`px-4 py-3 ${pi < 3 ? 'font-bold' : ''}`}>
                       {pi === 0 ? '🥇 ' : pi === 1 ? '🥈 ' : pi === 2 ? '🥉 ' : ''}
                       {p.username}
                     </td>
                     {questions.map((q) => {
                       const a = answerMap.get(`${p.id}:${q.id}`);
                       return (
-                        <td key={q.id}>
+                        <td key={q.id} className="px-4 py-3">
                           {a == null ? (
-                            <span className="text-muted">—</span>
+                            <span className="text-muted-foreground">—</span>
                           ) : a.is_correct ? (
-                            <span style={{ color: 'var(--success)' }}>✓ +{a.score}</span>
+                            <span className="text-emerald-500">✓ +{a.score}</span>
                           ) : (
-                            <span style={{ color: 'var(--danger)' }}>✗</span>
+                            <span className="text-destructive">✗</span>
                           )}
                         </td>
                       );
                     })}
-                    <td style={{ fontWeight: 700, color: 'var(--accent2)' }}>
+                    <td className="px-4 py-3 font-bold text-blue-400">
                       {p.total_score.toLocaleString()}
                     </td>
                   </tr>
@@ -178,8 +177,8 @@ export default function SessionDetail() {
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
-    </div>
+        </Card>
+      </MainContent>
+    </Page>
   );
 }

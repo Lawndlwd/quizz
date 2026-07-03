@@ -1,13 +1,14 @@
-import { AvatarDisplay } from '../../../components/AvatarPicker';
-import type { GameEndedPayload } from '../../../types';
+import { FinalLeaderboard } from '@/components/game/LeaderboardList';
+import { PageCenter, Subtitle } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import type { GameEndedPayload } from '@/types';
 
 interface Props {
   leaderboard: GameEndedPayload['leaderboard'];
   username: string;
   onPlayAgain: () => void;
 }
-
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 function getRankMessage(rank: number, total: number): { icon: string; title: string } {
   if (rank === 1) return { icon: '🏆', title: 'Champion!' };
@@ -24,50 +25,39 @@ export function EndedScreen({ leaderboard, username, onPlayAgain }: Props) {
     : { icon: '🏁', title: 'Game Over!' };
 
   return (
-    <div className="page-center">
-      <div className="card card-md">
-        <div className="text-center mb-6">
-          <div style={{ fontSize: '3.5rem', marginBottom: 12 }}>{icon}</div>
-          <h1>{title}</h1>
-          {myRank && (
-            <p className="subtitle mt-2">
-              You finished <strong style={{ color: 'var(--accent2)' }}>#{myRank.rank}</strong> with{' '}
-              <strong style={{ color: 'var(--accent2)' }}>
-                {myRank.totalScore.toLocaleString()} pts
-              </strong>
-            </p>
-          )}
-        </div>
-        <h2 className="mb-4 text-center">🏆 Final Scores</h2>
-        <ul className="leaderboard">
-          {leaderboard.map((e) => (
-            <li
-              key={e.rank}
-              className={`lb-item rank-${Math.min(e.rank, 4)}`}
-              style={
-                e.username === username
-                  ? { borderColor: 'var(--accent2)', background: 'rgba(168,85,247,.08)' }
-                  : {}
-              }
-            >
-              <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
-              <AvatarDisplay avatar={e.avatar} size={30} />
-              <div className="lb-name">
-                {e.username}
-                {e.username === username ? ' 👈' : ''}
-              </div>
-              <div className="lb-score">{e.totalScore.toLocaleString()}</div>
-            </li>
-          ))}
-        </ul>
-        <button
-          type="button"
-          onClick={onPlayAgain}
-          className="btn btn-primary btn-full mt-6 btn-lg"
-        >
-          Play Again
-        </button>
-      </div>
-    </div>
+    <PageCenter>
+      <Card className="w-full max-w-md">
+        <CardContent className="p-8">
+          <div className="mb-6 text-center">
+            <div className="mb-3 text-[3.5rem]">{icon}</div>
+            <h1>{title}</h1>
+            {myRank && (
+              <Subtitle className="mt-2">
+                You finished <strong className="text-blue-400">#{myRank.rank}</strong> with{' '}
+                <strong className="text-blue-400">
+                  {myRank.totalScore.toLocaleString()} pts
+                </strong>
+              </Subtitle>
+            )}
+          </div>
+          <h2 className="mb-4 text-center">🏆 Final Scores</h2>
+          <FinalLeaderboard
+            entries={leaderboard}
+            highlightUsername={username}
+            footer={
+              <Button
+                type="button"
+                variant="default"
+                size="lg"
+                className="mt-6 w-full"
+                onClick={onPlayAgain}
+              >
+                Play Again
+              </Button>
+            }
+          />
+        </CardContent>
+      </Card>
+    </PageCenter>
   );
 }

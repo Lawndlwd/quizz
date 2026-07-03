@@ -1,5 +1,10 @@
-import { AvatarDisplay } from '../../../components/AvatarPicker';
-import type { QuestionResults, QuestionType } from '../../../types';
+import { AppAlert } from '@/components/AppAlert';
+import { ClosestGuessesList, LeaderboardList } from '@/components/game/LeaderboardList';
+import { QuestionDistribution } from '@/components/game/QuestionDistribution';
+import { Page } from '@/components/layout';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import type { LeaderboardEntry, QuestionResults } from '../../../types';
 
 interface Props {
   results: QuestionResults;
@@ -7,73 +12,145 @@ interface Props {
   autoAdvanceLeft: number;
 }
 
-export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
-  const myEntry = results.leaderboard.find((e) => e.playerId === playerId);
-  const isOpenText = (results.questionType as QuestionType) === 'open_text';
-  const isMultiSelect = (results.questionType as QuestionType) === 'multi_select';
+function AdvanceHint({
+  autoAdvanceSec,
+  autoAdvanceLeft,
+}: {
+  autoAdvanceSec: number;
+  autoAdvanceLeft: number;
+}) {
+  return (
+    <p className="mt-4 text-center text-sm text-muted-foreground">
+      {autoAdvanceSec > 0 ? (
+        <>
+          Next question in <strong className="text-blue-400">{autoAdvanceLeft}s</strong>…
+        </>
+      ) : (
+        'Waiting for admin to continue…'
+      )}
+    </p>
+  );
+}
+
+function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: QuestionResults }) {
+  const opts = results.options;
+  let body: React.ReactNode;
+  switch (results.questionType) {
+    case 'open_text':
+      body = entry.chosenText ? entry.chosenText : <em>No answer</em>;
+      break;
+    case 'fill_blank': {
+      const b = entry.chosenBlanks ?? [];
+      body = b.length ? b.map((x) => x || '—').join('   ·   ') : <em>No answer</em>;
+      break;
+    }
+    case 'ordering': {
+      const o = entry.chosenOrder ?? [];
+      body = o.length ? (
+        <ol className="list-decimal space-y-0.5 pl-5">
+          {o.map((it, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: positional order
+            <li key={i}>{it}</li>
+          ))}
+        </ol>
+      ) : (
+        <em>No answer</em>
+      );
+      break;
+    }
+    case 'geo':
+      body =
+        entry.chosenPoint != null ? (
+          <>
+            📍 your pin
+            {entry.distance != null && (
+              <span className="text-muted-foreground">
+                {' '}
+                · {Math.round(entry.distance).toLocaleString()} km away
+              </span>
+            )}
+          </>
+        ) : (
+          <em>No pin</em>
+        );
+      break;
+    case 'multi_select': {
+      const idxs = entry.chosenIndices ?? [];
+      body = idxs.length ? idxs.map((i) => opts[i]).join(', ') : <em>No answer</em>;
+      break;
+    }
+    default:
+      body =
+        entry.chosenIndex != null && entry.chosenIndex >= 0 ? (
+          opts[entry.chosenIndex]
+        ) : (
+          <em>No answer</em>
+        );
+  }
 
   return (
-    <div
-      className="page"
-      style={{ maxWidth: 600, margin: '0 auto', width: '100%', padding: '24px 16px' }}
-    >
-      {/* Correct answer reveal */}
-      <div className="card mb-4" style={{ maxWidth: '100%', minWidth: 0 }}>
-        <p className="text-muted text-sm mb-2">{results.questionText}</p>
-        {isOpenText ? (
-          <div
-            className="result-reveal-correct"
-            style={{
-              background: 'rgba(34,197,94,.1)',
-              border: '1px solid rgba(34,197,94,.3)',
-              borderRadius: 8,
-              padding: '12px 16px',
-            }}
-          >
-            <p style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 4 }}>
-              Correct answer
-            </p>
-            <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--success)' }}>
-              {results.correctAnswer}
-            </p>
-          </div>
-        ) : (
-          <div className="options-grid" style={{ padding: 0, gap: 8 }}>
-            {results.options.map((opt, i) => {
-              const isCorrect = isMultiSelect
-                ? (results.correctIndices ?? []).includes(i)
-                : i === results.correctIndex;
-              const myChoice = isMultiSelect
-                ? (myEntry?.chosenIndices ?? []).includes(i)
-                : myEntry?.chosenIndex === i;
-              return (
-                <div
-                  key={String.fromCharCode(65 + i)}
-                  className={`option-btn result-reveal ${isCorrect ? 'correct' : myChoice ? 'wrong' : ''}`}
-                  style={{ cursor: 'default', animationDelay: `${i * 0.06}s` }}
-                >
-                  <div className="option-letter">{String.fromCharCode(65 + i)}</div>
-                  <div className="option-text">{opt}</div>
-                  {isCorrect && <span style={{ marginLeft: 'auto' }}>✓</span>}
-                </div>
-              );
-            })}
-          </div>
-        )}
+    <div className="mb-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+      <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">
+        Your answer
+      </span>
+      <div className={entry.isCorrect ? 'font-semibold text-emerald-400' : 'font-semibold'}>
+        {body}
       </div>
+    </div>
+  );
+}
 
-      {/* My result — with score pop animation */}
-      {myEntry && (
-        <div
-          className={`alert ${myEntry.isCorrect ? 'alert-success result-flash-correct' : 'alert-error result-flash-wrong'} text-center mb-4`}
-          style={{
-            fontSize: '1.05rem',
-            fontWeight: 600,
-            padding: '16px 20px',
-            width: '100%',
-            minWidth: 0,
-            boxSizing: 'border-box',
-          }}
+export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
+  const myEntry = results.leaderboard.find((e) => e.playerId === playerId);
+  const isClosestTo = results.questionType === 'closest_to';
+  const closestList = results.closestRanking ?? [];
+
+  return (
+    <Page className="mx-auto w-full max-w-[600px] px-4 py-6">
+      <Card className="mb-4 min-w-0 max-w-full">
+        <CardContent className="p-6">
+          <p className="mb-3 text-sm text-muted-foreground">{results.questionText}</p>
+          <QuestionDistribution
+            results={results}
+            myChosenIndex={myEntry?.chosenIndex}
+            myChosenIndices={myEntry?.chosenIndices}
+            myChosenPoint={myEntry?.chosenPoint}
+          />
+        </CardContent>
+      </Card>
+
+      {myEntry && !isClosestTo && <YourAnswer entry={myEntry} results={results} />}
+
+      {myEntry && isClosestTo && (
+        <AppAlert
+          variant={myEntry.isCorrect ? 'success' : 'info'}
+          className="text-center text-[1.05rem] font-semibold"
+        >
+          {myEntry.isCorrect ? (
+            <>✓ Exact match!</>
+          ) : (
+            <>
+              Your guess: <strong>{myEntry.chosenNumber}</strong>
+              {myEntry.distance != null && <> (off by {myEntry.distance})</>}
+            </>
+          )}
+          {myEntry.questionScore > 0 && (
+            <>
+              {' '}
+              <span className="score-pop">+{myEntry.questionScore}</span> pts · Total:{' '}
+              {myEntry.totalScore.toLocaleString()}
+            </>
+          )}
+        </AppAlert>
+      )}
+
+      {myEntry && !isClosestTo && (
+        <AppAlert
+          variant={myEntry.isCorrect ? 'success' : 'error'}
+          className={cn(
+            'text-center text-[1.05rem] font-semibold',
+            myEntry.isCorrect ? 'result-flash-correct' : 'result-flash-wrong',
+          )}
         >
           {myEntry.isCorrect ? (
             <>
@@ -83,44 +160,44 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
           ) : (
             <>✗ Wrong — {myEntry.totalScore.toLocaleString()} pts total</>
           )}
-        </div>
+        </AppAlert>
       )}
 
-      {/* Leaderboard */}
-      <div className="card" style={{ maxWidth: '100%', minWidth: 0 }}>
-        <h2 className="mb-4 text-center">🏆 Standings</h2>
-        <ul className="leaderboard">
-          {results.leaderboard.slice(0, 8).map((e, idx) => (
-            <li
-              key={e.playerId}
-              className={`lb-item rank-${Math.min(e.rank, 4)} lb-slide`}
-              style={{
-                animationDelay: `${idx * 0.05}s`,
-                ...(e.playerId === playerId
-                  ? { borderColor: 'var(--accent2)', background: 'rgba(168,85,247,.08)' }
-                  : {}),
-              }}
-            >
-              <div className="lb-rank">{e.rank}</div>
-              <AvatarDisplay avatar={e.avatar} size={30} />
-              <div className="lb-name">
-                {e.username}
-                {e.playerId === playerId ? ' 👈' : ''}
-              </div>
-              {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
-              <div className="lb-score">{e.totalScore.toLocaleString()}</div>
-            </li>
-          ))}
-        </ul>
-        {results.autoAdvanceSec > 0 ? (
-          <p className="text-center text-muted text-sm mt-4">
-            Next question in <strong style={{ color: 'var(--accent2)' }}>{autoAdvanceLeft}s</strong>
-            …
-          </p>
-        ) : (
-          <p className="text-center text-muted text-sm mt-4">Waiting for admin to continue…</p>
-        )}
-      </div>
-    </div>
+      {isClosestTo && closestList.length > 0 && (
+        <Card className="mb-4 min-w-0 max-w-full">
+          <CardContent className="p-6">
+            <h2 className="mb-4 text-center">🎯 Closest Guesses</h2>
+            <ClosestGuessesList
+              entries={closestList}
+              highlightPlayerId={playerId}
+              animate
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {results.showLeaderboard !== false && (
+        <Card className="min-w-0 max-w-full">
+          <CardContent className="p-6">
+            <h2 className="mb-4 text-center">🏆 Standings</h2>
+            <LeaderboardList
+              entries={results.leaderboard}
+              limit={8}
+              highlightPlayerId={playerId}
+              showQuestionScore
+              animate
+            />
+            <AdvanceHint
+              autoAdvanceSec={results.autoAdvanceSec}
+              autoAdvanceLeft={autoAdvanceLeft}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {results.showLeaderboard === false && (
+        <AdvanceHint autoAdvanceSec={results.autoAdvanceSec} autoAdvanceLeft={autoAdvanceLeft} />
+      )}
+    </Page>
   );
 }

@@ -1,4 +1,40 @@
-import type { DbQuestion, GameSettings } from '../types';
+import type { DbPlayer, DbQuestion, DbSession, GameSettings, LeaderboardEntry } from '../types';
+
+const defaultGameSettings = (): GameSettings => ({
+  jokersEnabled: { pass: false, fiftyFifty: false },
+});
+
+export function createActiveSession(
+  session: Pick<DbSession, 'id' | 'quiz_id' | 'pin' | 'status' | 'current_question_index'>,
+  questions: DbQuestion[],
+  adminSocketId = '',
+): ActiveSession {
+  return {
+    sessionId: session.id,
+    quizId: session.quiz_id,
+    pin: session.pin,
+    adminSocketId,
+    questions,
+    currentQuestionIndex: session.current_question_index,
+    playerSockets: new Map(),
+    socketPlayers: new Map(),
+    answeredPlayers: new Map(),
+    correctAnswerCount: new Map(),
+    playerStreaks: new Map(),
+    playerAvatars: new Map(),
+    questionTimer: null,
+    questionStartedAt: null,
+    resultsTimer: null,
+    resultsShownAt: null,
+    status: session.status as ActiveSession['status'],
+    questionPhase: null,
+    lastQuestionPayload: null,
+    lastResultsPayload: null,
+    gameSettings: defaultGameSettings(),
+    playerJokersUsed: new Map(),
+    playerFiftyFiftyIndices: new Map(),
+  };
+}
 
 export interface ActiveSession {
   sessionId: number;
@@ -44,3 +80,33 @@ export interface ActiveSession {
 export const activeSessions = new Map<string, ActiveSession>();
 // sessionId → pin
 export const sessionIdToPin = new Map<number, string>();
+
+/** Resolve the in-memory session state from a session id (via its PIN). */
+export function getStateBySessionId(sessionId: number): ActiveSession | undefined {
+  const pin = sessionIdToPin.get(sessionId);
+  return pin ? activeSessions.get(pin) : undefined;
+}
+
+/** Get (or lazily create) the set of playerIds who answered the given question. */
+export function getOrCreateAnsweredSet(state: ActiveSession, questionId: number): Set<number> {
+  let answered = state.answeredPlayers.get(questionId);
+  if (!answered) {
+    answered = new Set();
+    state.answeredPlayers.set(questionId, answered);
+  }
+  return answered;
+}
+
+/** Build ranked leaderboard entries from players already sorted by score. */
+export function buildLeaderboard(
+  players: DbPlayer[],
+  playerAvatars?: Map<number, string>,
+): Array<LeaderboardEntry & { avatar: string | undefined }> {
+  return players.map((p, i) => ({
+    rank: i + 1,
+    playerId: p.id,
+    username: p.username,
+    totalScore: p.total_score,
+    avatar: playerAvatars?.get(p.id),
+  }));
+}

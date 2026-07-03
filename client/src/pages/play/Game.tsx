@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { clearPlayerSession, loadPlayerSession } from '@/helpers/playerSession';
+import { useCountdown } from '@/hooks/useCountdown';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
-import type { GameEndedPayload, QuestionPayload, QuestionResults } from '../../types';
+import type { GameEndedPayload, QuestionPayload, QuestionResults, QuizIntro } from '../../types';
 import { AnsweredScreen } from './components/AnsweredScreen';
 import { CountdownScreen } from './components/CountdownScreen';
 import { EndedScreen } from './components/EndedScreen';
@@ -17,23 +19,28 @@ export default function Game() {
   const navigate = useNavigate();
   const socket = getSocket();
 
-  // Read identity once from sessionStorage, keep in state so clearing storage later
-  // doesn't break the component mid-render.
-  const [playerId] = useState(() => Number(sessionStorage.getItem('playerId')));
-  const [username] = useState(() => sessionStorage.getItem('username') ?? 'Player');
-  const [myAvatar] = useState(() => sessionStorage.getItem('avatar') ?? '🎮');
+  const [storedSession] = useState(loadPlayerSession);
+  const playerId = Number(storedSession.playerId);
+  const username = storedSession.username ?? 'Player';
+  const myAvatar = storedSession.avatar ?? '🎮';
 
   const [phase, setPhase] = useState<Phase>('waiting');
+  const [reconnecting, setReconnecting] = useState(() =>
+    Boolean(storedSession.playerId && storedSession.pin),
+  );
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [multiSelectSubmitted, setMultiSelectSubmitted] = useState(false);
   const [openTextInput, setOpenTextInput] = useState('');
   const [openTextSubmitted, setOpenTextSubmitted] = useState(false);
+  const [closestValue, setClosestValue] = useState(50);
+  const [closestSubmitted, setClosestSubmitted] = useState(false);
   const [answerResult, setAnswerResult] = useState<{
     isCorrect: boolean;
     score: number;
     wasPassJoker?: boolean;
+    streak?: number;
   } | null>(null);
   const [eliminatedIndices, setEliminatedIndices] = useState<number[]>([]);
   const [jokersEnabled, setJokersEnabled] = useState({ pass: false, fiftyFifty: false });
@@ -43,43 +50,16 @@ export default function Game() {
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [autoAdvanceLeft, setAutoAdvanceLeft] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoAdvanceRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [quizIntro, setQuizIntro] = useState<QuizIntro | null>(null);
+
+  const questionTimer = useCountdown(0);
+  const autoAdvanceTimer = useCountdown(0);
+
+  const effectiveSessionId = Number(sessionId) || Number(storedSession.sessionId) || 0;
 
   useEffect(() => {
     if (!playerId) navigate('/play', { replace: true });
   }, [navigate, playerId]);
-
-  // Reconnect: re-emit player:join on socket connect/reconnect
-  useEffect(() => {
-    const storedPin = sessionStorage.getItem('pin');
-    if (!playerId || !username || !storedPin) return;
-
-    const storedAvatar = sessionStorage.getItem('avatar');
-
-    function rejoin() {
-      socket.emit('player:join', {
-        pin: storedPin,
-        username,
-        avatar: storedAvatar ?? '',
-      });
-    }
-
-    if (!socket.connected) {
-      socket.connect();
-    }
-    // Always rejoin on (re)connect — handles both fresh page load and transient disconnects
-    socket.on('connect', rejoin);
-    // If already connected, rejoin immediately (the 'connect' event already fired)
-    if (socket.connected) {
-      rejoin();
-    }
-    return () => {
-      socket.off('connect', rejoin);
-    };
-  }, [socket, playerId, username]);
 
   useSocketEvent<{ jokersEnabled: { pass: boolean; fiftyFifty: boolean } }>(
     'game:started',
@@ -87,6 +67,12 @@ export default function Game() {
       if (data?.jokersEnabled) setJokersEnabled(data.jokersEnabled);
     },
   );
+
+  useSocketEvent<{ quizIntro?: QuizIntro }>('player:joined', (data) => {
+    if (data.quizIntro) setQuizIntro(data.quizIntro);
+    // We're connected and in the lobby now — clear the initial "reconnecting" flag.
+    setReconnecting(false);
+  });
 
   useSocketEvent<{ seconds: number }>('game:countdown', (data) => {
     setCountdownSec(data.seconds);
@@ -112,82 +98,80 @@ export default function Game() {
   });
 
   useSocketEvent<QuestionPayload>('game:question', (data) => {
+    setReconnecting(false);
     setQuestion(data);
     setSelectedIndex(null);
     setSelectedIndices([]);
     setMultiSelectSubmitted(false);
     setOpenTextInput('');
     setOpenTextSubmitted(false);
+    setClosestSubmitted(false);
+    if (data.questionType === 'closest_to') {
+      const min = data.rangeMin ?? 0;
+      const max = data.rangeMax ?? 100;
+      setClosestValue(Math.round((min + max) / 2));
+    }
     setAnswerResult(null);
     setResults(null);
     setEliminatedIndices([]);
     setAnsweredCount(0);
-    // On reconnect the server sends timeRemaining; otherwise use full timeSec
-    setTimeLeft(data.timeRemaining ?? data.timeSec);
     setPhase('question');
-
-    if (autoAdvanceRef.current) {
-      clearInterval(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
-
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    autoAdvanceTimer.stop();
+    questionTimer.start(data.timeRemaining ?? data.timeSec);
   });
 
-  useSocketEvent<{ isCorrect: boolean; score: number; wasPassJoker?: boolean }>(
+  useSocketEvent<{ isCorrect: boolean; score: number; wasPassJoker?: boolean; streak?: number }>(
     'player:answer-received',
     (data) => {
+      setReconnecting(false);
       setAnswerResult(data);
       setPhase('answered');
-      if (timerRef.current) clearInterval(timerRef.current);
+      questionTimer.stop();
     },
   );
 
   useSocketEvent<QuestionResults>('game:question-results', (data) => {
+    setReconnecting(false);
     setResults(data);
     setPhase('results');
-    if (timerRef.current) clearInterval(timerRef.current);
-
-    setAutoAdvanceLeft(data.autoAdvanceSec);
-    if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
-    autoAdvanceRef.current = setInterval(() => {
-      setAutoAdvanceLeft((t) => {
-        if (t <= 1) {
-          if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    questionTimer.stop();
+    autoAdvanceTimer.start(data.autoAdvanceSec);
   });
 
   useSocketEvent<GameEndedPayload>('game:ended', (data) => {
     setFinalBoard(data.leaderboard);
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (autoAdvanceRef.current) clearInterval(autoAdvanceRef.current);
+    questionTimer.stop();
+    autoAdvanceTimer.stop();
+    setReconnecting(false);
     setPhase('podium');
   });
 
-  function clearGameSession() {
-    sessionStorage.removeItem('playerId');
-    sessionStorage.removeItem('sessionId');
-    sessionStorage.removeItem('pin');
-  }
+  useEffect(() => {
+    const { pin: storedPin, avatar: storedAvatar } = loadPlayerSession();
+    if (!playerId || !username || !storedPin) return;
+
+    function rejoin() {
+      socket.emit('player:join', {
+        pin: storedPin,
+        username,
+        avatar: storedAvatar ?? '',
+        playerId,
+      });
+    }
+
+    if (!socket.connected) socket.connect();
+    socket.on('connect', rejoin);
+    if (socket.connected) rejoin();
+    return () => {
+      socket.off('connect', rejoin);
+    };
+  }, [socket, playerId, username]);
 
   function submitAnswer(chosenIndex: number) {
-    if (!question || phase !== 'question') return;
+    if (!question || phase !== 'question' || !effectiveSessionId) return;
     setSelectedIndex(chosenIndex);
     socket.emit('player:answer', {
-      sessionId: Number(sessionId),
+      sessionId: effectiveSessionId,
       questionId: question.questionId,
       chosenIndex,
       playerId,
@@ -198,11 +182,23 @@ export default function Game() {
     if (!question || phase !== 'question' || openTextSubmitted) return;
     setOpenTextSubmitted(true);
     socket.emit('player:answer', {
-      sessionId: Number(sessionId),
+      sessionId: effectiveSessionId,
       questionId: question.questionId,
       chosenIndex: -1,
       playerId,
       chosenText: openTextInput.trim(),
+    });
+  }
+
+  function submitClosestTo() {
+    if (!question || phase !== 'question' || closestSubmitted) return;
+    setClosestSubmitted(true);
+    socket.emit('player:answer', {
+      sessionId: effectiveSessionId,
+      questionId: question.questionId,
+      chosenIndex: -4,
+      playerId,
+      chosenText: String(closestValue),
     });
   }
 
@@ -217,7 +213,7 @@ export default function Game() {
     if (!question || phase !== 'question' || multiSelectSubmitted) return;
     setMultiSelectSubmitted(true);
     socket.emit('player:answer', {
-      sessionId: Number(sessionId),
+      sessionId: effectiveSessionId,
       questionId: question.questionId,
       chosenIndex: -3,
       chosenIndices: selectedIndices,
@@ -225,7 +221,48 @@ export default function Game() {
     });
   }
 
-  if (phase === 'waiting') return <WaitingScreen username={username} avatar={myAvatar} />;
+  function submitFill(answers: string[]) {
+    if (!question || phase !== 'question') return;
+    socket.emit('player:answer', {
+      sessionId: effectiveSessionId,
+      questionId: question.questionId,
+      chosenIndex: -5,
+      playerId,
+      chosenText: JSON.stringify(answers),
+    });
+  }
+
+  function submitOrder(order: number[]) {
+    if (!question || phase !== 'question') return;
+    socket.emit('player:answer', {
+      sessionId: effectiveSessionId,
+      questionId: question.questionId,
+      chosenIndex: -6,
+      chosenIndices: order,
+      playerId,
+    });
+  }
+
+  function submitGeo(lat: number, lng: number) {
+    if (!question || phase !== 'question') return;
+    socket.emit('player:answer', {
+      sessionId: effectiveSessionId,
+      questionId: question.questionId,
+      chosenIndex: -7,
+      playerId,
+      chosenText: JSON.stringify({ lat, lng }),
+    });
+  }
+
+  if (phase === 'waiting')
+    return (
+      <WaitingScreen
+        username={username}
+        avatar={myAvatar}
+        reconnecting={reconnecting}
+        intro={quizIntro}
+      />
+    );
 
   if (phase === 'countdown') return <CountdownScreen seconds={countdownSec} />;
 
@@ -233,12 +270,14 @@ export default function Game() {
     return (
       <QuestionScreen
         question={question}
-        timeLeft={timeLeft}
+        timeLeft={questionTimer.seconds}
         selectedIndex={selectedIndex}
         selectedIndices={selectedIndices}
         multiSelectSubmitted={multiSelectSubmitted}
         openTextInput={openTextInput}
         openTextSubmitted={openTextSubmitted}
+        closestValue={closestValue}
+        closestSubmitted={closestSubmitted}
         eliminatedIndices={eliminatedIndices}
         answeredCount={answeredCount}
         totalPlayers={totalPlayers}
@@ -249,15 +288,20 @@ export default function Game() {
         onMultiSelectSubmit={submitMultiSelect}
         onOpenTextChange={setOpenTextInput}
         onOpenTextSubmit={submitOpenText}
+        onClosestChange={setClosestValue}
+        onClosestSubmit={submitClosestTo}
         onPassJoker={() => {
           if (jokersUsed.pass) return;
           setJokersUsed((prev) => ({ ...prev, pass: true }));
-          socket.emit('player:joker-pass', { sessionId: Number(sessionId), playerId });
+          socket.emit('player:joker-pass', { sessionId: effectiveSessionId, playerId });
         }}
         onFiftyFiftyJoker={() => {
           if (jokersUsed.fiftyFifty) return;
-          socket.emit('player:joker-5050', { sessionId: Number(sessionId), playerId });
+          socket.emit('player:joker-5050', { sessionId: effectiveSessionId, playerId });
         }}
+        onFillSubmit={submitFill}
+        onOrderSubmit={submitOrder}
+        onGeoSubmit={submitGeo}
       />
     );
 
@@ -266,6 +310,7 @@ export default function Game() {
       <AnsweredScreen
         isCorrect={answerResult.isCorrect}
         score={answerResult.score}
+        streak={answerResult.streak}
         wasPassJoker={answerResult.wasPassJoker}
         answeredCount={answeredCount}
         totalPlayers={totalPlayers}
@@ -274,7 +319,11 @@ export default function Game() {
 
   if (phase === 'results' && results)
     return (
-      <ResultsScreen results={results} playerId={playerId} autoAdvanceLeft={autoAdvanceLeft} />
+      <ResultsScreen
+        results={results}
+        playerId={playerId}
+        autoAdvanceLeft={autoAdvanceTimer.seconds}
+      />
     );
 
   if (phase === 'podium')
@@ -286,7 +335,7 @@ export default function Game() {
         leaderboard={finalBoard}
         username={username}
         onPlayAgain={() => {
-          clearGameSession();
+          clearPlayerSession();
           navigate('/play');
         }}
       />

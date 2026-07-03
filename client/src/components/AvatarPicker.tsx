@@ -1,4 +1,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { fetchAvatarUrls } from '@/lib/avatars';
 
 const AVATAR_KEY = 'quizz_avatar';
 
@@ -42,16 +45,12 @@ interface AvatarPickerProps {
 export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [serverUrls, setServerUrls] = useState<string[] | null>(null);
-  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
-    fetch('/api/avatars')
-      .then((r) => r.json())
-      .then((urls: string[]) => setServerUrls(urls))
-      .catch(() => {
-        setFetchError(true);
-        setServerUrls([]);
-      });
+    fetchAvatarUrls()
+      .then((urls) => setServerUrls(urls))
+      // Fetch failure → empty list → emoji fallback grid renders instead.
+      .catch(() => setServerUrls([]));
   }, []);
 
   function handleFile(e: ChangeEvent<HTMLInputElement>) {
@@ -79,12 +78,16 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
       onChange(dataUrl);
       e.target.value = '';
     };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      e.target.value = '';
+    };
     img.src = url;
   }
 
   const isImage = value.startsWith('data:') || value.startsWith('/avatars/');
   const loading = serverUrls === null;
-  const options = serverUrls && serverUrls.length > 0 ? serverUrls : fetchError ? null : null;
+  const options = serverUrls?.length ? serverUrls : null;
 
   return (
     <div>
@@ -104,18 +107,14 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
           >
             Your avatar
           </p>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="btn btn-ghost btn-sm"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
             {isImage ? '↺ Change photo' : '↑ Upload photo'}
-          </button>
-          <input
+          </Button>
+          <Input
             ref={fileRef}
             type="file"
             accept="image/*"
-            style={{ display: 'none' }}
+            className="hidden"
             onChange={handleFile}
           />
         </div>
@@ -168,10 +167,10 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
                   borderRadius: 10,
                   padding: 3,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(124,58,237,.18)' : 'var(--surface2)',
+                  background: selected ? 'rgba(59,130,246,.18)' : 'var(--surface2)',
                   cursor: 'pointer',
                   overflow: 'hidden',
-                  boxShadow: selected ? '0 0 0 3px rgba(124,58,237,.25)' : 'none',
+                  boxShadow: selected ? '0 0 0 3px rgba(59,130,246,.25)' : 'none',
                   transition: 'all .15s',
                   flexShrink: 0,
                 }}
@@ -208,13 +207,13 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
                   height: 46,
                   borderRadius: 10,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(124,58,237,.18)' : 'var(--surface2)',
+                  background: selected ? 'rgba(59,130,246,.18)' : 'var(--surface2)',
                   fontSize: '1.6rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: selected ? '0 0 0 3px rgba(124,58,237,.25)' : 'none',
+                  boxShadow: selected ? '0 0 0 3px rgba(59,130,246,.25)' : 'none',
                   transition: 'all .15s',
                 }}
               >

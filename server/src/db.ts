@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { type Database, open } from 'sqlite';
 import sqlite3 from 'sqlite3';
+import type { DbPlayer } from './types';
 
 // All persistent data lives in DATA_DIR (Docker) or <project-root>/data/ (local dev)
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), '..', 'data');
@@ -74,6 +75,16 @@ export async function initDb(): Promise<void> {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_password_change TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      username TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      is_banned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_password_change TEXT
+    );
   `);
 
   // Column migrations (safe to run multiple times)
@@ -84,6 +95,19 @@ export async function initDb(): Promise<void> {
     `ALTER TABLE answers ADD COLUMN chosen_text TEXT`,
     `ALTER TABLE questions ADD COLUMN correct_indices TEXT`,
     `ALTER TABLE answers ADD COLUMN chosen_indices TEXT`,
+    `ALTER TABLE quizzes ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL`,
+    `ALTER TABLE quizzes ADD COLUMN owner_kind TEXT NOT NULL DEFAULT 'admin'`,
+    `ALTER TABLE sessions ADD COLUMN hosted_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`,
+    `ALTER TABLE questions ADD COLUMN explanation TEXT`,
+    `ALTER TABLE questions ADD COLUMN range_min INTEGER`,
+    `ALTER TABLE questions ADD COLUMN range_max INTEGER`,
+    `ALTER TABLE questions ADD COLUMN media_url TEXT`,
+    `ALTER TABLE questions ADD COLUMN media_type TEXT`,
+    `ALTER TABLE questions ADD COLUMN blanks TEXT`,
+    `ALTER TABLE questions ADD COLUMN hotspot TEXT`,
+    `ALTER TABLE quizzes ADD COLUMN cover_image TEXT`,
+    `ALTER TABLE questions ADD COLUMN tags TEXT`,
+    `ALTER TABLE questions ADD COLUMN geo TEXT`,
   ];
   for (const sql of columnMigrations) {
     try {
@@ -96,18 +120,36 @@ export async function initDb(): Promise<void> {
   // Migrate admin from config to database if needed
   const adminCount = await db.get('SELECT COUNT(*) as count FROM admins');
   if (adminCount.count === 0) {
-    // Only create default admin if none exists
-    const defaultAdmin = {
-      username: process.env.ADMIN_USERNAME || 'admin',
-      password: process.env.ADMIN_PASSWORD || 'admin',
-    };
+    // Only create the initial super-admin if none exists yet.
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    // Never seed a well-known password. Use ADMIN_PASSWORD when provided,
+    // otherwise generate a strong random one and print it once so the
+    // operator can log in and rotate it.
+    const { randomBytes } = await import('node:crypto');
+    let password = process.env.ADMIN_PASSWORD;
+    if (!password) {
+      password = randomBytes(18).toString('base64url');
+      console.warn(
+        `\n[quizz] No ADMIN_PASSWORD set. Generated a one-time super-admin password:\n` +
+          `        username: ${username}\n` +
+          `        password: ${password}\n` +
+          `        Log in and change it now; this will not be shown again.\n`,
+      );
+    }
 
-    // Always hash the password and create the admin record
-    const bcrypt = await import('bcrypt');
-    const hashedPassword = await bcrypt.hash(defaultAdmin.password, 12);
+    const { hashPassword } = await import('./passwords');
+    const hashedPassword = await hashPassword(password);
     await db.run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [
-      defaultAdmin.username,
+      username,
       hashedPassword,
     ]);
   }
+}
+
+/** All players in a session, highest score first (shared leaderboard source). */
+export async function getRankedPlayers(sessionId: number | string): Promise<DbPlayer[]> {
+  return db.all<DbPlayer[]>(
+    'SELECT * FROM players WHERE session_id = ? ORDER BY total_score DESC',
+    sessionId,
+  );
 }

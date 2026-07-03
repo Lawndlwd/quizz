@@ -6,6 +6,8 @@ import { avatarsDir, initAvatars, listAvatars } from './avatars';
 import { config } from './config';
 import { initDb } from './db';
 import { adminRouter } from './routes/admin';
+import { authRouter } from './routes/auth';
+import { usersRouter } from './routes/users';
 import { setupSockets } from './socket/index';
 
 const app = express();
@@ -16,7 +18,11 @@ app.use(cookieParser());
 
 // ── Public config (no auth) ───────────────────────────────────────────────────
 app.get('/api/public', (_req, res) =>
-  res.json({ appName: config.appName ?? '', appSubtitle: config.appSubtitle ?? '' }),
+  res.json({
+    appName: config.appName ?? '',
+    appSubtitle: config.appSubtitle ?? '',
+    allowedDomain: config.allowedDomain ?? '',
+  }),
 );
 
 // ── Avatars ──────────────────────────────────────────────────────────────────
@@ -25,6 +31,8 @@ app.use('/avatars', express.static(avatarsDir));
 app.get('/api/avatars', (_req, res) => res.json(listAvatars()));
 
 app.use('/api/admin', adminRouter);
+app.use('/api/admin/users', usersRouter);
+app.use('/api/auth', authRouter);
 
 // In production serve the built React app
 const clientDist = path.join(process.cwd(), '..', 'client', 'dist');

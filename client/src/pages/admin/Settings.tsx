@@ -1,48 +1,59 @@
 import { type ChangeEvent, useEffect, useState } from 'react';
+import { AppAlert } from '@/components/AppAlert';
+import { FormRow, MainContent, Page, PageLoading, Subtitle } from '@/components/layout';
+import { Button } from '@/components/ui/button';
+import { Input as FileInput } from '@/components/ui/input';
 import AdminNav from '../../components/AdminNav';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 import type { AppConfig } from '../../types';
+import { SettingsFieldGroup, SettingsSection, SettingsToggle } from './components/SettingsSection';
+
+const NAV_SECTIONS = [
+  { id: 'branding', label: 'Branding', icon: '✏️' },
+  { id: 'gameplay', label: 'Gameplay', icon: '⏱' },
+  { id: 'scoring', label: 'Scoring', icon: '🎯' },
+  { id: 'avatars', label: 'Avatars', icon: '😊' },
+  { id: 'security', label: 'Security', icon: '🔐' },
+] as const;
 
 function computeSpeedBonus(position: number, totalPlayers: number, max: number, min: number) {
   if (totalPlayers <= 1) return max;
   return Math.max(Math.round(max - (max - min) * (position / (totalPlayers - 1))), min);
 }
 
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function SpeedBonusPreview({ max, min }: { max: number; min: number }) {
   const examples = [5, 10, 20];
   return (
-    <div
-      style={{
-        marginTop: 12,
-        background: 'var(--surface2)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '12px 14px',
-      }}
-    >
-      <p style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 8, fontWeight: 600 }}>
-        Preview
+    <div className="rounded-lg border border-border bg-muted/30 p-4 mt-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        Speed bonus preview
       </p>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-4 text-sm">
         {examples.map((n) => (
-          <div key={n} style={{ fontSize: '0.78rem', lineHeight: 1.6 }}>
-            <span style={{ color: 'var(--text2)' }}>{n} players:</span>
-            <br />
+          <div key={n} className="flex flex-col gap-0.5">
+            <strong>{n} players</strong>
             {Array.from({ length: Math.min(n, 5) }, (_, i) => {
               const bonus = computeSpeedBonus(i, n, max, min);
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: stable list based on player count
-                <span key={i} style={{ color: 'var(--accent2)' }}>
-                  {i + 1}st={bonus}
+                <span key={i}>
+                  {ordinal(i + 1)} = {bonus}
                   {i < Math.min(n, 5) - 1 ? ', ' : ''}
                 </span>
               );
             })}
             {n > 5 && (
-              <span style={{ color: 'var(--text3)' }}>
+              <span className="text-muted-foreground">
                 {' '}
-                ... {n}th={computeSpeedBonus(n - 1, n, max, min)}
+                … {ordinal(n)} = {computeSpeedBonus(n - 1, n, max, min)}
               </span>
             )}
           </div>
@@ -52,8 +63,30 @@ function SpeedBonusPreview({ max, min }: { max: number; min: number }) {
   );
 }
 
+function BrandingPreview({ appName, appSubtitle }: { appName: string; appSubtitle: string }) {
+  const name = appName.trim();
+  const logo = name ? `${name} by ⚡ Quizz` : '⚡ Quizz';
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-4 mt-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        Join screen preview
+      </p>
+      <div className="py-4 text-center">
+        <div className="text-xl font-extrabold bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent">
+          {logo}
+        </div>
+        {appSubtitle.trim() && (
+          <p className="text-sm font-medium text-foreground mt-2">{appSubtitle.trim()}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
-  const { token, isSuperAdmin } = useAuth();
+  const { isSuperAdmin, logout } = useAuth();
+  const api = useAuthFetch();
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,26 +99,20 @@ export default function Settings() {
   const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
   const [availableAvatars, setAvailableAvatars] = useState<string[] | null>(null);
   const [avatarsError, setAvatarsError] = useState<string | null>(null);
-
-  // Super admin: admin management
   const [dbAdmins, setDbAdmins] = useState<
     { id: number; username: string; created_at: string; last_password_change: string | null }[]
   >([]);
   const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({});
   const [resettingId, setResettingId] = useState<number | null>(null);
 
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-
   useEffect(() => {
-    fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then(setCfg);
+    api.get<AppConfig>('/api/admin/config').then(({ ok, data }) => {
+      if (ok && data) setCfg(data);
+    });
 
-    fetch('/api/admin/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.username) setAdminUsername(data.username);
-      });
+    api.get<{ username?: string }>('/api/admin/me').then(({ ok, data }) => {
+      if (ok && data?.username) setAdminUsername(data.username);
+    });
 
     fetch('/api/avatars')
       .then((r) => {
@@ -102,14 +129,14 @@ export default function Settings() {
       });
 
     if (isSuperAdmin) {
-      fetch('/api/admin/admins', { headers: { Authorization: `Bearer ${token}` } })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.admins) setDbAdmins(data.admins);
+      api
+        .get<{ admins?: typeof dbAdmins }>('/api/admin/admins')
+        .then(({ ok, data }) => {
+          if (ok && data?.admins) setDbAdmins(data.admins);
         })
         .catch(() => {});
     }
-  }, [token, isSuperAdmin]);
+  }, [api, isSuperAdmin]);
 
   async function changePassword() {
     if (!currentPassword) {
@@ -127,21 +154,15 @@ export default function Settings() {
       if (newPassword) body.newPassword = newPassword;
       if (newUsername && newUsername !== adminUsername) body.newUsername = newUsername;
 
-      const response = await fetch('/api/admin/change-password', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
+      const { ok, data } = await api.post<{ error?: string }>('/api/admin/change-password', body);
 
-      if (!response.ok) {
-        const error = await response.json();
-        alert(error.error || 'Failed to change password');
+      if (!ok) {
+        alert(data?.error || 'Failed to change password');
         return;
       }
 
       alert('Password changed successfully! Please log in again.');
-      // Log out user
-      localStorage.removeItem('token');
+      await logout();
       window.location.href = '/admin/login';
     } catch (error) {
       console.error('Password change failed:', error);
@@ -157,14 +178,12 @@ export default function Settings() {
   async function save() {
     if (!cfg) return;
     setSaving(true);
-    const payload: Record<string, unknown> = { ...cfg };
-    // Password changes now go through separate endpoint (changePassword function)
-    await fetch('/api/admin/config', {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(payload),
-    });
+    const { ok } = await api.put('/api/admin/config', { ...cfg });
     setSaving(false);
+    if (!ok) {
+      alert('Failed to save settings');
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -187,24 +206,26 @@ export default function Settings() {
 
       const dataUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        // eslint-disable-next-line no-await-in-loop
         const url = await toDataUrl(files[i] as File);
         dataUrls.push(url);
       }
 
-      const res = await fetch('/api/admin/avatars/bulk', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ dataUrls }),
-      });
+      const { ok, data: payload } = await api.post<{ error?: string; urls?: string[] }>(
+        '/api/admin/avatars/bulk',
+        { dataUrls },
+      );
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || 'Upload failed');
+      if (!ok) {
+        throw new Error(payload?.error || 'Upload failed');
       }
 
-      const payload = await res.json().catch(() => ({}));
-      const created = Array.isArray(payload.urls) ? payload.urls.length : 0;
+      const urls = Array.isArray(payload?.urls) ? payload.urls : [];
+      const created = urls.length;
+
+      if (urls.length > 0) {
+        setAvailableAvatars((prev) => [...(prev ?? []), ...urls]);
+      }
+
       setAvatarUploadMessage(
         created > 0
           ? `Uploaded ${created} new avatar${created === 1 ? '' : 's'}. They will appear in the avatar picker.`
@@ -223,391 +244,387 @@ export default function Settings() {
     setCfg((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  if (!cfg)
-    return (
-      <div className="page">
-        <AdminNav />
-        <div className="page-center">
-          <p className="text-muted">Loading…</p>
-        </div>
-      </div>
-    );
+  if (!cfg) {
+    return <PageLoading nav={<AdminNav />} />;
+  }
+
+  const streakEnabled = cfg.streakBonusEnabled ?? true;
 
   return (
-    <div className="page">
+    <Page>
       <AdminNav />
-      <div className="main-content">
-        <div className="flex items-center justify-between mb-6">
+      <MainContent>
+        <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
             <h1>Settings</h1>
-            <p className="subtitle">Adjust game behaviour and admin credentials</p>
+            <Subtitle>Configure branding, gameplay, scoring, and admin access</Subtitle>
           </div>
-          <button type="button" onClick={save} disabled={saving} className="btn btn-primary btn-lg">
-            {saving ? 'Saving…' : saved ? '✓ Saved!' : 'Save Changes'}
-          </button>
-        </div>
+          <Button type="button" onClick={save} disabled={saving} size="lg">
+            {saving ? 'Saving…' : saved ? '✓ Saved!' : 'Save changes'}
+          </Button>
+        </header>
 
-        {saved && <div className="alert alert-success">Settings saved successfully.</div>}
+        {saved && <AppAlert variant="success">Settings saved successfully.</AppAlert>}
 
-        {/* Branding */}
-        <div className="card mb-6" style={{ maxWidth: 480 }}>
-          <h2 className="mb-1">✏️ Branding</h2>
-          <p className="text-sm text-muted mb-4">
-            Shown as{' '}
-            <strong style={{ color: 'var(--text)' }}>
-              "{(cfg.appName ?? '').trim() || 'Scaleway'} by ⚡ Quizz"
-            </strong>{' '}
-            — leave blank to show just <strong style={{ color: 'var(--text)' }}>⚡ Quizz</strong>
-          </p>
-          <Input
-            label="Organisation / Event name"
-            placeholder="e.g. Scaleway   (leave blank for default)"
-            value={cfg.appName ?? ''}
-            onChange={(e) => update('appName', e.target.value)}
-          />
-          <Input
-            label="Join page subtitle"
-            placeholder="e.g. Quizz of the day — Cloud Edition"
-            value={cfg.appSubtitle ?? ''}
-            onChange={(e) => update('appSubtitle', e.target.value)}
-            noMargin
-          />
-          <p className="text-xs text-muted mt-2">
-            Displayed on the player join screen below the logo. Leave blank to hide.
-          </p>
-        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[200px_1fr]">
+          <nav
+            className="flex gap-1 overflow-x-auto lg:sticky lg:top-20 lg:flex-col lg:self-start"
+            aria-label="Settings sections"
+          >
+            {NAV_SECTIONS.map(({ id, label, icon }) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <span aria-hidden>{icon}</span>
+                {label}
+              </a>
+            ))}
+          </nav>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-            gap: 24,
-          }}
-        >
-          {/* Game settings */}
-          <div className="card">
-            <h2 className="mb-4">⏱ Game Settings</h2>
-
-            <Input
-              label="Default Question Time (seconds)"
-              type="number"
-              min={5}
-              max={120}
-              value={cfg.questionTimeSec ?? 20}
-              onChange={(e) => update('questionTimeSec', Number(e.target.value))}
-            />
-
-            <Input
-              label="Default Base Score"
-              type="number"
-              min={0}
-              step={50}
-              value={cfg.defaultBaseScore ?? 500}
-              onChange={(e) => update('defaultBaseScore', Number(e.target.value))}
-            />
-
-            <Input
-              label="Max Players Per Session"
-              type="number"
-              min={2}
-              max={500}
-              value={cfg.maxPlayersPerSession ?? 50}
-              onChange={(e) => update('maxPlayersPerSession', Number(e.target.value))}
-            />
-
-            <div className="form-group">
-              <p className="form-label" style={{ marginBottom: 4 }}>
-                Speed Bonus (awarded to correct answerers based on answer speed)
-              </p>
-              <p className="text-xs text-muted mb-4">
-                Scales linearly from max to min based on answer position relative to total players.
-                The 1st correct answerer gets the max bonus, the last gets the min.
-              </p>
-              <div className="form-row">
-                <Input
-                  label="Max bonus (1st correct)"
-                  type="number"
-                  min={0}
-                  step={10}
-                  value={cfg.speedBonusMax ?? 200}
-                  onChange={(e) => update('speedBonusMax', Number(e.target.value))}
-                  noMargin
-                />
-                <Input
-                  label="Min bonus (last correct)"
-                  type="number"
-                  min={0}
-                  step={5}
-                  value={cfg.speedBonusMin ?? 10}
-                  onChange={(e) => update('speedBonusMin', Number(e.target.value))}
-                  noMargin
-                />
-              </div>
-              <SpeedBonusPreview max={cfg.speedBonusMax ?? 200} min={cfg.speedBonusMin ?? 10} />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="results-auto-advance-sec">Results Screen Duration (seconds)</label>
-              <p className="text-xs text-muted mb-2">
-                How long to show results before auto-advancing. Set to <strong>0</strong> for
-                manual-only (admin clicks Next).
-              </p>
+          <div className="flex min-w-0 flex-col gap-6">
+            <SettingsSection
+              id="branding"
+              icon="✏️"
+              title="Branding"
+              description="Customise how the app appears on the player join screen."
+            >
               <Input
-                id="results-auto-advance-sec"
-                type="number"
-                min={0}
-                max={60}
-                value={cfg.resultsAutoAdvanceSec ?? 5}
-                onChange={(e) => update('resultsAutoAdvanceSec', Number(e.target.value))}
+                label="Organisation / event name"
+                placeholder="e.g. Scaleway (leave blank for default)"
+                value={cfg.appName ?? ''}
+                onChange={(e) => update('appName', e.target.value)}
+                hint='Shown as "Your Name by ⚡ Quizz" — leave blank to show just ⚡ Quizz'
+              />
+              <Input
+                label="Join page subtitle"
+                placeholder="e.g. Quizz of the day — Cloud Edition"
+                value={cfg.appSubtitle ?? ''}
+                onChange={(e) => update('appSubtitle', e.target.value)}
                 noMargin
+                hint="Displayed below the logo on the join screen. Leave blank to hide."
               />
-            </div>
-          </div>
+              <BrandingPreview appName={cfg.appName ?? ''} appSubtitle={cfg.appSubtitle ?? ''} />
+            </SettingsSection>
 
-          {/* Streak bonus settings */}
-          <div className="card">
-            <h2 className="mb-4">🔥 Streak Bonus</h2>
-            <p className="text-sm text-muted mb-4">
-              Award extra points when a player answers correctly multiple times in a row.
-            </p>
-
-            <div className="form-group flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="streakEnabled"
-                style={{ width: 'auto' }}
-                checked={cfg.streakBonusEnabled ?? true}
-                onChange={(e) => update('streakBonusEnabled', e.target.checked)}
-              />
-              <label htmlFor="streakEnabled" style={{ marginBottom: 0 }}>
-                Enable streak bonus
-              </label>
-            </div>
-
-            <Input
-              label="Streak starts at (minimum consecutive correct answers)"
-              type="number"
-              min={2}
-              max={10}
-              value={cfg.streakMinimum ?? 2}
-              onChange={(e) => update('streakMinimum', Number(e.target.value))}
-              disabled={!(cfg.streakBonusEnabled ?? true)}
-              hint="e.g. 2 means bonus kicks in on the 3rd correct answer in a row"
-            />
-
-            <Input
-              label="Bonus points per extra streak level"
-              noMargin
-              type="number"
-              min={0}
-              step={10}
-              value={cfg.streakBonusBase ?? 50}
-              onChange={(e) => update('streakBonusBase', Number(e.target.value))}
-              disabled={!(cfg.streakBonusEnabled ?? true)}
-              hint="e.g. 50 pts → 3-streak: +50, 4-streak: +100, 5-streak: +150…"
-            />
-          </div>
-
-          {/* Admin credentials */}
-          {isSuperAdmin ? (
-            <div className="card">
-              <h2 className="mb-4">🔐 Admin Management (Super Admin)</h2>
-              <div className="alert alert-warn mb-4" style={{ fontSize: '0.85rem' }}>
-                You are logged in as the super admin. Your password is managed via the
-                ADMIN_PASSWORD environment variable.
-              </div>
-
-              {dbAdmins.length === 0 ? (
-                <p className="text-sm text-muted">No database admins found.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {dbAdmins.map((admin) => (
-                    <div
-                      key={admin.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '10px 14px',
-                        background: 'var(--surface2)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <strong style={{ flex: 1, minWidth: 100 }}>{admin.username}</strong>
-                      <Input
-                        label=""
-                        type="password"
-                        autoComplete="new-password"
-                        placeholder="New password"
-                        value={resetPasswords[admin.id] || ''}
-                        onChange={(e) =>
-                          setResetPasswords((prev) => ({ ...prev, [admin.id]: e.target.value }))
-                        }
-                        noMargin
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={resettingId === admin.id || !resetPasswords[admin.id]}
-                        onClick={async () => {
-                          setResettingId(admin.id);
-                          try {
-                            const res = await fetch(`/api/admin/admins/${admin.id}/reset-password`, {
-                              method: 'POST',
-                              headers,
-                              body: JSON.stringify({ newPassword: resetPasswords[admin.id] }),
-                            });
-                            if (res.ok) {
-                              alert(`Password reset for ${admin.username}`);
-                              setResetPasswords((prev) => ({ ...prev, [admin.id]: '' }));
-                            } else {
-                              const err = await res.json();
-                              alert(err.error || 'Reset failed');
-                            }
-                          } catch {
-                            alert('Reset failed');
-                          } finally {
-                            setResettingId(null);
-                          }
-                        }}
-                      >
-                        {resettingId === admin.id ? 'Resetting...' : 'Reset Password'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="card">
-              <h2 className="mb-4">🔐 Admin Credentials</h2>
-              <p className="text-sm text-muted mb-4">
-                Current username: <strong style={{ color: 'var(--text)' }}>{adminUsername || '...'}</strong>
-              </p>
-
-              <div className="form-group">
+            <SettingsSection
+              id="gameplay"
+              icon="⏱"
+              title="Gameplay"
+              description="Default timing and session limits for new games."
+            >
+              <FormRow>
                 <Input
-                  label="Current Password (required to make changes)"
-                  type="password"
-                  autoComplete="off"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
+                  label="Question time (seconds)"
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={cfg.questionTimeSec ?? 20}
+                  onChange={(e) => update('questionTimeSec', Number(e.target.value))}
                 />
                 <Input
-                  label="New Username (leave blank to keep current)"
-                  autoComplete="off"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder={adminUsername || 'admin'}
+                  label="Max players per session"
+                  type="number"
+                  min={2}
+                  max={500}
+                  value={cfg.maxPlayersPerSession ?? 50}
+                  onChange={(e) => update('maxPlayersPerSession', Number(e.target.value))}
                 />
+              </FormRow>
+
+              <SettingsFieldGroup
+                title="Results screen"
+                description="How long to show results before auto-advancing. Set to 0 for manual-only (admin clicks Next)."
+              >
                 <Input
-                  label="New Password (leave blank to keep current)"
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
+                  id="results-auto-advance-sec"
+                  label="Duration (seconds)"
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={cfg.resultsAutoAdvanceSec ?? 5}
+                  onChange={(e) => update('resultsAutoAdvanceSec', Number(e.target.value))}
                   noMargin
                 />
-                <button
-                  type="button"
-                  onClick={changePassword}
-                  disabled={changingPassword}
-                  className="btn btn-primary mt-3"
-                >
-                  {changingPassword ? 'Updating...' : 'Update Credentials'}
-                </button>
-              </div>
+              </SettingsFieldGroup>
 
-              <div className="alert alert-warn mt-4" style={{ fontSize: '0.85rem' }}>
-                ⚠️ After changing credentials, you&apos;ll be logged out and need to log back in.
-              </div>
-            </div>
-          )}
+              <SettingsFieldGroup
+                title="Post-game"
+                description="What to show on the final podium screen after a game ends."
+              >
+                <SettingsToggle
+                  id="choose-quiz-maker"
+                  label="Pick the next quiz maker"
+                  description="On the final podium, show a picker where you check players and spin to randomly choose who makes the next quiz."
+                  checked={cfg.chooseQuizMaker ?? false}
+                  onChange={(v) => update('chooseQuizMaker', v)}
+                />
+              </SettingsFieldGroup>
+            </SettingsSection>
 
-          {/* Avatar / emoji library */}
-          <div className="card">
-            <h2 className="mb-2">😊 Avatar & Emoji Library</h2>
-            <p className="text-sm text-muted mb-4">
-              Upload one or more small emoji-style images to make them available as avatars for
-              players. These will be stored on the server and automatically appear in the avatar
-              picker.
-            </p>
+            <SettingsSection
+              id="scoring"
+              icon="🎯"
+              title="Scoring"
+              description="Points awarded for correct answers, speed, and streaks."
+            >
+              <SettingsFieldGroup title="Base score">
+                <Input
+                  label="Default base score per question"
+                  type="number"
+                  min={0}
+                  step={50}
+                  value={cfg.defaultBaseScore ?? 500}
+                  onChange={(e) => update('defaultBaseScore', Number(e.target.value))}
+                  noMargin
+                />
+              </SettingsFieldGroup>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label htmlFor="avatar-bulk-upload" className="mb-2">
-                Bulk upload emoji avatars
+              <SettingsFieldGroup
+                title="Speed bonus"
+                description="Extra points for correct answers based on answer order. 1st correct gets max, last gets min."
+              >
+                <FormRow>
+                  <Input
+                    label="Max bonus (1st correct)"
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={cfg.speedBonusMax ?? 200}
+                    onChange={(e) => update('speedBonusMax', Number(e.target.value))}
+                    noMargin
+                  />
+                  <Input
+                    label="Min bonus (last correct)"
+                    type="number"
+                    min={0}
+                    step={5}
+                    value={cfg.speedBonusMin ?? 10}
+                    onChange={(e) => update('speedBonusMin', Number(e.target.value))}
+                    noMargin
+                  />
+                </FormRow>
+                <SpeedBonusPreview max={cfg.speedBonusMax ?? 200} min={cfg.speedBonusMin ?? 10} />
+              </SettingsFieldGroup>
+
+              <SettingsFieldGroup
+                title="Streak bonus"
+                description="Reward players who answer correctly multiple times in a row."
+              >
+                <SettingsToggle
+                  id="streakEnabled"
+                  label="Enable streak bonus"
+                  description="Adds bonus points on consecutive correct answers"
+                  checked={streakEnabled}
+                  onChange={(checked) => update('streakBonusEnabled', checked)}
+                />
+                <FormRow>
+                  <Input
+                    label="Streak starts at"
+                    type="number"
+                    min={2}
+                    max={10}
+                    value={cfg.streakMinimum ?? 2}
+                    onChange={(e) => update('streakMinimum', Number(e.target.value))}
+                    disabled={!streakEnabled}
+                    hint="Minimum consecutive correct answers before bonus kicks in"
+                  />
+                  <Input
+                    label="Bonus per streak level"
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={cfg.streakBonusBase ?? 50}
+                    onChange={(e) => update('streakBonusBase', Number(e.target.value))}
+                    disabled={!streakEnabled}
+                    hint="e.g. 50 → 3-streak: +50, 4-streak: +100…"
+                    noMargin
+                  />
+                </FormRow>
+              </SettingsFieldGroup>
+            </SettingsSection>
+
+            <SettingsSection
+              id="avatars"
+              icon="😊"
+              title="Avatar library"
+              description="Upload emoji-style images for players to pick as avatars."
+            >
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 p-8 transition hover:border-blue-500/50 hover:bg-muted/40">
+                <FileInput
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleAvatarBulkUpload}
+                  disabled={uploadingAvatars}
+                  className="hidden"
+                />
+                <span className="text-3xl" aria-hidden>
+                  📤
+                </span>
+                <span className="font-semibold">
+                  {uploadingAvatars ? 'Uploading…' : 'Click to upload avatars'}
+                </span>
+                <span className="text-center text-xs text-muted-foreground">
+                  PNG, JPG, GIF, SVG, or WebP — square images around 128×128 work best
+                </span>
               </label>
-              <input
-                id="avatar-bulk-upload"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleAvatarBulkUpload}
-                disabled={uploadingAvatars}
-              />
-              <p className="text-xs text-muted mt-2">
-                Recommended: square images (e.g. 128×128) in PNG, JPG, GIF, SVG, or WebP format.
-              </p>
-            </div>
 
-            {avatarUploadMessage && (
-              <div className="alert mt-3" style={{ fontSize: '0.85rem' }}>
-                {avatarUploadMessage}
-              </div>
-            )}
+              {avatarUploadMessage && (
+                <AppAlert variant="info" className="mt-4">
+                  {avatarUploadMessage}
+                </AppAlert>
+              )}
 
-            <div className="mt-4">
-              <h3 className="mb-2" style={{ fontSize: '0.9rem' }}>
-                Available avatars
-              </h3>
-              {availableAvatars === null && !avatarsError && (
-                <p className="text-sm text-muted">Loading current avatars…</p>
-              )}
-              {avatarsError && <p className="text-sm text-muted">{avatarsError}</p>}
-              {availableAvatars && availableAvatars.length === 0 && !avatarsError && (
-                <p className="text-sm text-muted">
-                  No avatars found yet. Upload some above to populate the library.
-                </p>
-              )}
-              {availableAvatars && availableAvatars.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                  {availableAvatars.map((url) => (
-                    <div
-                      key={url}
-                      style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 10,
-                        border: '2px solid var(--border)',
-                        background: 'var(--surface2)',
-                        padding: 3,
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <img
-                        src={url}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          display: 'block',
-                          borderRadius: 6,
-                        }}
-                      />
+              <SettingsFieldGroup title="Available avatars">
+                {availableAvatars === null && !avatarsError && (
+                  <p className="text-sm text-muted-foreground">Loading current avatars…</p>
+                )}
+                {avatarsError && <p className="text-sm text-muted-foreground">{avatarsError}</p>}
+                {availableAvatars && availableAvatars.length === 0 && !avatarsError && (
+                  <p className="text-sm text-muted-foreground">
+                    No avatars yet. Upload some above to populate the library.
+                  </p>
+                )}
+                {availableAvatars && availableAvatars.length > 0 && (
+                  <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                    {availableAvatars.map((url) => (
+                      <div
+                        key={url}
+                        className="aspect-square overflow-hidden rounded-lg border border-border bg-muted"
+                      >
+                        <img src={url} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SettingsFieldGroup>
+            </SettingsSection>
+
+            <SettingsSection
+              id="security"
+              icon="🔐"
+              title="Security"
+              description={
+                isSuperAdmin
+                  ? 'Manage database admin accounts.'
+                  : 'Update your admin username and password.'
+              }
+            >
+              {isSuperAdmin ? (
+                <>
+                  <AppAlert variant="warn" className="mb-4">
+                    You are logged in as super admin. Your password is managed via the{' '}
+                    <code>ADMIN_PASSWORD</code> environment variable.
+                  </AppAlert>
+
+                  {dbAdmins.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No database admins found.</p>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {dbAdmins.map((admin) => (
+                        <div
+                          key={admin.id}
+                          className="grid grid-cols-1 items-end gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:grid-cols-[1fr_1fr_auto]"
+                        >
+                          <div className="pb-2 font-semibold text-sm sm:pb-0">{admin.username}</div>
+                          <Input
+                            label="New password"
+                            type="password"
+                            autoComplete="new-password"
+                            placeholder="Enter new password"
+                            value={resetPasswords[admin.id] || ''}
+                            onChange={(e) =>
+                              setResetPasswords((prev) => ({
+                                ...prev,
+                                [admin.id]: e.target.value,
+                              }))
+                            }
+                            noMargin
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={resettingId === admin.id || !resetPasswords[admin.id]}
+                            onClick={async () => {
+                              setResettingId(admin.id);
+                              try {
+                                const { ok, data: err } = await api.post<{ error?: string }>(
+                                  `/api/admin/admins/${admin.id}/reset-password`,
+                                  { newPassword: resetPasswords[admin.id] },
+                                );
+                                if (ok) {
+                                  alert(`Password reset for ${admin.username}`);
+                                  setResetPasswords((prev) => ({ ...prev, [admin.id]: '' }));
+                                } else {
+                                  alert(err?.error || 'Reset failed');
+                                }
+                              } catch {
+                                alert('Reset failed');
+                              } finally {
+                                setResettingId(null);
+                              }
+                            }}
+                          >
+                            {resettingId === admin.id ? 'Resetting…' : 'Reset'}
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="mb-1 text-xs text-muted-foreground">Current username</p>
+                    <p className="text-lg font-semibold">{adminUsername || '…'}</p>
+                  </div>
+
+                  <Input
+                    label="Current password"
+                    type="password"
+                    autoComplete="off"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Required to make changes"
+                  />
+                  <Input
+                    label="New username"
+                    autoComplete="off"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder={adminUsername || 'admin'}
+                    hint="Leave blank to keep current username"
+                  />
+                  <Input
+                    label="New password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Leave blank to keep current password"
+                    noMargin
+                  />
+
+                  <Button
+                    type="button"
+                    onClick={changePassword}
+                    disabled={changingPassword}
+                    className="mt-4"
+                  >
+                    {changingPassword ? 'Updating…' : 'Update credentials'}
+                  </Button>
+
+                  <AppAlert variant="warn" className="mt-4">
+                    After changing credentials, you&apos;ll be logged out and need to sign in again.
+                  </AppAlert>
+                </>
               )}
-            </div>
+            </SettingsSection>
           </div>
         </div>
-      </div>
-    </div>
+      </MainContent>
+    </Page>
   );
 }

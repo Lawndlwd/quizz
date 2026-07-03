@@ -1,119 +1,167 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import AdminNav from '../../components/AdminNav';
+import { MainContent, Page, Subtitle } from '@/components/layout';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import CreatorNav from '../../components/CreatorNav';
+import { CompactSessionList } from '../../components/UserGroupCompactLists';
+import { UserGroupPanel } from '../../components/UserGroupPanel';
 import { useAuth } from '../../context/AuthContext';
+import { groupSessionsByHost } from '../../helpers/groupByOwner';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { useCreatorBase } from '../../hooks/useCreatorBase';
 import type { Session } from '../../types';
 
 export default function History() {
-  const { token } = useAuth();
+  const { isSuperAdmin } = useAuth();
+  const api = useAuthFetch();
+  const basePath = useCreatorBase();
+  const showGroupedByUser = basePath === '/admin' && isSuperAdmin;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'finished' | 'active' | 'waiting'>('all');
 
   useEffect(() => {
-    fetch('/api/admin/sessions', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((data: Session[]) => {
-        setSessions(data);
-        setLoading(false);
-      });
-  }, [token]);
+    api
+      .get<Session[]>('/api/admin/sessions')
+      .then(({ ok, data }) => {
+        if (ok && Array.isArray(data)) setSessions(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [api]);
 
-  const filtered = filter === 'all' ? sessions : sessions.filter((s) => s.status === filter);
+  const filtered = useMemo(
+    () => (filter === 'all' ? sessions : sessions.filter((s) => s.status === filter)),
+    [sessions, filter],
+  );
+
+  const sessionGroups = useMemo(
+    () => (showGroupedByUser ? groupSessionsByHost(filtered) : []),
+    [showGroupedByUser, filtered],
+  );
+
+  function renderSessionRow(s: Session) {
+    const dur =
+      s.started_at && s.finished_at
+        ? Math.round((new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) / 1000)
+        : null;
+
+    return (
+      <tr key={s.id} className="border-b border-border last:border-0">
+        <td className="px-4 py-3">
+          <span className="font-semibold">{s.quiz_title}</span>
+        </td>
+        <td className="px-4 py-3">
+          <code className="font-mono text-blue-400">{s.pin}</code>
+        </td>
+        <td className="px-4 py-3">{s.player_count ?? '—'}</td>
+        <td className="px-4 py-3">
+          <StatusBadge status={s.status} />
+        </td>
+        <td className="px-4 py-3 text-sm text-muted-foreground">
+          {s.started_at ? new Date(s.started_at).toLocaleString() : '—'}
+        </td>
+        <td className="px-4 py-3 text-sm text-muted-foreground">
+          {dur != null ? `${Math.floor(dur / 60)}m ${dur % 60}s` : '—'}
+        </td>
+        <td className="px-4 py-3">
+          {s.status === 'finished' ? (
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`${basePath}/sessions/${s.id}`}>Results →</Link>
+            </Button>
+          ) : (
+            <Button size="sm" asChild>
+              <Link to={`${basePath}/game/${s.id}`}>Resume →</Link>
+            </Button>
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  function renderSessionTable(items: Session[]) {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th className="px-4 py-3 font-medium">Quiz</th>
+              <th className="px-4 py-3 font-medium">PIN</th>
+              <th className="px-4 py-3 font-medium">Players</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Started</th>
+              <th className="px-4 py-3 font-medium">Duration</th>
+              <th className="px-4 py-3 font-medium" />
+            </tr>
+          </thead>
+          <tbody>{items.map(renderSessionRow)}</tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
-    <div className="page">
-      <AdminNav />
-      <div className="main-content">
-        <div className="flex items-center justify-between mb-6">
+    <Page>
+      <CreatorNav />
+      <MainContent>
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1>Game History</h1>
-            <p className="subtitle">{sessions.length} sessions total</p>
+            <h1>{showGroupedByUser ? 'All Game History' : 'Game History'}</h1>
+            <Subtitle>
+              {sessions.length} sessions total
+              {showGroupedByUser && sessionGroups.length > 0
+                ? ` · ${sessionGroups.length} user${sessionGroups.length !== 1 ? 's' : ''}`
+                : ''}
+            </Subtitle>
           </div>
           <div className="flex gap-2">
             {(['all', 'active', 'waiting', 'finished'] as const).map((f) => (
-              <button
+              <Button
                 type="button"
                 key={f}
+                variant={filter === f ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setFilter(f)}
-                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {loading ? (
-          <p className="text-muted">Loading…</p>
+          <p className="text-muted-foreground">Loading…</p>
         ) : filtered.length === 0 ? (
-          <div className="card text-center" style={{ padding: '48px 32px' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>📊</div>
-            <h2>No sessions yet</h2>
-            <p className="subtitle mt-2">Start a game from the Dashboard to see history here</p>
+          <Card>
+            <CardContent className="px-8 py-12 text-center">
+              <div className="mb-2.5 text-4xl">📊</div>
+              <h2>No sessions yet</h2>
+              <Subtitle className="mt-2">
+                Start a game from the Dashboard to see history here
+              </Subtitle>
+            </CardContent>
+          </Card>
+        ) : showGroupedByUser ? (
+          <div className="flex flex-col gap-4">
+            {sessionGroups.map((group, index) => (
+              <UserGroupPanel
+                key={group.key}
+                email={group.email}
+                username={group.username}
+                count={group.items.length}
+                countLabel={group.items.length === 1 ? 'session' : 'sessions'}
+                defaultOpen={index === 0}
+              >
+                <CompactSessionList items={group.items} basePath={basePath} />
+              </UserGroupPanel>
+            ))}
           </div>
         ) : (
-          <div className="card card-xl" style={{ padding: 0, overflow: 'hidden' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Quiz</th>
-                  <th>PIN</th>
-                  <th>Players</th>
-                  <th>Status</th>
-                  <th>Started</th>
-                  <th>Duration</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => {
-                  const dur =
-                    s.started_at && s.finished_at
-                      ? Math.round(
-                          (new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) /
-                            1000,
-                        )
-                      : null;
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <span style={{ fontWeight: 600 }}>{s.quiz_title}</span>
-                      </td>
-                      <td>
-                        <code className="font-mono" style={{ color: 'var(--accent2)' }}>
-                          {s.pin}
-                        </code>
-                      </td>
-                      <td>{s.player_count ?? '—'}</td>
-                      <td>
-                        <span className={`badge badge-${s.status}`}>{s.status}</span>
-                      </td>
-                      <td className="text-muted text-sm">
-                        {s.started_at ? new Date(s.started_at).toLocaleString() : '—'}
-                      </td>
-                      <td className="text-muted text-sm">
-                        {dur != null ? `${Math.floor(dur / 60)}m ${dur % 60}s` : '—'}
-                      </td>
-                      <td>
-                        {s.status === 'finished' ? (
-                          <Link to={`/admin/sessions/${s.id}`} className="btn btn-sm btn-ghost">
-                            Results →
-                          </Link>
-                        ) : (
-                          <Link to={`/admin/game/${s.id}`} className="btn btn-sm btn-primary">
-                            Resume →
-                          </Link>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Card className="w-full max-w-6xl overflow-hidden">{renderSessionTable(filtered)}</Card>
         )}
-      </div>
-    </div>
+      </MainContent>
+    </Page>
   );
 }
