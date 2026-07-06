@@ -32,10 +32,7 @@ export function matchFillBlank(
  * final position k; `perm[slot]` is the original index shown at that slot. The
  * item is in its correct place when `perm[order[k]] === k`.
  */
-export function scoreOrdering(
-  order: number[],
-  perm: number[],
-): { matched: number; total: number } {
+export function scoreOrdering(order: number[], perm: number[]): { matched: number; total: number } {
   const total = perm.length;
   if (order.length !== total) return { matched: 0, total };
   const seen = new Set<number>();

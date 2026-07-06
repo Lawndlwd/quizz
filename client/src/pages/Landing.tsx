@@ -20,11 +20,8 @@ export default function Landing() {
           <Button asChild variant="secondary" size="lg" className="w-full">
             <Link to="/login">Sign in</Link>
           </Button>
-          <Button asChild variant="ghost" size="lg" className="w-full">
-            <Link to="/register">Create account</Link>
-          </Button>
           <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
-            <Link to="/admin/login">Admin login</Link>
+            <Link to="/register">Create account</Link>
           </Button>
         </div>
       </AuthCard>

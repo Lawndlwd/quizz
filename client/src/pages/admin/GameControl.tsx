@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainContent, Page, PageLoading } from '@/components/layout';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useTheme } from '@/hooks/useTheme';
+import { useDialog } from '@/context/DialogContext';
+import { MuteToggle } from '@/components/MuteToggle';
+import { sound } from '@/lib/sound';
 import CreatorNav from '../../components/CreatorNav';
 import { useAuth } from '../../context/AuthContext';
 import { useCreatorBase } from '../../hooks/useCreatorBase';
@@ -48,6 +52,7 @@ export default function GameControl() {
   const navigate = useNavigate();
   const basePath = useCreatorBase();
   const socket = getSocket();
+  const { confirm } = useDialog();
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -63,6 +68,8 @@ export default function GameControl() {
 
   const questionTimer = useCountdown(0);
   const autoAdvanceTimer = useCountdown(0);
+
+  useTheme(sessionState?.quizIntro?.theme);
 
   useEffect(() => {
     if (!token) return;
@@ -98,6 +105,7 @@ export default function GameControl() {
     (data) => {
       setPlayers((prev) => {
         if (prev.find((p) => p.id === data.playerId)) return prev;
+        sound.play('blip');
         return [
           ...prev,
           { id: data.playerId, username: data.username, totalScore: 0, avatar: data.avatar },
@@ -206,10 +214,16 @@ export default function GameControl() {
     socket.emit('admin:next-question', { sessionId: Number(sessionId), token });
   }, [sessionId, token, socket, autoAdvanceTimer]);
 
-  const endGame = useCallback(() => {
-    if (!confirm('End the game now?')) return;
+  const endGame = useCallback(async () => {
+    const ok = await confirm({
+      title: 'End game?',
+      message: 'This ends the game now and shows the final scores.',
+      confirmText: 'End game',
+      variant: 'danger',
+    });
+    if (!ok) return;
     socket.emit('admin:end-game', { sessionId: Number(sessionId), token });
-  }, [sessionId, token, socket]);
+  }, [sessionId, token, socket, confirm]);
 
   const finishQuestion = useCallback(() => {
     socket.emit('admin:finish-question', { sessionId: Number(sessionId), token });
@@ -249,6 +263,7 @@ export default function GameControl() {
   return (
     <Page>
       <CreatorNav />
+      <MuteToggle className="fixed left-3 bottom-3 z-50" />
       {phase === 'lobby' && (
         <GameLobby
           quizTitle={sessionState.session.quiz_title ?? ''}
@@ -294,6 +309,7 @@ export default function GameControl() {
           quizTitle={sessionState.session.quiz_title ?? ''}
           leaderboard={finalBoard}
           chooseQuizMaker={chooseQuizMaker}
+          theme={sessionState.quizIntro?.theme}
           onViewDetails={() => navigate(`${basePath}/sessions/${sessionId ?? ''}`)}
           onDashboard={() => navigate(basePath)}
         />

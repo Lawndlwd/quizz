@@ -1,3 +1,20 @@
+import {
+  ArrowUpDown,
+  Circle,
+  Diamond,
+  Gauge,
+  Hexagon,
+  ListChecks,
+  type LucideIcon,
+  MapPin,
+  PenLine,
+  Square,
+  SquareDashed,
+  Star,
+  Target,
+  ToggleLeft,
+  Triangle,
+} from 'lucide-react';
 import type { GeoPoint, ImportPayload, ImportQuestion, QuestionType } from '@/types';
 export type QuestionWithKey = ImportQuestion & { _key: string };
 
@@ -15,6 +32,8 @@ export function optionLetter(index: number): string {
  */
 export const QUAD_COLORS = ['#e2455a', '#2a7de1', '#f5a623', '#1f9d57', '#a855f7', '#0ea5e9'];
 export const QUAD_GLYPHS = ['▲', '◆', '●', '■', '★', '⬢'];
+/** lucide equivalents of QUAD_GLYPHS, index-matched. */
+export const QUAD_ICONS: LucideIcon[] = [Triangle, Diamond, Circle, Square, Star, Hexagon];
 
 export function quadColor(index: number): string {
   return QUAD_COLORS[index % QUAD_COLORS.length];
@@ -22,6 +41,10 @@ export function quadColor(index: number): string {
 
 export function quadGlyph(index: number): string {
   return QUAD_GLYPHS[index % QUAD_GLYPHS.length];
+}
+
+export function quadIcon(index: number): LucideIcon {
+  return QUAD_ICONS[index % QUAD_ICONS.length];
 }
 
 export function hasQuestionImage(url?: string | null): url is string {
@@ -43,6 +66,41 @@ export function isImageUrl(value?: string | null): value is string {
   if (!s || /\s/.test(s)) return false;
   if (s.startsWith('data:image/')) return true;
   return /^(?:https?:\/\/|\/)\S+$/i.test(s);
+}
+
+// Fenced code block: ```lang\n…code…\n``` (lang optional). Single source of
+// truth for both the game renderer (QuestionText) and the studio block editor
+// (QuestionTextEditor) so their split semantics can't drift apart.
+const FENCE = /```([a-zA-Z0-9+#.-]*)\n?([\s\S]*?)```/g;
+
+export interface FencedSegment {
+  type: 'text' | 'code';
+  lang: string;
+  content: string;
+}
+
+/** Split a markdown string into alternating text / fenced-code segments. */
+export function splitFenced(md: string): FencedSegment[] {
+  const segments: FencedSegment[] = [];
+  let last = 0;
+  FENCE.lastIndex = 0;
+  let m = FENCE.exec(md);
+  while (m !== null) {
+    if (m.index > last) {
+      // Trim the newline(s) that merely separate text from the fence — the
+      // serializer re-adds them, so keeping both would accumulate blank lines.
+      const text = md.slice(last, m.index).replace(/\n+$/, '');
+      if (text) segments.push({ type: 'text', lang: '', content: text });
+    }
+    segments.push({ type: 'code', lang: m[1] ?? '', content: m[2].replace(/\n$/, '') });
+    last = m.index + m[0].length;
+    m = FENCE.exec(md);
+  }
+  if (last < md.length) {
+    const text = md.slice(last).replace(/^\n+/, '');
+    if (text) segments.push({ type: 'text', lang: '', content: text });
+  }
+  return segments;
 }
 
 /** Extract the 11-char video id from any common YouTube URL (or a bare id). */
@@ -78,15 +136,15 @@ export function hasText(value?: string | null): value is string {
 }
 
 /** Display label + icon for each question type (used in the lobby intro, etc). */
-export const QUESTION_TYPE_META: Record<QuestionType, { label: string; icon: string }> = {
-  multiple_choice: { label: 'Single Choice', icon: '🔘' },
-  multi_select: { label: 'Multiple Answers', icon: '☑️' },
-  true_false: { label: 'True / False', icon: '✅' },
-  open_text: { label: 'Open Text', icon: '✏️' },
-  closest_to: { label: 'Closest Number', icon: '🎯' },
-  fill_blank: { label: 'Fill the Blank', icon: '📝' },
-  ordering: { label: 'Put in Order', icon: '🔀' },
-  geo: { label: 'Locate on Map', icon: '🌍' },
+export const QUESTION_TYPE_META: Record<QuestionType, { label: string; icon: LucideIcon }> = {
+  multiple_choice: { label: 'Single Choice', icon: Target },
+  multi_select: { label: 'Multiple Answers', icon: ListChecks },
+  true_false: { label: 'True / False', icon: ToggleLeft },
+  open_text: { label: 'Open Text', icon: PenLine },
+  closest_to: { label: 'Closest Number', icon: Gauge },
+  fill_blank: { label: 'Fill the Blank', icon: SquareDashed },
+  ordering: { label: 'Put in Order', icon: ArrowUpDown },
+  geo: { label: 'Locate on Map', icon: MapPin },
 };
 
 /** Format a duration in seconds as `45s`, `2m`, or `2m 30s`. */

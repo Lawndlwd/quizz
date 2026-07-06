@@ -46,8 +46,8 @@ export function GameQuestion({
         </Button>
       </div>
 
-      <Card className="w-full max-w-5xl min-w-full">
-        <CardContent className="flex flex-col p-8 md:p-10">
+      <Card className="w-full max-w-5xl">
+        <CardContent className="flex flex-col p-4 sm:p-8 md:p-10">
           {/* Counter row */}
           <div className="mb-4 flex items-center justify-between">
             <span className="mono-label">

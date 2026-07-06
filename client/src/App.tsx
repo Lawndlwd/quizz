@@ -4,7 +4,6 @@ import { PageCenter } from '@/components/layout';
 import { useAuth } from './context/AuthContext';
 
 const Landing = lazy(() => import('./pages/Landing'));
-const Login = lazy(() => import('./pages/admin/Login'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
 const CreateQuiz = lazy(() => import('./pages/admin/CreateQuiz'));
 const EditQuiz = lazy(() => import('./pages/admin/EditQuiz'));
@@ -16,6 +15,8 @@ const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const UserLogin = lazy(() => import('./pages/auth/UserLogin'));
 const UserRegister = lazy(() => import('./pages/auth/UserRegister'));
 const UserSettings = lazy(() => import('./pages/user/UserSettings'));
+const PlayHistory = lazy(() => import('./pages/user/PlayHistory'));
+const PlaySessionDetail = lazy(() => import('./pages/user/PlaySessionDetail'));
 const Game = lazy(() => import('./pages/play/Game'));
 const Join = lazy(() => import('./pages/play/Join'));
 
@@ -34,7 +35,7 @@ function Lazy({ children }: { children: React.ReactNode }) {
 function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
   const { role, checking } = useAuth();
   if (checking) return <Loading />;
-  if (role !== 'super_admin') return <Navigate to="/admin/login" replace />;
+  if (role !== 'super_admin') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -82,14 +83,7 @@ export default function App() {
         }
       />
 
-      <Route
-        path="/admin/login"
-        element={
-          <Lazy>
-            <Login />
-          </Lazy>
-        }
-      />
+      <Route path="/admin/login" element={<Navigate to="/login" replace />} />
       <Route
         path="/admin/settings"
         element={
@@ -134,6 +128,26 @@ export default function App() {
           <Lazy>
             <RequireUser>
               <UserSettings />
+            </RequireUser>
+          </Lazy>
+        }
+      />
+      <Route
+        path="/u/my-games"
+        element={
+          <Lazy>
+            <RequireUser>
+              <PlayHistory />
+            </RequireUser>
+          </Lazy>
+        }
+      />
+      <Route
+        path="/u/my-games/:id"
+        element={
+          <Lazy>
+            <RequireUser>
+              <PlaySessionDetail />
             </RequireUser>
           </Lazy>
         }

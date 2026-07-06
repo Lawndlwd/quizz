@@ -6,11 +6,53 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import AdminNav from '../../components/AdminNav';
+import { useDialog } from '../../context/DialogContext';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import type { UserAccount } from '../../types';
 
+type UserActionsProps = {
+  user: UserAccount;
+  actionId: number | null;
+  onUnban: (id: number) => void;
+  onBan: (id: number) => void;
+  onReset: (id: number) => void;
+  onDelete: (id: number) => void;
+};
+
+/** Ban/Unban · Reset pw · Delete — shared between the mobile list and desktop table. */
+function UserActions({ user, actionId, onUnban, onBan, onReset, onDelete }: UserActionsProps) {
+  const busy = actionId === user.id;
+  return (
+    <>
+      {user.is_banned ? (
+        <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => onUnban(user.id)}>
+          Unban
+        </Button>
+      ) : (
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => onBan(user.id)}>
+          Ban
+        </Button>
+      )}
+      <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => onReset(user.id)}>
+        Reset pw
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => onDelete(user.id)}
+        className="text-destructive"
+      >
+        Delete
+      </Button>
+    </>
+  );
+}
+
 export default function UserManagement() {
   const api = useAuthFetch();
+  const { confirm } = useDialog();
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
@@ -47,7 +89,12 @@ export default function UserManagement() {
   }
 
   async function resetUserPassword(id: number) {
-    if (!confirm('Generate a new password for this user?')) return;
+    const proceed = await confirm({
+      title: 'Reset password?',
+      message: 'This generates a new password for this user.',
+      confirmText: 'Generate',
+    });
+    if (!proceed) return;
     setActionId(id);
     const { ok, data } = await api.post<{ password?: string; error?: string }>(
       `/api/admin/users/${id}/reset-password`,
@@ -59,7 +106,13 @@ export default function UserManagement() {
   }
 
   async function deleteUser(id: number) {
-    if (!confirm('Delete this user? Their quizzes will become unowned.')) return;
+    const ok = await confirm({
+      title: 'Delete user?',
+      message: 'Their quizzes will become unowned.',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setActionId(id);
     await api.delete(`/api/admin/users/${id}`);
     setActionId(null);
@@ -99,91 +152,96 @@ export default function UserManagement() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="w-full max-w-6xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Quizzes</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3">{u.email}</td>
-                      <td className="px-4 py-3">{u.username}</td>
-                      <td className="px-4 py-3">{u.quiz_count}</td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'font-semibold uppercase',
-                            u.is_banned
-                              ? 'border-border bg-muted text-muted-foreground'
-                              : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
-                          )}
-                        >
-                          {u.is_banned ? 'banned' : 'active'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          {u.is_banned ? (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              disabled={actionId === u.id}
-                              onClick={() => unbanUser(u.id)}
-                            >
-                              Unban
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={actionId === u.id}
-                              onClick={() => banUser(u.id)}
-                            >
-                              Ban
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={actionId === u.id}
-                            onClick={() => resetUserPassword(u.id)}
-                          >
-                            Reset pw
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={actionId === u.id}
-                            onClick={() => deleteUser(u.id)}
-                            className="text-destructive"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
+          <>
+            <ul className="divide-y divide-border rounded-xl border border-border md:hidden">
+              {users.map((u) => (
+                <li key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{u.username}</span>
+                    <span className="block truncate text-sm text-muted-foreground">{u.email}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {u.quiz_count} quiz{u.quiz_count !== 1 ? 'zes' : ''} ·{' '}
+                      {new Date(u.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'shrink-0 font-semibold uppercase',
+                      u.is_banned
+                        ? 'border-border bg-muted text-muted-foreground'
+                        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+                    )}
+                  >
+                    {u.is_banned ? 'banned' : 'active'}
+                  </Badge>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <UserActions
+                      user={u}
+                      actionId={actionId}
+                      onUnban={unbanUser}
+                      onBan={banUser}
+                      onReset={resetUserPassword}
+                      onDelete={deleteUser}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Card className="hidden w-full max-w-6xl overflow-hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="px-4 py-3 font-medium">Email</th>
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 font-medium">Quizzes</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Created</th>
+                      <th className="px-4 py-3 text-right font-medium">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-border last:border-0">
+                        <td className="max-w-[200px] truncate px-4 py-3">{u.email}</td>
+                        <td className="px-4 py-3">{u.username}</td>
+                        <td className="px-4 py-3">{u.quiz_count}</td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'font-semibold uppercase',
+                              u.is_banned
+                                ? 'border-border bg-muted text-muted-foreground'
+                                : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+                            )}
+                          >
+                            {u.is_banned ? 'banned' : 'active'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <UserActions
+                              user={u}
+                              actionId={actionId}
+                              onUnban={unbanUser}
+                              onBan={banUser}
+                              onReset={resetUserPassword}
+                              onDelete={deleteUser}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </>
         )}
       </MainContent>
     </Page>

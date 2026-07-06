@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight, Check, Eye, SkipForward, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QuestionReveal } from '@/components/game/QuestionReveal';
 import { PageVCenter } from '@/components/layout';
@@ -8,12 +9,14 @@ import { Button } from '@/components/ui/button';
 import { countBlanks, hasQuestionImage } from '@/helpers';
 import { useCountdown } from '@/hooks/useCountdown';
 import { QuestionScreen } from '@/pages/play/components/QuestionScreen';
-import type { ImportQuestion, QuestionPayload, QuestionResults } from '@/types';
+import type { ImportQuestion, QuestionPayload, QuestionResults, ThemeId } from '@/types';
 
 interface Props {
   title: string;
   questions: ImportQuestion[];
   onClose: () => void;
+  /** Render the preview in the quiz's theme (matches the real game). */
+  theme?: ThemeId;
 }
 
 type Phase = 'question' | 'reveal';
@@ -26,7 +29,7 @@ const norm = (s: string) => s.trim().toLowerCase();
  * starting a real session or opening a second window. Interactive, with a
  * skippable timer.
  */
-export function QuizPreviewModal({ title, questions, onClose }: Props) {
+export function QuizPreviewModal({ title, questions, onClose, theme }: Props) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('question');
 
@@ -170,13 +173,13 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
   const v = phase === 'reveal' ? verdict() : null;
 
   return (
-    <div className="fixed inset-0 z-[200] overflow-y-auto bg-[var(--bg)]">
+    <div data-theme={theme} className="fixed inset-0 z-[1100] overflow-y-auto bg-[var(--bg)]">
       {/* Top-left preview badge */}
-      <div className="fixed left-4 top-4 z-[210] flex items-center gap-2">
-        <span className="rounded-md bg-[var(--accent)] px-2.5 py-1.5 text-xs font-bold tracking-wide text-white shadow-lg">
-          👁 PREVIEW
+      <div className="fixed left-3 top-3 z-[210] flex max-w-[calc(100%-4rem)] items-center gap-2 sm:left-4 sm:top-4">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--accent)] px-2 py-1.5 text-xs font-bold tracking-wide text-white shadow-lg sm:px-2.5">
+          <Eye className="size-4" /> PREVIEW
         </span>
-        <span className="max-w-[38vw] truncate rounded-md bg-black/55 px-2.5 py-1.5 text-xs font-medium text-white backdrop-blur">
+        <span className="truncate rounded-md bg-black/55 px-2 py-1.5 text-xs font-medium text-white backdrop-blur sm:max-w-[38vw] sm:px-2.5">
           {title || 'Untitled quiz'}
         </span>
       </div>
@@ -188,31 +191,45 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
         size="sm"
         onClick={onClose}
         title="Close preview"
-        className="fixed right-4 top-4 z-[210] shadow-lg"
+        className="fixed right-3 top-3 z-[210] shadow-lg sm:right-4 sm:top-4"
       >
-        ✕ Close
+        <X className="size-4" />
+        <span className="hidden sm:inline"> Close</span>
       </Button>
 
-      {/* Floating bottom control bar — always visible */}
-      <div className="fixed bottom-5 left-1/2 z-[210] flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-[var(--surface)] px-3 py-2 shadow-2xl">
+      {/* Bottom control bar */}
+      <div className="fixed bottom-3 left-3 right-3 z-[210] flex flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-border bg-[var(--surface)] px-2 py-2 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:gap-2 sm:rounded-full sm:px-3">
         <Button type="button" variant="ghost" size="sm" onClick={prev} disabled={index === 0}>
-          ← Prev
+          <ArrowLeft className="size-4" />
+          <span className="hidden sm:inline"> Prev</span>
         </Button>
         <span className="px-1 text-sm font-semibold tabular-nums">
-          {index + 1} / {questions.length}
+          {index + 1}/{questions.length}
         </span>
         {phase === 'question' ? (
-          <Button type="button" variant="default" onClick={reveal}>
-            ⏭ Reveal answer
+          <Button type="button" variant="default" size="sm" onClick={reveal}>
+            <SkipForward className="size-4" />
+            <span className="hidden sm:inline"> Reveal answer</span>
+            <span className="sm:hidden"> Reveal</span>
           </Button>
         ) : (
-          <Button type="button" variant="default" onClick={next}>
-            {index < questions.length - 1 ? 'Next question →' : 'Finish ✓'}
+          <Button type="button" variant="default" size="sm" onClick={next}>
+            {index < questions.length - 1 ? (
+              <>
+                <span className="hidden sm:inline">Next question </span>
+                <span className="sm:hidden">Next </span>
+                <ArrowRight className="size-4" />
+              </>
+            ) : (
+              <>
+                Finish <Check className="size-4" />
+              </>
+            )}
           </Button>
         )}
       </div>
 
-      <div className="pb-28">
+      <div className="pb-32 sm:pb-28">
         {phase === 'question' ? (
           <QuestionScreenPreview
             key={index}
@@ -261,7 +278,15 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
                     v ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
                   }`}
                 >
-                  {v ? '✓ Correct' : '✗ Incorrect'}
+                  {v ? (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <Check className="size-4" /> Correct
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <X className="size-4" /> Incorrect
+                    </span>
+                  )}
                 </div>
               )}
               <QuestionReveal

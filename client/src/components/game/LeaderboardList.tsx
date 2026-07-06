@@ -1,8 +1,17 @@
+import { Check, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AvatarDisplay } from '@/components/AvatarPicker';
+import { MedalIcon } from '@/components/game/MedalIcon';
 import type { FinalLeaderboardEntry, LeaderboardEntry } from '@/types';
 
-export const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+/** "You" pill shown next to the current player's leaderboard row. */
+function YouBadge() {
+  return (
+    <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-primary">
+      You
+    </span>
+  );
+}
 
 interface Props {
   entries: LeaderboardEntry[];
@@ -42,11 +51,13 @@ export function LeaderboardList({
                 : {}),
             }}
           >
-            <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
+            <div className="lb-rank">
+              {e.rank <= 3 ? <MedalIcon place={e.rank} className="size-5" /> : e.rank}
+            </div>
             <AvatarDisplay avatar={e.avatar} size={30} />
             <div className="lb-name">
               {e.username}
-              {isHighlighted ? ' 👈' : ''}
+              {isHighlighted && <YouBadge />}
             </div>
             {showQuestionScore && e.questionScore > 0 && (
               <span className="lb-delta">+{e.questionScore}</span>
@@ -54,7 +65,11 @@ export function LeaderboardList({
             {showQuestionScore &&
               e.chosenIndex !== null &&
               e.chosenIndex !== -1 &&
-              !e.isCorrect && <span className="lb-delta wrong">✗</span>}
+              !e.isCorrect && (
+                <span className="lb-delta wrong">
+                  <X className="size-4" />
+                </span>
+              )}
             <div className="lb-score">{e.totalScore.toLocaleString()}</div>
             {renderActions?.(e)}
           </li>
@@ -89,11 +104,15 @@ export function ClosestGuessesList({
           <AvatarDisplay avatar={e.avatar} size={30} />
           <div className="lb-name">
             {e.username}
-            {highlightPlayerId === e.playerId ? ' 👈' : ''}
+            {highlightPlayerId === e.playerId && <YouBadge />}
           </div>
           <span className="text-sm text-muted-foreground">
             {e.chosenNumber}
-            {e.distance != null && e.distance > 0 ? ` (±${e.distance})` : ' ✓'}
+            {e.distance != null && e.distance > 0 ? (
+              ` (±${e.distance})`
+            ) : (
+              <Check className="ml-0.5 inline size-3.5 text-emerald-500" />
+            )}
           </span>
           {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
         </li>
@@ -122,11 +141,13 @@ export function FinalLeaderboard({ entries, highlightUsername, footer }: FinalPr
                 : {}
             }
           >
-            <div className="lb-rank">{MEDALS[e.rank] ?? e.rank}</div>
+            <div className="lb-rank">
+              {e.rank <= 3 ? <MedalIcon place={e.rank} className="size-5" /> : e.rank}
+            </div>
             <AvatarDisplay avatar={e.avatar} size={30} />
             <div className="lb-name">
               {e.username}
-              {highlightUsername && e.username === highlightUsername ? ' 👈' : ''}
+              {highlightUsername && e.username === highlightUsername && <YouBadge />}
             </div>
             <div className="lb-score">{e.totalScore.toLocaleString()}</div>
           </li>

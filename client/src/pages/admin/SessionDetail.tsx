@@ -1,5 +1,7 @@
+import { ArrowLeft, BarChart3, Check, Trophy, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { MedalIcon } from '@/components/game/MedalIcon';
 import { MainContent, Page, PageLoading, Subtitle } from '@/components/layout';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -51,9 +53,13 @@ export default function SessionDetail() {
     <Page>
       <CreatorNav />
       <MainContent>
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-6 flex flex-wrap items-center gap-3 sm:gap-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link to={`${basePath}/history`}>← Back</Link>
+            <Link to={`${basePath}/history`}>
+              <span className="flex items-center gap-1.5">
+                <ArrowLeft className="size-4" /> Back
+              </span>
+            </Link>
           </Button>
           <div>
             <h1>{session.quiz_title}</h1>
@@ -86,7 +92,9 @@ export default function SessionDetail() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <Card>
             <CardContent className="p-6">
-              <h2 className="mb-4">🏆 Final Leaderboard</h2>
+              <h2 className="mb-4 flex items-center gap-1.5">
+                <Trophy className="size-4" /> Final Leaderboard
+              </h2>
               <ul className="leaderboard" style={{ gap: 6 }}>
                 {sortedPlayers.map((p, i) => (
                   <li key={p.id} className={`lb-item rank-${Math.min(i + 1, 4)}`}>
@@ -101,7 +109,9 @@ export default function SessionDetail() {
 
           <Card>
             <CardContent className="p-6">
-              <h2 className="mb-4">📊 Question Breakdown</h2>
+              <h2 className="mb-4 flex items-center gap-1.5">
+                <BarChart3 className="size-4" /> Question Breakdown
+              </h2>
               {questions.map((q, qi) => {
                 const qAnswers = players.map((p) => answerMap.get(`${p.id}:${q.id}`));
                 const correct = qAnswers.filter((a) => a?.is_correct).length;
@@ -152,8 +162,10 @@ export default function SessionDetail() {
                 {sortedPlayers.map((p, pi) => (
                   <tr key={p.id} className="border-b border-border last:border-0">
                     <td className={`px-4 py-3 ${pi < 3 ? 'font-bold' : ''}`}>
-                      {pi === 0 ? '🥇 ' : pi === 1 ? '🥈 ' : pi === 2 ? '🥉 ' : ''}
-                      {p.username}
+                      <span className="inline-flex items-center gap-1.5">
+                        <MedalIcon place={pi + 1} className="size-4" />
+                        {p.username}
+                      </span>
                     </td>
                     {questions.map((q) => {
                       const a = answerMap.get(`${p.id}:${q.id}`);
@@ -162,9 +174,13 @@ export default function SessionDetail() {
                           {a == null ? (
                             <span className="text-muted-foreground">—</span>
                           ) : a.is_correct ? (
-                            <span className="text-emerald-500">✓ +{a.score}</span>
+                            <span className="inline-flex items-center gap-1 text-emerald-500">
+                              <Check className="size-4" /> +{a.score}
+                            </span>
                           ) : (
-                            <span className="text-destructive">✗</span>
+                            <span className="text-destructive">
+                              <X className="size-4" />
+                            </span>
                           )}
                         </td>
                       );

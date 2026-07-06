@@ -1,3 +1,4 @@
+import { ArrowRight, Check, GripVertical, SkipForward, X } from 'lucide-react';
 import { useState } from 'react';
 import { type LatLng, MapPicker } from '@/components/GeoMap';
 import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
@@ -10,6 +11,8 @@ import { QuestionText } from '@/components/QuestionText';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { countBlanks, hasQuestionImage, quadColor } from '@/helpers';
+import { arrayMove, usePointerReorder } from '@/hooks/usePointerReorder';
+import { cn } from '@/lib/utils';
 import type { QuestionPayload } from '@/types';
 
 interface Props {
@@ -90,6 +93,10 @@ export function QuestionScreen({
   const [order, setOrder] = useState<number[]>(() => question.options.map((_, i) => i));
   const [localSubmitted, setLocalSubmitted] = useState(false);
   const [pinPoint, setPinPoint] = useState<LatLng | null>(null);
+  const reorder = usePointerReorder(
+    (from, to) => setOrder((prev) => arrayMove(prev, from, to)),
+    localSubmitted,
+  );
 
   // Reset ephemeral answer state when a new question arrives — the React
   // "reset state on prop change" pattern (runs during render, no effect needed).
@@ -114,16 +121,6 @@ export function QuestionScreen({
     if (localSubmitted) return;
     setLocalSubmitted(true);
     onFillSubmit(fillValues);
-  }
-
-  function moveOrder(from: number, dir: -1 | 1) {
-    setOrder((prev) => {
-      const to = from + dir;
-      if (to < 0 || to >= prev.length) return prev;
-      const next = [...prev];
-      [next[from], next[to]] = [next[to], next[from]];
-      return next;
-    });
   }
 
   function submitOrder() {
@@ -216,7 +213,14 @@ export function QuestionScreen({
                 }
                 onClick={onPassJoker}
               >
-                {jokersUsed.pass ? '✓ Pass' : '⏭ Pass'}
+                <span className="inline-flex items-center gap-1.5">
+                  {jokersUsed.pass ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <SkipForward className="size-4" />
+                  )}{' '}
+                  Pass
+                </span>
               </Button>
             )}
             {jokersEnabled.fiftyFifty && isMultipleChoice && (
@@ -228,7 +232,9 @@ export function QuestionScreen({
                 title={jokersUsed.fiftyFifty ? '50/50 already used' : 'Eliminate 2 wrong answers'}
                 onClick={onFiftyFiftyJoker}
               >
-                {jokersUsed.fiftyFifty ? '✓ 50/50' : '50/50'}
+                <span className="inline-flex items-center gap-1.5">
+                  {jokersUsed.fiftyFifty && <Check className="size-4" />} 50/50
+                </span>
               </Button>
             )}
           </div>
@@ -240,7 +246,7 @@ export function QuestionScreen({
             options={['True', 'False']}
             selectedIndex={selectedIndex}
             colorFor={(i) => (i === 0 ? '#1f9d57' : '#e2455a')}
-            badgeFor={(i) => (i === 0 ? '✓' : '✗')}
+            badgeFor={(i) => (i === 0 ? <Check className="size-5" /> : <X className="size-5" />)}
             optionClassName="justify-center"
             labelClassName="flex-none"
             onSelect={onAnswer}
@@ -309,7 +315,13 @@ export function QuestionScreen({
                       onClick={onClosestSubmit}
                       disabled={closestSubmitted || outOfRange}
                     >
-                      {closestSubmitted ? 'Submitted!' : 'Submit Answer →'}
+                      {closestSubmitted ? (
+                        'Submitted!'
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          Submit Answer <ArrowRight className="size-4" />
+                        </span>
+                      )}
                     </Button>
                   </>
                 );
@@ -357,7 +369,13 @@ export function QuestionScreen({
                 onClick={onOpenTextSubmit}
                 disabled={openTextSubmitted || !openTextInput.trim()}
               >
-                {openTextSubmitted ? 'Submitted!' : 'Submit Answer →'}
+                {openTextSubmitted ? (
+                  'Submitted!'
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    Submit Answer <ArrowRight className="size-4" />
+                  </span>
+                )}
               </Button>
             </div>
           </div>
@@ -366,7 +384,7 @@ export function QuestionScreen({
             <QuadOptionGrid
               options={question.options}
               selectedIndices={selectedIndices}
-              selectedBadge="✓"
+              selectedBadge={<Check className="size-5" />}
               disabled={multiSelectSubmitted}
               onSelect={onToggleMultiSelect}
             />
@@ -378,9 +396,14 @@ export function QuestionScreen({
               onClick={onMultiSelectSubmit}
               disabled={multiSelectSubmitted || selectedIndices.length === 0}
             >
-              {multiSelectSubmitted
-                ? 'Submitted!'
-                : `Submit ${selectedIndices.length > 0 ? `(${selectedIndices.length} selected)` : ''} →`}
+              {multiSelectSubmitted ? (
+                'Submitted!'
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  Submit {selectedIndices.length > 0 ? `(${selectedIndices.length} selected)` : ''}
+                  <ArrowRight className="size-4" />
+                </span>
+              )}
             </Button>
           </div>
         ) : isFillBlank ? (
@@ -427,21 +450,50 @@ export function QuestionScreen({
                 onClick={submitFill}
                 disabled={localSubmitted || fillValues.slice(0, blankCount).some((v) => !v.trim())}
               >
-                {localSubmitted ? 'Submitted!' : 'Submit Answer →'}
+                {localSubmitted ? (
+                  'Submitted!'
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    Submit Answer <ArrowRight className="size-4" />
+                  </span>
+                )}
               </Button>
             </div>
           </div>
         ) : isOrdering ? (
           <div className="p-5">
             <p className="mb-2 text-center text-sm" style={{ color: 'var(--text2)' }}>
-              Arrange the items into the correct order
+              Drag (or focus a handle and use the arrow keys) to arrange the items into the correct
+              order
             </p>
-            <div className="flex flex-col gap-2">
+            <div
+              className={cn(
+                'flex flex-col gap-2',
+                reorder.dragPos !== null && 'touch-none select-none',
+              )}
+              {...reorder.listProps}
+            >
               {order.map((optIdx, pos) => (
                 <div
                   key={optIdx}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-[var(--surface2)] p-3"
+                  style={reorder.dragStyle(pos)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border bg-[var(--surface2)] p-3',
+                    reorder.dragPos === pos
+                      ? 'scale-[1.02] cursor-grabbing border-primary shadow-2xl ring-2 ring-primary'
+                      : 'border-border transition-transform',
+                    reorder.dragPos !== null && reorder.dragPos !== pos && 'opacity-60',
+                  )}
                 >
+                  <button
+                    type="button"
+                    aria-label="Reorder — drag or use arrow keys"
+                    disabled={localSubmitted}
+                    {...reorder.handleProps(pos)}
+                    className="flex shrink-0 cursor-grab touch-none items-center text-muted-foreground active:cursor-grabbing disabled:cursor-default disabled:opacity-40"
+                  >
+                    <GripVertical className="size-5" />
+                  </button>
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.8rem] font-extrabold text-white"
                     style={{ background: quadColor(pos) }}
@@ -451,26 +503,6 @@ export function QuestionScreen({
                   <span className="flex-1">
                     <OptionText value={question.options[optIdx]} imgClassName="option-img-sm" />
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={pos === 0 || localSubmitted}
-                    onClick={() => moveOrder(pos, -1)}
-                    title="Move up"
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={pos === order.length - 1 || localSubmitted}
-                    onClick={() => moveOrder(pos, 1)}
-                    title="Move down"
-                  >
-                    ↓
-                  </Button>
                 </div>
               ))}
             </div>
@@ -482,7 +514,13 @@ export function QuestionScreen({
               onClick={submitOrder}
               disabled={localSubmitted}
             >
-              {localSubmitted ? 'Submitted!' : 'Submit Order →'}
+              {localSubmitted ? (
+                'Submitted!'
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  Submit Order <ArrowRight className="size-4" />
+                </span>
+              )}
             </Button>
           </div>
         ) : isGeo ? (
@@ -503,11 +541,15 @@ export function QuestionScreen({
               onClick={submitGeo}
               disabled={localSubmitted || !pinPoint}
             >
-              {localSubmitted
-                ? 'Submitted!'
-                : pinPoint
-                  ? 'Submit pin →'
-                  : 'Tap the map to place your pin'}
+              {localSubmitted ? (
+                'Submitted!'
+              ) : pinPoint ? (
+                <span className="inline-flex items-center gap-1.5">
+                  Submit pin <ArrowRight className="size-4" />
+                </span>
+              ) : (
+                'Tap the map to place your pin'
+              )}
             </Button>
           </div>
         ) : (

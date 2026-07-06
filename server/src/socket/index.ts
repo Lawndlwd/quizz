@@ -1,6 +1,10 @@
 import type { Server as HttpServer } from 'node:http';
 import { type Socket, Server as SocketServer } from 'socket.io';
 import { parseIntegerInRange, scoreClosestToGuess } from '../closestTo';
+import { config } from '../config';
+import { db, getRankedPlayers } from '../db';
+import { verifyToken } from '../middleware';
+import { linkPlayerToUser, resolveUserFromAuthToken, seedPlayProfile } from '../playProfile';
 import {
   computeSpeedBonus,
   geoDistanceKm,
@@ -10,10 +14,7 @@ import {
   scoreGeo,
   scoreOrdering,
 } from '../questionScoring';
-import { seededPerm } from '../shuffle';
-import { config } from '../config';
-import { db, getRankedPlayers } from '../db';
-import { verifyToken } from '../middleware';
+import { invertPerm, seededPerm, seededShuffle } from '../shuffle';
 import type {
   DbPlayer,
   DbQuestion,
@@ -72,9 +73,16 @@ async function requireAdminAuth(
   return auth;
 }
 
+/** Allowed lobby reaction emojis — mirrors the client button set. */
+const REACTION_EMOJIS = ['👍', '😂', '🔥', '❤️', '🎉', '😮'];
+const REACTION_COOLDOWN_MS = 1500;
+
 export function setupSockets(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, { cors: { origin: '*' } });
   setSocketIo(io);
+
+  // Per-socket lobby-reaction rate limiting (cleared on disconnect).
+  const reactionCooldowns = new Map<string, number>();
 
   io.on('connection', (socket: Socket) => {
     // ─── Admin join ───────────────────────────────────────────────────────────
@@ -351,48 +359,136 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     // ─── Player: join (also handles reconnection) ─────────────────────────────
     socket.on(
       'player:join',
-      async (data: { pin: string; username: string; avatar?: string; playerId?: number }) => {
-      const { pin, username, avatar } = data;
+      async (data: {
+        pin: string;
+        username: string;
+        avatar?: string;
+        playerId?: number;
+        authToken?: string;
+      }) => {
+        const { pin, username, avatar, authToken } = data;
+        const linkedUserId = resolveUserFromAuthToken(authToken);
 
-      const session = await db.get<DbSession>('SELECT * FROM sessions WHERE pin = ?', pin);
-      if (!session) {
-        socket.emit('player:error', { message: 'Invalid PIN' });
-        return;
-      }
+        const session = await db.get<DbSession>('SELECT * FROM sessions WHERE pin = ?', pin);
+        if (!session) {
+          socket.emit('player:error', { message: 'Invalid PIN' });
+          return;
+        }
 
-      if (session.status === 'finished') {
-        socket.emit('player:error', { message: 'Game has ended' });
-        return;
-      }
+        if (session.status === 'finished') {
+          socket.emit('player:error', { message: 'Game has ended' });
+          return;
+        }
 
-      if (!username?.trim()) {
-        socket.emit('player:error', { message: 'Username required' });
-        return;
-      }
-      const cleanName = username.trim().slice(0, 24);
+        if (!username?.trim()) {
+          socket.emit('player:error', { message: 'Username required' });
+          return;
+        }
+        const cleanName = username.trim().slice(0, 24);
 
-      const quiz = await db.get<DbQuiz>('SELECT * FROM quizzes WHERE id = ?', session.quiz_id);
+        const quiz = await db.get<DbQuiz>('SELECT * FROM quizzes WHERE id = ?', session.quiz_id);
 
-      // Reconnect: match by playerId (reload) or username (same device)
-      let existing: DbPlayer | undefined;
-      if (data.playerId) {
-        existing = await db.get<DbPlayer>(
-          'SELECT * FROM players WHERE id = ? AND session_id = ?',
-          data.playerId,
+        // Reconnect: match by playerId (reload) or username (same device)
+        let existing: DbPlayer | undefined;
+        if (data.playerId) {
+          existing = await db.get<DbPlayer>(
+            'SELECT * FROM players WHERE id = ? AND session_id = ?',
+            data.playerId,
+            session.id,
+          );
+        }
+        if (!existing) {
+          existing = await db.get<DbPlayer>(
+            'SELECT * FROM players WHERE session_id = ? AND username = ?',
+            session.id,
+            cleanName,
+          );
+        }
+
+        if (existing) {
+          // ── Reconnect path ────────────────────────────────────────────────────
+          const playerId = existing.id;
+
+          if (linkedUserId) {
+            await linkPlayerToUser(playerId, linkedUserId, avatar);
+            await seedPlayProfile(linkedUserId, cleanName, avatar);
+          } else if (avatar) {
+            await db.run('UPDATE players SET avatar = ? WHERE id = ?', avatar, playerId);
+          }
+
+          socket.join(`session:${session.id}`);
+          socket.join(`player:${playerId}`);
+
+          let state = activeSessions.get(pin);
+          if (!state) {
+            const questions = await db.all<DbQuestion[]>(
+              'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+              session.quiz_id,
+            );
+            state = createActiveSession(session, questions);
+            activeSessions.set(pin, state);
+            sessionIdToPin.set(session.id, pin);
+          } else {
+            state.status = session.status as ActiveSession['status'];
+          }
+
+          // Remove old socket mapping
+          const oldSocketId = state.playerSockets.get(playerId);
+          if (oldSocketId) state.socketPlayers.delete(oldSocketId);
+          state.playerSockets.set(playerId, socket.id);
+          state.socketPlayers.set(socket.id, playerId);
+          if (avatar) state.playerAvatars.set(playerId, avatar);
+
+          const players = await db.all<DbPlayer[]>(
+            'SELECT * FROM players WHERE session_id = ?',
+            session.id,
+          );
+
+          socket.emit('player:joined', {
+            playerId,
+            username: cleanName,
+            sessionId: session.id,
+            status: session.status,
+            playerCount: players.length,
+            avatar: state?.playerAvatars.get(playerId) ?? avatar,
+            reconnected: true,
+            quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
+          });
+
+          // Notify admin that player is back
+          io.to(`admin:${session.id}`).emit('game:player-joined', {
+            playerId,
+            username: cleanName,
+            playerCount: state?.playerSockets.size,
+            avatar: state?.playerAvatars.get(playerId) ?? avatar,
+          });
+
+          await emitReconnectGameState(socket, io, state, session, playerId);
+          return;
+        }
+
+        // ── New player join path ───────────────────────────────────────────────
+        const playerCount = await db.get<{ count: number }>(
+          'SELECT COUNT(*) as count FROM players WHERE session_id = ?',
           session.id,
         );
-      }
-      if (!existing) {
-        existing = await db.get<DbPlayer>(
-          'SELECT * FROM players WHERE session_id = ? AND username = ?',
+        if ((playerCount?.count ?? 0) >= config.maxPlayersPerSession) {
+          socket.emit('player:error', { message: 'Session is full' });
+          return;
+        }
+
+        const result = await db.run(
+          'INSERT INTO players (session_id, username, user_id, avatar) VALUES (?, ?, ?, ?)',
           session.id,
           cleanName,
+          linkedUserId,
+          avatar?.trim() || null,
         );
-      }
+        const playerId = Number(result.lastID);
 
-      if (existing) {
-        // ── Reconnect path ────────────────────────────────────────────────────
-        const playerId = existing.id;
+        if (linkedUserId) {
+          await seedPlayProfile(linkedUserId, cleanName, avatar);
+        }
 
         socket.join(`session:${session.id}`);
         socket.join(`player:${playerId}`);
@@ -410,9 +506,6 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           state.status = session.status as ActiveSession['status'];
         }
 
-        // Remove old socket mapping
-        const oldSocketId = state.playerSockets.get(playerId);
-        if (oldSocketId) state.socketPlayers.delete(oldSocketId);
         state.playerSockets.set(playerId, socket.id);
         state.socketPlayers.set(socket.id, playerId);
         if (avatar) state.playerAvatars.set(playerId, avatar);
@@ -428,86 +521,22 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           sessionId: session.id,
           status: session.status,
           playerCount: players.length,
-          avatar: state?.playerAvatars.get(playerId) ?? avatar,
-          reconnected: true,
+          avatar,
           quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
         });
 
-        // Notify admin that player is back
         io.to(`admin:${session.id}`).emit('game:player-joined', {
           playerId,
           username: cleanName,
-          playerCount: state?.playerSockets.size,
-          avatar: state?.playerAvatars.get(playerId) ?? avatar,
+          playerCount: players.length,
+          avatar,
         });
 
-        await emitReconnectGameState(socket, io, state, session, playerId);
-        return;
-      }
-
-      // ── New player join path ───────────────────────────────────────────────
-      const playerCount = await db.get<{ count: number }>(
-        'SELECT COUNT(*) as count FROM players WHERE session_id = ?',
-        session.id,
-      );
-      if ((playerCount?.count ?? 0) >= config.maxPlayersPerSession) {
-        socket.emit('player:error', { message: 'Session is full' });
-        return;
-      }
-
-      const result = await db.run(
-        'INSERT INTO players (session_id, username) VALUES (?, ?)',
-        session.id,
-        cleanName,
-      );
-      const playerId = Number(result.lastID);
-
-      socket.join(`session:${session.id}`);
-      socket.join(`player:${playerId}`);
-
-      let state = activeSessions.get(pin);
-      if (!state) {
-        const questions = await db.all<DbQuestion[]>(
-          'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
-          session.quiz_id,
-        );
-        state = createActiveSession(session, questions);
-        activeSessions.set(pin, state);
-        sessionIdToPin.set(session.id, pin);
-      } else {
-        state.status = session.status as ActiveSession['status'];
-      }
-
-      state.playerSockets.set(playerId, socket.id);
-      state.socketPlayers.set(socket.id, playerId);
-      if (avatar) state.playerAvatars.set(playerId, avatar);
-
-      const players = await db.all<DbPlayer[]>(
-        'SELECT * FROM players WHERE session_id = ?',
-        session.id,
-      );
-
-      socket.emit('player:joined', {
-        playerId,
-        username: cleanName,
-        sessionId: session.id,
-        status: session.status,
-        playerCount: players.length,
-        avatar,
-        quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
-      });
-
-      io.to(`admin:${session.id}`).emit('game:player-joined', {
-        playerId,
-        username: cleanName,
-        playerCount: players.length,
-        avatar,
-      });
-
-      if (session.status === 'active') {
-        await emitReconnectGameState(socket, io, state, session, playerId);
-      }
-    });
+        if (session.status === 'active') {
+          await emitReconnectGameState(socket, io, state, session, playerId);
+        }
+      },
+    );
 
     // ─── Player: answer ───────────────────────────────────────────────────────
     socket.on(
@@ -637,14 +666,21 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
             const expected = (currentQ.correct_answer ?? '').toLowerCase().trim();
             isCorrect = submitted.length > 0 && submitted === expected;
           } else if (currentQ.question_type === 'multi_select') {
+            // Players click display slots; translate back to original indices.
             const correctIndices = JSON.parse(currentQ.correct_indices ?? '[]') as number[];
-            const chosen = chosenIndices ?? [];
+            const chosen = (chosenIndices ?? []).map((slot) =>
+              slotToOriginal(currentQ, state.answerSeed, slot),
+            );
             isCorrect =
               chosen.length === correctIndices.length &&
               correctIndices.every((i) => chosen.includes(i)) &&
               chosen.every((i) => correctIndices.includes(i));
           } else {
-            isCorrect = chosenIndex === currentQ.correct_index;
+            const originalChosen =
+              chosenIndex != null
+                ? slotToOriginal(currentQ, state.answerSeed, chosenIndex)
+                : chosenIndex;
+            isCorrect = originalChosen === currentQ.correct_index;
           }
 
           const streak = applyStreakBonus(state, playerId, isCorrect);
@@ -757,10 +793,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       state.playerJokersUsed.set(playerId, myJokers);
 
       const options = JSON.parse(currentQ.options) as string[];
-      const correctIndex = currentQ.correct_index;
+      // Work in the player's display order: the correct answer's display slot is
+      // the shuffle-inverse of its stored index. Eliminate 2 of the other slots.
+      const correctSlot = originalToSlot(currentQ, state.answerSeed, currentQ.correct_index);
 
-      // Pick 2 random wrong indices
-      const wrongIndices = options.map((_, i) => i).filter((i) => i !== correctIndex);
+      const wrongIndices = options.map((_, i) => i).filter((i) => i !== correctSlot);
       for (let i = wrongIndices.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [wrongIndices[i], wrongIndices[j]] = [wrongIndices[j], wrongIndices[i]];
@@ -774,8 +811,27 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       socket.emit('player:joker-5050-applied', { eliminatedIndices });
     });
 
+    // ─── Player: lobby emoji reaction ───────────────────────────────────────────
+    socket.on('player:reaction', (data: { sessionId: number; playerId: number; emoji: string }) => {
+      const state = getStateBySessionId(data.sessionId);
+      if (!state || state.status !== 'waiting') return; // lobby only
+      if (state.socketPlayers.get(socket.id) !== data.playerId) return; // ownership
+      if (!REACTION_EMOJIS.includes(data.emoji)) return; // allowlist
+
+      const last = reactionCooldowns.get(socket.id) ?? 0;
+      const now = Date.now();
+      if (now - last < REACTION_COOLDOWN_MS) return; // rate limit
+      reactionCooldowns.set(socket.id, now);
+
+      io.to(`session:${data.sessionId}`).emit('game:reaction', {
+        playerId: data.playerId,
+        emoji: data.emoji,
+      });
+    });
+
     // ─── Disconnect ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
+      reactionCooldowns.delete(socket.id);
       for (const [_pin, state] of activeSessions.entries()) {
         const playerId = state.socketPlayers.get(socket.id);
         if (playerId) {
@@ -952,10 +1008,12 @@ function coldRebuildQuestion(
   if (!currentQ) return null;
 
   state.currentQuestionIndex = index;
-  const payload = buildQuestionPayload(currentQ, index, state.questions.length) as Record<
-    string,
-    unknown
-  >;
+  const payload = buildQuestionPayload(
+    currentQ,
+    index,
+    state.questions.length,
+    state.answerSeed,
+  ) as Record<string, unknown>;
   state.questionPhase = 'question';
   state.lastQuestionPayload = payload;
   state.questionStartedAt = Date.now();
@@ -1058,7 +1116,7 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
 
   db.run('UPDATE sessions SET current_question_index = ? WHERE id = ?', index, state.sessionId);
 
-  const payload = buildQuestionPayload(q, index, state.questions.length);
+  const payload = buildQuestionPayload(q, index, state.questions.length, state.answerSeed);
 
   state.questionPhase = 'question';
   state.lastQuestionPayload = payload;
@@ -1116,7 +1174,10 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
         isClosestTo && ans?.chosen_text != null ? Number.parseInt(ans.chosen_text, 10) : null;
       const chosenPoint = isGeo ? (parseLatLng(ans?.chosen_text) ?? undefined) : undefined;
       const distance =
-        isClosestTo && chosenNumber !== null && correctNumber !== null && !Number.isNaN(chosenNumber)
+        isClosestTo &&
+        chosenNumber !== null &&
+        correctNumber !== null &&
+        !Number.isNaN(chosenNumber)
           ? Math.abs(chosenNumber - correctNumber)
           : isGeo && chosenPoint && correctGeo
             ? geoDistanceKm(chosenPoint, correctGeo)
@@ -1154,15 +1215,22 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
       : undefined;
 
     const autoAdvanceSec = config.resultsAutoAdvanceSec ?? 5;
-    const correctIndices =
-      q.question_type === 'multi_select' && q.correct_indices
-        ? (JSON.parse(q.correct_indices) as number[])
-        : undefined;
 
     const showLeaderboard =
       state.gameSettings.showLeaderboardAfterQuestion ?? config.showLeaderboardAfterQuestion;
 
-    const options = JSON.parse(q.options) as string[];
+    // Reveal everything in the same shuffled order the players saw, so the
+    // correct highlight and vote distribution (keyed by display slot) line up.
+    const perm = optionPerm(q, state.answerSeed);
+    const rawOptions = JSON.parse(q.options) as string[];
+    const options = perm ? perm.map((i) => rawOptions[i]) : rawOptions;
+    const correctIndex = originalToSlot(q, state.answerSeed, q.correct_index);
+    const correctIndices =
+      q.question_type === 'multi_select' && q.correct_indices
+        ? (JSON.parse(q.correct_indices) as number[]).map((i) =>
+            originalToSlot(q, state.answerSeed, i),
+          )
+        : undefined;
 
     // Vote distribution — how many players chose each option (option-based types only)
     let answerDistribution: number[] | undefined;
@@ -1200,7 +1268,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
     const resultsPayload = {
       questionId,
       questionText: q.text,
-      correctIndex: q.correct_index,
+      correctIndex,
       correctIndices,
       correctAnswer: q.correct_answer,
       correctBlanks,
@@ -1291,10 +1359,51 @@ function buildQuizIntro(quiz: DbQuiz, questions: DbQuestion[]): QuizIntro {
     questionCount: questions.length,
     typeCounts: [...counts.entries()],
     totalTimeSec,
+    theme: (quiz.theme as QuizIntro['theme']) ?? 'default',
   };
 }
 
-function buildQuestionPayload(q: DbQuestion, questionIndex: number, totalQuestions: number) {
+/**
+ * The permutation used to shuffle answer options for a single-/multi-choice
+ * question — `perm[displaySlot] = originalIndex`. Returns null for question
+ * types whose option order is meaningful or fixed (ordering, true/false, …), so
+ * their indices pass through unchanged. Stable for a given (question, game seed).
+ */
+const optionPermCache = new Map<string, number[] | null>();
+
+function optionPerm(q: DbQuestion, answerSeed: number): number[] | null {
+  if (q.question_type !== 'multiple_choice' && q.question_type !== 'multi_select') return null;
+  const cacheKey = `${q.id}:${answerSeed}`;
+  const cached = optionPermCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const n = (JSON.parse(q.options) as string[]).length;
+  // seededShuffle (not seededPerm): the identity must stay a valid outcome,
+  // otherwise a 2-option question is deterministically reversed in every game.
+  const perm = n <= 1 ? null : seededShuffle(n, q.id + answerSeed);
+  optionPermCache.set(cacheKey, perm);
+  return perm;
+}
+
+/** Translate a display slot the player clicked back to the original option index. */
+function slotToOriginal(q: DbQuestion, answerSeed: number, slot: number): number {
+  const perm = optionPerm(q, answerSeed);
+  return perm ? (perm[slot] ?? slot) : slot;
+}
+
+/** Translate a stored original option index to the display slot the player saw. */
+function originalToSlot(q: DbQuestion, answerSeed: number, index: number): number {
+  const perm = optionPerm(q, answerSeed);
+  if (!perm) return index;
+  const inv = invertPerm(perm);
+  return inv[index] ?? index;
+}
+
+function buildQuestionPayload(
+  q: DbQuestion,
+  questionIndex: number,
+  totalQuestions: number,
+  answerSeed = 0,
+) {
   const payload: Record<string, unknown> = {
     questionIndex,
     totalQuestions,
@@ -1307,6 +1416,13 @@ function buildQuestionPayload(q: DbQuestion, questionIndex: number, totalQuestio
     mediaUrl: q.media_url ?? undefined,
     mediaType: (q.media_type as 'audio' | 'video' | null) ?? undefined,
   };
+
+  // Shuffle single-/multi-choice answers so their positions vary each game.
+  const perm = optionPerm(q, answerSeed);
+  if (perm) {
+    const original = JSON.parse(q.options) as string[];
+    payload.options = perm.map((i) => original[i]);
+  }
 
   // Note: open_text never sends correct_answer during the question phase —
   // grading is server-side and the answer is revealed only in the results payload.

@@ -1,3 +1,4 @@
+import { Check, MapPin } from 'lucide-react';
 import { MapReveal } from '@/components/GeoMap';
 import { OptionText } from '@/components/OptionText';
 import { QuestionExplanation } from '@/components/QuestionExplanation';
@@ -76,8 +77,13 @@ export function QuestionReveal({
           ) : (
             <p className="text-sm text-muted-foreground">Location revealed on the host screen.</p>
           )}
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            ✅ correct{myChosenPoint ? ' · 📍 your pin' : ''}
+          <p className="mt-2 flex items-center justify-center gap-1 text-center text-xs text-muted-foreground">
+            <Check className="size-3.5 text-emerald-500" /> correct
+            {myChosenPoint ? (
+              <>
+                · <MapPin className="size-3.5" /> your pin
+              </>
+            ) : null}
           </p>
         </div>
       ) : isClosestTo ? (
@@ -118,7 +124,7 @@ export function QuestionReveal({
                 <div className="option-text">
                   <OptionText value={opt} imgClassName="option-img-sm" />
                 </div>
-                {isCorrect && <span className="ml-auto">✓</span>}
+                {isCorrect && <Check className="ml-auto size-4" />}
               </div>
             );
           })}

@@ -1,3 +1,4 @@
+import { ChevronDown, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +39,7 @@ export function UserGroupPanel({
             isAdmin ? 'bg-muted text-muted-foreground' : 'bg-blue-500/20 text-blue-300',
           )}
         >
-          {isAdmin ? '⚙' : userInitials(username)}
+          {isAdmin ? <Settings className="size-5" /> : userInitials(username)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{username}</div>
@@ -51,7 +52,7 @@ export function UserGroupPanel({
           className="shrink-0 text-muted-foreground transition group-open:rotate-180"
           aria-hidden
         >
-          ▾
+          <ChevronDown className="size-4" />
         </span>
       </summary>
       <div className="border-t border-border">{children}</div>

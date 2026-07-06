@@ -1,3 +1,4 @@
+import { Crown, Dices, PartyPopper, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AvatarDisplay } from '@/components/AvatarPicker';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,9 @@ export function QuizMakerPicker({ players }: Props) {
   return (
     <Card className="mx-auto mb-8 w-full max-w-xl border-blue-500/40 bg-blue-500/[0.06]">
       <CardContent className="p-6">
-        <div className="mb-1 text-center text-lg font-extrabold">🎲 Next Quiz Maker</div>
+        <div className="mb-1 flex items-center justify-center gap-2 text-lg font-extrabold">
+          <Dices className="size-5" /> Next Quiz Maker
+        </div>
         <p className="mb-4 text-center text-sm text-muted-foreground">
           Check the players in the draw, then spin.
         </p>
@@ -108,7 +111,7 @@ export function QuizMakerPicker({ players }: Props) {
                   />
                   <AvatarDisplay avatar={p.avatar} size={30} />
                   <span className="flex-1 font-semibold">{p.username}</span>
-                  {isWin && <span className="text-lg">👑</span>}
+                  {isWin && <Crown className="size-5 text-[#fbbf24]" />}
                 </label>
               </li>
             );
@@ -117,14 +120,24 @@ export function QuizMakerPicker({ players }: Props) {
 
         {winnerName ? (
           <div className="mb-3 rounded-xl border border-[#fbbf24]/50 bg-[rgba(251,191,36,.1)] px-4 py-3 text-center">
-            <span className="text-[1.05rem] font-extrabold text-[#fbbf24]">
-              🎉 {winnerName} makes the next quiz!
+            <span className="inline-flex items-center gap-1.5 text-[1.05rem] font-extrabold text-[#fbbf24]">
+              <PartyPopper className="size-5" /> {winnerName} makes the next quiz!
             </span>
           </div>
         ) : null}
 
         <Button type="button" size="lg" className="w-full" onClick={spin} disabled={!canSpin}>
-          {spinning ? 'Spinning…' : winnerName ? 'Spin again ↻' : `Spin (${selected.size}) 🎡`}
+          {spinning ? (
+            'Spinning…'
+          ) : winnerName ? (
+            <>
+              Spin again <RotateCw className="size-4" />
+            </>
+          ) : (
+            <>
+              Spin ({selected.size}) <RotateCw className="size-4" />
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>

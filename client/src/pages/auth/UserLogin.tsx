@@ -1,3 +1,4 @@
+import { Zap } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppAlert } from '@/components/AppAlert';
@@ -8,10 +9,10 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 
 export default function UserLogin() {
-  const { loginUser } = useAuth();
+  const { login } = useAuth();
   const { appName } = useApp();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,32 +21,41 @@ export default function UserLogin() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const err = await loginUser(email, password);
+    const result = await login(identifier, password);
     setLoading(false);
-    if (err) setError(err);
-    else navigate('/u');
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    navigate(result.role === 'super_admin' ? '/admin' : '/u');
   }
 
   return (
     <PageCenter>
       <AuthCard>
         <div className="text-center mb-6">
-          <AppLogo>{appName || '⚡ Quizz'}</AppLogo>
-          <Subtitle className="mt-2">Sign in to create quizzes</Subtitle>
+          <AppLogo>
+            {appName || (
+              <span className="inline-flex items-center gap-1.5">
+                <Zap className="size-4" /> Quizz
+              </span>
+            )}
+          </AppLogo>
+          <Subtitle className="mt-2">Sign in to create and host quizzes</Subtitle>
         </div>
 
         {error && <AppAlert variant="error">{error}</AppAlert>}
 
         <form onSubmit={handleSubmit}>
           <Input
-            id="email"
-            label="Email"
-            type="email"
-            autoComplete="email"
+            id="identifier"
+            label="Email or username"
+            type="text"
+            autoComplete="username"
             placeholder="you@company.com"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
           <Input
             id="password"

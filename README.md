@@ -11,18 +11,23 @@ curl -O https://raw.githubusercontent.com/Lawndlwd/quizz/main/docker-compose.yml
 curl -O https://raw.githubusercontent.com/Lawndlwd/quizz/main/Caddyfile
 ```
 
-Create a `.env` file:
+Create a `.env` file (see [`.env.example`](.env.example) for all options):
 
 ```env
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=changeme
-JWT_SECRET=your-random-secret
+JWT_SECRET=   # openssl rand -hex 32 — min 32 chars, required
 
-# Optional — enables automatic HTTPS via Let's Encrypt
-# DOMAIN=quiz.example.com
+# Optional
+ALLOWED_DOMAIN=          # e.g. mycompany.com — restrict user sign-ups
+UNSPLASH_ACCESS_KEY=     # stock photos in Quiz Studio media picker
+GIPHY_API_KEY=           # GIFs in Quiz Studio media picker
+# DOMAIN=quiz.example.com  # Docker/Caddy — automatic HTTPS
 ```
 
 ```sh
+cp .env.example .env
+# edit .env, then:
 docker compose up -d
 ```
 
@@ -53,6 +58,25 @@ Each question can also have:
 - **Explanation** shown after the reveal
 - **Tags** (topic, difficulty) aggregated into the lobby intro screen
 
+## Generate quizzes with AI
+
+You can use **any AI you like** — ChatGPT, Claude, Gemini, Copilot, a local model (Ollama), etc. — to turn a document into a full quiz. No API key or integration is built into Quizz; you bring your own AI and paste the result.
+
+### How it works
+
+1. In the admin panel, open **Create Quiz** and switch to **Paste JSON**.
+2. Click **Copy prompt** (instructions + JSON schema) — or **Copy example** for a full sample quiz JSON. Paste into your AI chat and attach a document or describe a topic (source material is optional).
+3. Copy the AI's JSON output, paste it into **Create Quiz → Paste JSON**, click **Apply to studio** to edit as slides (or save directly), then create the quiz from the studio when ready.
+
+The visual editor (**Quiz Studio**) is still there for manual tweaks after import.
+
+### Tips
+
+- **Any document works** — PDF, Word, slides, web pages, plain text. If upload isn't supported, copy-paste the text instead.
+- **Split large docs** — ask for "10 questions on chapter 3" rather than an entire textbook at once.
+- **Review before hosting** — AI can misread facts or pick wrong answers; spot-check questions, especially for exams or compliance training.
+- **Scanned PDFs** need OCR first (e.g. Google Drive upload, or paste text from another tool).
+
 ## Scoring
 
 - **Base score** — configurable per question (default 500 pts) for a correct answer
@@ -65,7 +89,7 @@ All values (base score, bonus ranges, streak rules) are editable in the admin se
 
 ## Running a game
 
-1. **Create a quiz** — build it in the editor, or paste AI-generated JSON (an import template covering every question type is provided)
+1. **Create a quiz** — build it in the editor, or use your favorite AI with the JSON import template to generate questions from a document (see [Generate quizzes with AI](#generate-quizzes-with-ai))
 2. **Start a session** — a unique 6-digit PIN is generated; players join from their phones
 3. **Lobby** — players appear live; a pre-game modal lets you enable jokers and tweak streak scoring for this game only
 4. **Play** — server-side timer per question; auto-reveals when time runs out or everyone answered. The host can finish a question early, skip to the next, or end the game, and gets a private preview of the upcoming question
@@ -99,6 +123,7 @@ Auto-advance between questions is configurable (default: manual).
 Requirements: Node.js 20+, pnpm
 
 ```sh
+cp .env.example .env   # set JWT_SECRET (and optional media keys)
 pnpm install
 pnpm dev
 ```

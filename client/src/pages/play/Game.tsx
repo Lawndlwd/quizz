@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { clearPlayerSession, loadPlayerSession } from '@/helpers/playerSession';
+import { useAuth } from '@/context/AuthContext';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useTheme } from '@/hooks/useTheme';
+import { MuteToggle } from '@/components/MuteToggle';
+import { StreakBadge } from '@/components/game/StreakBadge';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type { GameEndedPayload, QuestionPayload, QuestionResults, QuizIntro } from '../../types';
 import { AnsweredScreen } from './components/AnsweredScreen';
@@ -18,6 +22,7 @@ export default function Game() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const socket = getSocket();
+  const { token } = useAuth();
 
   const [storedSession] = useState(loadPlayerSession);
   const playerId = Number(storedSession.playerId);
@@ -51,11 +56,14 @@ export default function Game() {
   const [answeredCount, setAnsweredCount] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [quizIntro, setQuizIntro] = useState<QuizIntro | null>(null);
+  const [streak, setStreak] = useState(0);
 
   const questionTimer = useCountdown(0);
   const autoAdvanceTimer = useCountdown(0);
 
   const effectiveSessionId = Number(sessionId) || Number(storedSession.sessionId) || 0;
+
+  useTheme(quizIntro?.theme);
 
   useEffect(() => {
     if (!playerId) navigate('/play', { replace: true });
@@ -65,6 +73,7 @@ export default function Game() {
     'game:started',
     (data) => {
       if (data?.jokersEnabled) setJokersEnabled(data.jokersEnabled);
+      setStreak(0);
     },
   );
 
@@ -156,6 +165,7 @@ export default function Game() {
         username,
         avatar: storedAvatar ?? '',
         playerId,
+        authToken: token ?? undefined,
       });
     }
 
@@ -165,7 +175,7 @@ export default function Game() {
     return () => {
       socket.off('connect', rejoin);
     };
-  }, [socket, playerId, username]);
+  }, [socket, playerId, username, token]);
 
   function submitAnswer(chosenIndex: number) {
     if (!question || phase !== 'question' || !effectiveSessionId) return;
@@ -254,6 +264,14 @@ export default function Game() {
     });
   }
 
+  function commitStreakOnReveal() {
+    if (!answerResult || answerResult.wasPassJoker) return;
+    setStreak(answerResult.isCorrect ? (answerResult.streak ?? 0) : 0);
+  }
+
+  const showStreak = phase === 'question' || phase === 'answered' || phase === 'results';
+
+  function renderScreen() {
   if (phase === 'waiting')
     return (
       <WaitingScreen
@@ -261,6 +279,8 @@ export default function Game() {
         avatar={myAvatar}
         reconnecting={reconnecting}
         intro={quizIntro}
+        sessionId={effectiveSessionId}
+        playerId={playerId}
       />
     );
 
@@ -310,7 +330,6 @@ export default function Game() {
       <AnsweredScreen
         isCorrect={answerResult.isCorrect}
         score={answerResult.score}
-        streak={answerResult.streak}
         wasPassJoker={answerResult.wasPassJoker}
         answeredCount={answeredCount}
         totalPlayers={totalPlayers}
@@ -323,11 +342,18 @@ export default function Game() {
         results={results}
         playerId={playerId}
         autoAdvanceLeft={autoAdvanceTimer.seconds}
+        onReveal={commitStreakOnReveal}
       />
     );
 
   if (phase === 'podium')
-    return <PodiumScreen leaderboard={finalBoard} onContinue={() => setPhase('ended')} />;
+    return (
+      <PodiumScreen
+        leaderboard={finalBoard}
+        onContinue={() => setPhase('ended')}
+        theme={quizIntro?.theme}
+      />
+    );
 
   if (phase === 'ended')
     return (
@@ -342,4 +368,17 @@ export default function Game() {
     );
 
   return null;
+  }
+
+  return (
+    <>
+      {renderScreen()}
+      <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      {showStreak && (
+        <div key={streak} className="fixed top-3 right-3 z-40">
+          <StreakBadge streak={streak} />
+        </div>
+      )}
+    </>
+  );
 }

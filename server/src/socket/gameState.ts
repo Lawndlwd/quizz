@@ -33,6 +33,11 @@ export function createActiveSession(
     gameSettings: defaultGameSettings(),
     playerJokersUsed: new Map(),
     playerFiftyFiftyIndices: new Map(),
+    // Per-game seed so answer options shuffle differently each game, but stay
+    // stable within the game. Derived from the session id (not Math.random())
+    // so a cold rebuild after a server restart recomputes the SAME permutation —
+    // stored display-slot answers stay decodable and options don't jump.
+    answerSeed: session.id,
   };
 }
 
@@ -74,6 +79,8 @@ export interface ActiveSession {
   playerJokersUsed: Map<number, { pass: boolean; fiftyFifty: boolean }>;
   // Per-player 50/50 eliminated indices for the current question (reset per question)
   playerFiftyFiftyIndices: Map<number, number[]>;
+  // Random seed mixed into the per-question answer-option shuffle (see shuffle.ts)
+  answerSeed: number;
 }
 
 // pin → ActiveSession

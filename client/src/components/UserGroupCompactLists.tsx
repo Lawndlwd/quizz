@@ -1,3 +1,4 @@
+import { Eye, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,13 @@ export function CompactQuizList({
               onClick={() => onStart(q.id)}
               disabled={starting === q.id}
             >
-              {starting === q.id ? '…' : '▶ Start'}
+              {starting === q.id ? (
+                '…'
+              ) : (
+                <>
+                  <Play className="size-4" /> Start
+                </>
+              )}
             </Button>
             {onPreview && (
               <Button
@@ -62,7 +69,13 @@ export function CompactQuizList({
                 disabled={previewing === q.id}
                 title="Preview how this quiz looks — no session needed"
               >
-                {previewing === q.id ? '…' : '👁 Preview'}
+                {previewing === q.id ? (
+                  '…'
+                ) : (
+                  <>
+                    <Eye className="size-4" /> Preview
+                  </>
+                )}
               </Button>
             )}
             <Button variant="secondary" size="sm" asChild>
@@ -106,8 +119,8 @@ export function CompactSessionList({ items, basePath }: CompactSessionListProps)
             <div className="min-w-0 flex-1">
               <span className="block truncate font-medium">{s.quiz_title}</span>
               <span className="block text-sm text-muted-foreground">
-                PIN <code className="font-mono text-blue-400">{s.pin}</code> ·{' '}
-                {s.player_count ?? 0} player{(s.player_count ?? 0) !== 1 ? 's' : ''}
+                PIN <code className="font-mono text-blue-400">{s.pin}</code> · {s.player_count ?? 0}{' '}
+                player{(s.player_count ?? 0) !== 1 ? 's' : ''}
                 {s.started_at ? ` · ${new Date(s.started_at).toLocaleDateString()}` : ''}
                 {dur != null ? ` · ${Math.floor(dur / 60)}m ${dur % 60}s` : ''}
               </span>

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { type KeyboardEvent, useId, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { tagChipStyle } from '@/helpers';
@@ -58,7 +59,9 @@ export function TagInput({ value, onChange, label, placeholder }: Props) {
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled by the input itself */}
       <div
         className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-2 focus-within:ring-1 focus-within:ring-ring"
-        onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}
+        onClick={(e) =>
+          (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()
+        }
       >
         {value.map((tag, i) => (
           <span
@@ -73,7 +76,7 @@ export function TagInput({ value, onChange, label, placeholder }: Props) {
               className="ml-0.5 opacity-70 hover:opacity-100"
               aria-label={`Remove ${tag}`}
             >
-              ✕
+              <X className="size-3" />
             </button>
           </span>
         ))}

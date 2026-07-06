@@ -9,6 +9,8 @@ import {
 } from 'react';
 import type { AuthRole, AuthUser } from '../types';
 
+export type LoginResult = { ok: false; error: string } | { ok: true; role: AuthRole };
+
 interface AuthCtx {
   role: AuthRole | null;
   user: AuthUser | null;
@@ -17,11 +19,10 @@ interface AuthCtx {
   /** Any authenticated role (super admin or user). */
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  loginSuperAdmin: (username: string, password: string) => Promise<string | null>;
-  loginUser: (email: string, password: string) => Promise<string | null>;
+  /** Unified login — super-admin username or user email, same endpoint. */
+  login: (identifier: string, password: string) => Promise<LoginResult>;
   registerUser: (email: string, password: string, username: string) => Promise<string | null>;
-  /** @deprecated Use loginSuperAdmin */
-  login: (username: string, password: string) => Promise<string | null>;
+  updatePlayProfile: (displayName: string, avatar: string) => void;
   logout: () => Promise<void>;
 }
 
@@ -29,22 +30,42 @@ const Ctx = createContext<AuthCtx>({} as AuthCtx);
 
 const TOKEN_KEY = 'adminToken';
 
-async function fetchMe(token: string): Promise<{
-  role: AuthRole;
-  id: number;
-  username: string;
-  email: string | null;
-} | null> {
+type MeResult =
+  | {
+      ok: true;
+      role: AuthRole;
+      id: number;
+      username: string;
+      email: string | null;
+      playDisplayName: string | null;
+      playAvatar: string | null;
+    }
+  | { ok: false; error: string };
+
+async function fetchMe(token: string): Promise<MeResult> {
   const res = await fetch('/api/auth/me', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return null;
-  const data = await res.json();
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    role?: AuthRole;
+    id?: number;
+    username?: string;
+    email?: string | null;
+    playDisplayName?: string | null;
+    playAvatar?: string | null;
+  };
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? 'Unauthorized' };
+  }
   return {
+    ok: true,
     role: data.role as AuthRole,
     id: data.id as number,
     username: data.username as string,
     email: (data.email as string | null) ?? null,
+    playDisplayName: data.playDisplayName ?? null,
+    playAvatar: data.playAvatar ?? null,
   };
 }
 
@@ -62,9 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const me = await fetchMe(t);
-      if (me) {
+      if (me.ok) {
         setRole(me.role);
-        setUser({ id: me.id, email: me.email, username: me.username });
+        setUser({
+          id: me.id,
+          email: me.email,
+          username: me.username,
+          playDisplayName: me.playDisplayName,
+          playAvatar: me.playAvatar,
+        });
         setToken(t);
       } else {
         localStorage.removeItem(TOKEN_KEY);
@@ -74,43 +101,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const applyToken = useCallback(async (t: string): Promise<string | null> => {
+  const applyToken = useCallback(async (t: string): Promise<LoginResult> => {
     localStorage.setItem(TOKEN_KEY, t);
     setToken(t);
     const me = await fetchMe(t);
-    if (!me) {
+    if (!me.ok) {
       localStorage.removeItem(TOKEN_KEY);
       setToken(null);
-      return 'Session validation failed';
+      return { ok: false, error: me.error };
     }
     setRole(me.role);
-    setUser({ id: me.id, email: me.email, username: me.username });
-    return null;
+    setUser({
+      id: me.id,
+      email: me.email,
+      username: me.username,
+      playDisplayName: me.playDisplayName,
+      playAvatar: me.playAvatar,
+    });
+    return { ok: true, role: me.role };
   }, []);
 
-  const loginSuperAdmin = useCallback(
-    async (username: string, password: string): Promise<string | null> => {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return (data.error as string) ?? 'Login failed';
-      return applyToken(data.token as string);
-    },
-    [applyToken],
-  );
-
-  const loginUser = useCallback(
-    async (email: string, password: string): Promise<string | null> => {
+  const login = useCallback(
+    async (identifier: string, password: string): Promise<LoginResult> => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: identifier, password }),
       });
       const data = await res.json();
-      if (!res.ok) return (data.error as string) ?? 'Login failed';
+      if (!res.ok) return { ok: false, error: (data.error as string) ?? 'Login failed' };
       return applyToken(data.token as string);
     },
     [applyToken],
@@ -125,10 +144,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) return (data.error as string) ?? 'Registration failed';
-      return applyToken(data.token as string);
+      const result = await applyToken(data.token as string);
+      return result.ok ? null : result.error;
     },
     [applyToken],
   );
+
+  const updatePlayProfile = useCallback((displayName: string, avatar: string) => {
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            playDisplayName: displayName,
+            playAvatar: avatar || null,
+          }
+        : prev,
+    );
+  }, []);
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -146,13 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       isAdmin: role !== null,
       isSuperAdmin: role === 'super_admin',
-      loginSuperAdmin,
-      loginUser,
+      login,
       registerUser,
-      login: loginSuperAdmin,
+      updatePlayProfile,
       logout,
     }),
-    [role, user, checking, token, loginSuperAdmin, loginUser, registerUser, logout],
+    [role, user, checking, token, login, registerUser, updatePlayProfile, logout],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

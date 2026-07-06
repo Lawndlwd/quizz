@@ -1,3 +1,4 @@
+import { ArrowRight, Zap } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppAlert } from '@/components/AppAlert';
@@ -11,6 +12,7 @@ import { Input } from '@/components/Input';
 import { AppLogo, AuthCard, PageCenter, Subtitle } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   cleanPin,
   clearPlayerSession,
@@ -19,18 +21,37 @@ import {
 } from '@/helpers/playerSession';
 import { getSocket, useSocketEvent } from '@/hooks/useSocket';
 
+import type { AuthUser } from '@/types';
+
+function defaultJoinName(user: AuthUser | null): string {
+  if (!user) return '';
+  return (user.playDisplayName?.trim() || user.username || '').slice(0, 24);
+}
+
+function defaultJoinAvatar(user: AuthUser | null): string {
+  if (user?.playAvatar?.trim()) return user.playAvatar.trim();
+  return loadSavedAvatar();
+}
+
 export default function Join() {
   const { pin: pinParam } = useParams<{ pin?: string }>();
   const navigate = useNavigate();
   const socket = getSocket();
+  const { token, user } = useAuth();
 
   const { appName, appSubtitle } = useApp();
   const [pin, setPin] = useState(pinParam ?? '');
   const [username, setUsername] = useState('');
-  const [avatar, setAvatar] = useState<string>(loadSavedAvatar);
+  const [avatar, setAvatar] = useState<string>(() => loadSavedAvatar());
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
   const [step, setStep] = useState<'form' | 'avatar'>('form');
+
+  useEffect(() => {
+    if (!user) return;
+    setUsername((prev) => prev || defaultJoinName(user));
+    setAvatar((prev) => prev || defaultJoinAvatar(user));
+  }, [user]);
 
   useEffect(() => {
     const stored = loadPlayerSession();
@@ -46,8 +67,9 @@ export default function Join() {
       username: stored.username,
       avatar: stored.avatar ?? '',
       playerId: Number(stored.playerId),
+      authToken: token ?? undefined,
     });
-  }, [socket]);
+  }, [socket, token]);
 
   useSocketEvent<{ playerId: number; sessionId: number; status: string; username?: string }>(
     'player:joined',
@@ -101,6 +123,7 @@ export default function Join() {
       pin: cleanPin(pin),
       username: username.trim(),
       avatar,
+      authToken: token ?? undefined,
     });
   }
 
@@ -112,12 +135,14 @@ export default function Join() {
             {appName ? (
               <>
                 {appName}{' '}
-                <span className="mt-1 block text-[0.6em] font-normal text-muted-foreground opacity-85">
-                  by ⚡ Quizz
+                <span className="mt-1 flex items-center justify-center gap-1 text-[0.6em] font-normal text-muted-foreground opacity-85">
+                  by <Zap className="size-4" /> Quizz
                 </span>
               </>
             ) : (
-              '⚡ Quizz'
+              <span className="inline-flex items-center gap-1">
+                <Zap className="size-4" /> Quizz
+              </span>
             )}
           </AppLogo>
           {appSubtitle && step === 'form' && (
@@ -159,7 +184,9 @@ export default function Join() {
               required
             />
             <Button type="submit" variant="default" size="lg" className="mt-2 w-full">
-              Next: Pick Avatar →
+              <span className="inline-flex items-center gap-1.5">
+                Next: Pick Avatar <ArrowRight className="size-4" />
+              </span>
             </Button>
           </form>
         ) : (
@@ -197,13 +224,29 @@ export default function Join() {
               onClick={handleJoin}
               disabled={joining}
             >
-              {joining ? 'Joining…' : 'Join Game →'}
+              {joining ? (
+                'Joining…'
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  Join Game <ArrowRight className="size-4" />
+                </span>
+              )}
             </Button>
           </div>
         )}
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          <a href="/login">Sign in</a> · <a href="/register">Register</a> · <a href="/">Home</a>
+          {user ? (
+            <>
+              Signed in as {user.username} · <a href="/u/my-games">My games</a> ·{' '}
+              <a href="/">Home</a>
+            </>
+          ) : (
+            <>
+              <a href="/login">Sign in</a> · <a href="/register">Register</a> ·{' '}
+              <a href="/">Home</a>
+            </>
+          )}
         </p>
       </AuthCard>
     </PageCenter>

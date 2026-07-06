@@ -28,6 +28,11 @@ export interface AppConfig {
 
 export type AuthRole = 'super_admin' | 'user';
 
+/** Visual/audio theme applied to a quiz's game screens. */
+export type ThemeId = 'default' | 'neon' | 'paper' | 'space' | 'retro';
+
+export const THEME_IDS: ThemeId[] = ['default', 'neon', 'paper', 'space', 'retro'];
+
 export interface JwtPayload {
   id: number;
   role: AuthRole;
@@ -80,6 +85,7 @@ export interface QuizImportPayload {
   title: string;
   description?: string;
   coverImage?: string;
+  theme?: ThemeId;
   questions: QuizQuestion[];
 }
 
@@ -94,6 +100,7 @@ export interface QuizIntro {
   /** Ordered [questionType, count] pairs present in this quiz. */
   typeCounts: Array<[QuestionType, number]>;
   totalTimeSec: number;
+  theme?: ThemeId;
 }
 
 export interface DbQuiz {
@@ -101,6 +108,7 @@ export interface DbQuiz {
   title: string;
   description: string;
   cover_image: string | null;
+  theme: string | null;
   created_at: string;
   question_count?: number;
   owner_id: number | null;
@@ -149,6 +157,8 @@ export interface DbPlayer {
   username: string;
   total_score: number;
   joined_at: string;
+  user_id?: number | null;
+  avatar?: string | null;
 }
 
 export interface DbUser {
@@ -159,6 +169,8 @@ export interface DbUser {
   is_banned: number;
   created_at: string;
   last_password_change: string | null;
+  play_display_name?: string | null;
+  play_avatar?: string | null;
 }
 
 export interface DbAnswer {
@@ -179,6 +191,8 @@ export interface DbAnswer {
 export interface PlayerJoinPayload {
   pin: string;
   username: string;
+  avatar?: string;
+  authToken?: string;
 }
 
 export interface PlayerAnswerPayload {

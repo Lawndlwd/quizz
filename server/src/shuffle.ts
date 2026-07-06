@@ -32,3 +32,32 @@ export function seededPerm(n: number, seed: number): number[] {
   // Fallback: rotate by one so it is never the identity.
   return Array.from({ length: n }, (_, i) => (i + 1) % n);
 }
+
+/**
+ * Plain seeded Fisher-Yates permutation for `n` items. Unlike `seededPerm` the
+ * identity is a valid outcome — required for answer-option shuffling, where
+ * forbidding the identity makes a 2-option question deterministically reversed
+ * in every game regardless of seed.
+ */
+export function seededShuffle(n: number, seed: number): number[] {
+  const rng = mulberry32(seed + 1);
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Inverse of a permutation: `inv[originalIndex]` is the display slot it moved to.
+ * Given `perm[displaySlot] = originalIndex`, this lets callers translate a stored
+ * correct index into the slot the player actually saw.
+ */
+export function invertPerm(perm: number[]): number[] {
+  const inv = new Array<number>(perm.length);
+  perm.forEach((original, slot) => {
+    inv[original] = slot;
+  });
+  return inv;
+}

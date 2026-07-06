@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { type Request, type Response, Router } from 'express';
 import { db } from '../db';
 import { requireSuperAdmin } from '../middleware';
-import { MIN_PASSWORD_LENGTH, hashPassword } from '../passwords';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../passwords';
 import type { DbUser } from '../types';
 
 export const usersRouter = Router();

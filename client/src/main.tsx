@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
+import { DialogProvider } from './context/DialogContext';
 import './styles/index.css';
 
 // biome-ignore lint/style/noNonNullAssertion: root element is always present in index.html
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AppProvider>
         <AuthProvider>
-          <App />
+          <DialogProvider>
+            <App />
+          </DialogProvider>
         </AuthProvider>
       </AppProvider>
     </BrowserRouter>

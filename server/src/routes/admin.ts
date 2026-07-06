@@ -1,22 +1,23 @@
-import bcrypt from 'bcrypt';
 import { type Request, type Response, Router } from 'express';
-import { saveAvatarsFromDataUrls } from '../avatars';
+import { saveAvatarsFromDataUrls, deleteAvatarByUrl } from '../avatars';
 import { config, saveConfig, toPublicConfig } from '../config';
 import { db, getRankedPlayers } from '../db';
-import { getRequestUser, requireAuth, requireSuperAdmin, signToken } from '../middleware';
-import { MIN_PASSWORD_LENGTH, hashPassword } from '../passwords';
+import { getRequestUser, requireAuth, requireSuperAdmin } from '../middleware';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../passwords';
 import { terminateSessionById } from '../socket/sessionLifecycle';
+import { THEME_IDS } from '../types';
 import type {
   DbQuestion,
   DbQuiz,
   DbSession,
-  JwtPayload,
   QuizImportPayload,
   QuizQuestion,
+  ThemeId,
 } from '../types';
 import {
   normalizeImageUrl,
   normalizeOptionalText,
+  normalizeQuestionMedia,
   normalizeTags,
   parseQuestionRow,
 } from '../utils';
@@ -25,36 +26,7 @@ export const adminRouter = Router();
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-// Super admin login: env credentials first, then admins table fallback.
-// Regular users authenticate via /api/auth/login (see routes/auth.ts).
-adminRouter.post('/login', async (req: Request, res: Response) => {
-  const { username, password } = req.body as { username: string; password: string };
-
-  try {
-    const envUser = process.env.ADMIN_USERNAME || 'admin';
-    const envPass = process.env.ADMIN_PASSWORD;
-    if (envPass && username === envUser && password === envPass) {
-      const payload: JwtPayload = { id: 0, role: 'super_admin', username: envUser };
-      const token = signToken(payload);
-      return res.json({ token });
-    }
-
-    const admin = await db.get<{ id: number; username: string; password_hash: string }>(
-      'SELECT id, username, password_hash FROM admins WHERE username = ?',
-      username,
-    );
-    if (admin && (await bcrypt.compare(password, admin.password_hash))) {
-      const payload: JwtPayload = { id: 0, role: 'super_admin', username: admin.username };
-      const token = signToken(payload);
-      return res.json({ token });
-    }
-
-    return res.status(401).json({ error: 'Invalid credentials' });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
-  }
-});
+// Super-admin login: POST /api/auth/login (tries admin username first, then user email).
 
 adminRouter.post('/logout', (_req, res) => {
   res.clearCookie('adminToken');
@@ -152,6 +124,17 @@ adminRouter.post('/avatars/bulk', requireSuperAdmin, (req: Request, res: Respons
   res.status(201).json({ urls });
 });
 
+adminRouter.delete('/avatars', requireSuperAdmin, (req: Request, res: Response) => {
+  const { url } = req.body as { url?: unknown };
+  if (typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'url is required' });
+  }
+  if (!deleteAvatarByUrl(url.trim())) {
+    return res.status(404).json({ error: 'Avatar not found' });
+  }
+  res.json({ ok: true });
+});
+
 // ─── Ownership helpers ──────────────────────────────────────────────────────
 
 function isSuperAdmin(req: Request): boolean {
@@ -178,6 +161,7 @@ async function insertQuestion(
   q: QuizQuestion,
   orderIndex: number,
 ): Promise<void> {
+  const media = normalizeQuestionMedia(q.mediaType, q.mediaUrl);
   await db.run(
     'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer, correct_indices, explanation, range_min, range_max, media_url, media_type, blanks, geo, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     quizId,
@@ -194,8 +178,8 @@ async function insertQuestion(
     normalizeOptionalText(q.explanation) ?? null,
     q.rangeMin ?? null,
     q.rangeMax ?? null,
-    q.mediaType ? (q.mediaUrl ?? null) : null,
-    q.mediaType ?? null,
+    media.mediaUrl,
+    media.mediaType,
     q.blanks ? JSON.stringify(q.blanks) : null,
     q.geo ? JSON.stringify(q.geo) : null,
     normalizeTags(q.tags),
@@ -256,6 +240,11 @@ adminRouter.get('/quizzes/:id', requireAuth, async (req: Request, res: Response)
   });
 });
 
+/** Validate a client-supplied theme against the allowlist, defaulting to 'default'. */
+function normalizeTheme(theme: unknown): ThemeId {
+  return THEME_IDS.includes(theme as ThemeId) ? (theme as ThemeId) : 'default';
+}
+
 adminRouter.post('/quizzes', requireAuth, async (req: Request, res: Response) => {
   const body = req.body as QuizImportPayload;
   if (!body.title || !Array.isArray(body.questions) || body.questions.length === 0) {
@@ -269,10 +258,11 @@ adminRouter.post('/quizzes', requireAuth, async (req: Request, res: Response) =>
   await db.run('BEGIN');
   try {
     const quizResult = await db.run(
-      'INSERT INTO quizzes (title, description, cover_image, owner_id, owner_kind) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO quizzes (title, description, cover_image, theme, owner_id, owner_kind) VALUES (?, ?, ?, ?, ?, ?)',
       body.title,
       body.description ?? '',
       normalizeImageUrl(body.coverImage) ?? null,
+      normalizeTheme(body.theme),
       ownerId,
       ownerKind,
     );
@@ -303,10 +293,11 @@ adminRouter.put('/quizzes/:id', requireAuth, async (req: Request, res: Response)
   await db.run('BEGIN');
   try {
     await db.run(
-      'UPDATE quizzes SET title = ?, description = ?, cover_image = ? WHERE id = ?',
+      'UPDATE quizzes SET title = ?, description = ?, cover_image = ?, theme = ? WHERE id = ?',
       body.title,
       body.description ?? '',
       normalizeImageUrl(body.coverImage) ?? null,
+      normalizeTheme(body.theme),
       req.params.id,
     );
     await db.run('DELETE FROM questions WHERE quiz_id = ?', req.params.id);

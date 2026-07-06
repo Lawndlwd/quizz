@@ -1,3 +1,4 @@
+import { Zap } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppAlert } from '@/components/AppAlert';
@@ -33,7 +34,13 @@ export default function UserRegister() {
     <PageCenter>
       <AuthCard>
         <div className="text-center mb-6">
-          <AppLogo>{appName || '⚡ Quizz'}</AppLogo>
+          <AppLogo>
+            {appName || (
+              <span className="inline-flex items-center gap-1.5">
+                <Zap className="size-4" /> Quizz
+              </span>
+            )}
+          </AppLogo>
           <Subtitle className="mt-2">Create your quiz creator account</Subtitle>
           {allowedDomain && (
             <p className="text-muted-foreground text-sm mt-2">

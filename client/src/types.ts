@@ -14,12 +14,19 @@ export interface GeoPoint {
   lng: number;
 }
 
+/** Visual/audio theme applied to a quiz's game screens. */
+export type ThemeId = 'default' | 'neon' | 'paper' | 'space' | 'retro';
+
+export const THEME_IDS: ThemeId[] = ['default', 'neon', 'paper', 'space', 'retro'];
+
 export type AuthRole = 'super_admin' | 'user';
 
 export interface AuthUser {
   id: number;
   email: string | null;
   username: string;
+  playDisplayName?: string | null;
+  playAvatar?: string | null;
 }
 
 export interface UserAccount {
@@ -37,6 +44,7 @@ export interface Quiz {
   title: string;
   description: string;
   cover_image?: string | null;
+  theme?: ThemeId | null;
   created_at: string;
   question_count: number;
   owner_id?: number | null;
@@ -190,6 +198,19 @@ export interface GameEndedPayload {
   leaderboard: FinalLeaderboardEntry[];
 }
 
+export interface PlayHistoryEntry {
+  session_id: number;
+  pin: string;
+  quiz_title: string;
+  status: Session['status'];
+  total_score: number;
+  player_count: number;
+  rank: number;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
 export interface ImportQuestion {
   text: string;
   options: string[];
@@ -214,6 +235,7 @@ export interface ImportPayload {
   title: string;
   description?: string;
   coverImage?: string;
+  theme?: ThemeId;
   questions: ImportQuestion[];
 }
 
@@ -226,6 +248,7 @@ export interface QuizIntro {
   questionCount: number;
   typeCounts: Array<[QuestionType, number]>;
   totalTimeSec: number;
+  theme?: ThemeId;
 }
 
 export interface GameSettings {

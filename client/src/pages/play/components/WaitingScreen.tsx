@@ -1,17 +1,42 @@
+import { useRef, useState } from 'react';
 import { QuizIntroCard } from '@/components/game/QuizIntroCard';
 import { PageCenter } from '@/components/layout';
+import { getSocket } from '@/hooks/useSocket';
 import type { QuizIntro } from '@/types';
 import { AvatarDisplay } from '../../../components/AvatarPicker';
+
+/** Must match the server-side allowlist in socket/index.ts. */
+const REACTIONS = ['👍', '😂', '🔥', '❤️', '🎉', '😮'];
+const REACTION_COOLDOWN_MS = 1500;
 
 interface Props {
   username: string;
   avatar: string;
   reconnecting?: boolean;
   intro?: QuizIntro | null;
+  sessionId: number;
+  playerId: number;
 }
 
-export function WaitingScreen({ username, avatar, reconnecting, intro }: Props) {
+export function WaitingScreen({
+  username,
+  avatar,
+  reconnecting,
+  intro,
+  sessionId,
+  playerId,
+}: Props) {
   const title = intro ? intro.title : reconnecting ? 'Welcome back!' : 'Get ready!';
+
+  const [cooling, setCooling] = useState(false);
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function sendReaction(emoji: string) {
+    if (cooling || !sessionId || !playerId) return;
+    getSocket().emit('player:reaction', { sessionId, playerId, emoji });
+    setCooling(true);
+    cooldownTimer.current = setTimeout(() => setCooling(false), REACTION_COOLDOWN_MS);
+  }
 
   return (
     <PageCenter>
@@ -43,6 +68,25 @@ export function WaitingScreen({ username, avatar, reconnecting, intro }: Props) 
                   </p>
                 </div>
                 <span className="inline-block h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-400" />
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-center text-xs text-muted-foreground">
+                  Send a reaction
+                </p>
+                <div className="reaction-bar">
+                  {REACTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="reaction-btn"
+                      disabled={cooling}
+                      onClick={() => sendReaction(emoji)}
+                      aria-label={`React with ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           }

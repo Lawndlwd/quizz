@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -6,21 +7,27 @@ import { cn } from '@/lib/utils';
 
 interface SettingsSectionProps {
   id: string;
-  icon: string;
+  icon: LucideIcon;
   title: string;
   description?: string;
   children: ReactNode;
 }
 
-export function SettingsSection({ id, icon, title, description, children }: SettingsSectionProps) {
+export function SettingsSection({
+  id,
+  icon: Icon,
+  title,
+  description,
+  children,
+}: SettingsSectionProps) {
   return (
     <Card id={id} className="w-full scroll-mt-20">
       <CardHeader className="flex-row items-start gap-4 space-y-0">
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-2xl"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
           aria-hidden
         >
-          {icon}
+          <Icon className="size-5" />
         </div>
         <div className="min-w-0">
           <CardTitle className="text-lg">{title}</CardTitle>

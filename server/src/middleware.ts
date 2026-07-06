@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from './config';
 import { db } from './db';
 import type { JwtPayload } from './types';
+import { isUserBanned } from './utils';
 
 function extractToken(req: Request): string | undefined {
   return req.cookies?.adminToken ?? req.headers.authorization?.replace('Bearer ', '');
@@ -47,7 +48,8 @@ async function assertUserNotBanned(payload: JwtPayload): Promise<boolean> {
   const row = await db.get<{ is_banned: number }>('SELECT is_banned FROM users WHERE id = ?', [
     payload.id,
   ]);
-  return Boolean(row && !row.is_banned);
+  if (!row) return false;
+  return !isUserBanned(row.is_banned);
 }
 
 /** Any valid JWT (super admin OR user). Populates req.user. */

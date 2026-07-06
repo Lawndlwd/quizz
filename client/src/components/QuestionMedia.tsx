@@ -1,3 +1,4 @@
+import { Music, Pause, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { parseYouTubeId, parseYouTubeStart } from '@/helpers';
 import { cn } from '@/lib/utils';
@@ -103,24 +104,30 @@ export function QuestionMedia({ url, kind, className, autoPlay = true }: Props) 
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-muted-foreground">🎵 Audio</span>
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+          <Music className="size-4" /> Audio
+        </span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={toggle}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-lg text-primary-foreground transition hover:brightness-110"
+            className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:brightness-110"
             aria-label={playing ? 'Pause' : 'Play'}
           >
-            {playing ? '⏸' : '▶'}
+            {playing ? (
+              <Pause className="size-5 fill-current" />
+            ) : (
+              <Play className="size-5 fill-current ps-0.5" />
+            )}
           </button>
           <button
             type="button"
             onClick={replay}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-lg text-secondary-foreground transition hover:brightness-125"
+            className="flex size-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition hover:brightness-125"
             aria-label="Replay from start"
             title="Replay from start"
           >
-            ↻
+            <RotateCcw className="size-[18px]" />
           </button>
         </div>
       </div>

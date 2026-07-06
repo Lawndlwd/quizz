@@ -1,3 +1,4 @@
+import { ArrowRight, BarChart3 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MainContent, Page, Subtitle } from '@/components/layout';
@@ -69,11 +70,19 @@ export default function History() {
         <td className="px-4 py-3">
           {s.status === 'finished' ? (
             <Button variant="ghost" size="sm" asChild>
-              <Link to={`${basePath}/sessions/${s.id}`}>Results →</Link>
+              <Link to={`${basePath}/sessions/${s.id}`}>
+                <span className="flex items-center gap-1.5">
+                  Results <ArrowRight className="size-4" />
+                </span>
+              </Link>
             </Button>
           ) : (
             <Button size="sm" asChild>
-              <Link to={`${basePath}/game/${s.id}`}>Resume →</Link>
+              <Link to={`${basePath}/game/${s.id}`}>
+                <span className="flex items-center gap-1.5">
+                  Resume <ArrowRight className="size-4" />
+                </span>
+              </Link>
             </Button>
           )}
         </td>
@@ -106,7 +115,7 @@ export default function History() {
     <Page>
       <CreatorNav />
       <MainContent>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h1>{showGroupedByUser ? 'All Game History' : 'Game History'}</h1>
             <Subtitle>
@@ -116,7 +125,7 @@ export default function History() {
                 : ''}
             </Subtitle>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(['all', 'active', 'waiting', 'finished'] as const).map((f) => (
               <Button
                 type="button"
@@ -136,7 +145,7 @@ export default function History() {
         ) : filtered.length === 0 ? (
           <Card>
             <CardContent className="px-8 py-12 text-center">
-              <div className="mb-2.5 text-4xl">📊</div>
+              <BarChart3 className="mx-auto mb-2.5 size-10 text-muted-foreground" />
               <h2>No sessions yet</h2>
               <Subtitle className="mt-2">
                 Start a game from the Dashboard to see history here
@@ -159,7 +168,14 @@ export default function History() {
             ))}
           </div>
         ) : (
-          <Card className="w-full max-w-6xl overflow-hidden">{renderSessionTable(filtered)}</Card>
+          <>
+            <Card className="w-full max-w-6xl overflow-hidden md:hidden">
+              <CompactSessionList items={filtered} basePath={basePath} />
+            </Card>
+            <Card className="hidden w-full max-w-6xl overflow-hidden md:block">
+              {renderSessionTable(filtered)}
+            </Card>
+          </>
         )}
       </MainContent>
     </Page>

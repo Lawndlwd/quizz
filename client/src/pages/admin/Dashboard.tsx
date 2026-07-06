@@ -1,3 +1,4 @@
+import { ArrowRight, Eye, FileText, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MainContent, Page, PageLoading, Subtitle } from '@/components/layout';
@@ -10,10 +11,11 @@ import CreatorNav from '../../components/CreatorNav';
 import { CompactQuizList } from '../../components/UserGroupCompactLists';
 import { UserGroupPanel } from '../../components/UserGroupPanel';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import { groupQuizzesByOwner } from '../../helpers/groupByOwner';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useCreatorBase } from '../../hooks/useCreatorBase';
-import type { AppConfig, GameSettings, ImportQuestion, Quiz, Session } from '../../types';
+import type { AppConfig, GameSettings, ImportQuestion, Quiz, Session, ThemeId } from '../../types';
 import { PreGameSettingsModal } from './components/PreGameSettingsModal';
 
 export default function Dashboard() {
@@ -21,6 +23,7 @@ export default function Dashboard() {
   const api = useAuthFetch();
   const navigate = useNavigate();
   const basePath = useCreatorBase();
+  const { confirm, alert } = useDialog();
   const showGroupedByUser = basePath === '/admin' && isSuperAdmin;
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeSessions, setActiveSessions] = useState<Session[]>([]);
@@ -31,9 +34,11 @@ export default function Dashboard() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [previewing, setPreviewing] = useState<number | null>(null);
-  const [preview, setPreview] = useState<{ title: string; questions: ImportQuestion[] } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    title: string;
+    theme?: ThemeId;
+    questions: ImportQuestion[];
+  } | null>(null);
 
   const [closing, setClosing] = useState<number | null>(null);
 
@@ -69,7 +74,13 @@ export default function Dashboard() {
   }, [load, loadSessions]);
 
   async function forceClose(sessionId: number) {
-    if (!confirm('Force-close this session? Players will be disconnected.')) return;
+    const ok = await confirm({
+      title: 'Force-close session?',
+      message: 'All connected players will be disconnected.',
+      confirmText: 'Force-close',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setClosing(sessionId);
     await api.post(`/api/admin/sessions/${sessionId}/force-end`);
     setClosing(null);
@@ -80,7 +91,7 @@ export default function Dashboard() {
     if (!appConfig) {
       const { ok, data } = await api.get<AppConfig>('/api/admin/config');
       if (!ok || !data) {
-        alert('Could not load game settings. Please try again.');
+        await alert({ message: 'Could not load game settings. Please try again.' });
         return;
       }
       setAppConfig(data);
@@ -105,7 +116,13 @@ export default function Dashboard() {
   }
 
   async function deleteQuiz(id: number) {
-    if (!confirm('Delete this quiz and all its data?')) return;
+    const ok = await confirm({
+      title: 'Delete quiz?',
+      message: 'This permanently deletes the quiz and all its data.',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setDeleting(id);
     await api.delete(`/api/admin/quizzes/${id}`);
     setDeleting(null);
@@ -114,13 +131,14 @@ export default function Dashboard() {
 
   async function openPreview(id: number) {
     setPreviewing(id);
-    const { ok, data } = await api.get<{ title: string; questions: unknown[] }>(
+    const { ok, data } = await api.get<{ title: string; theme?: ThemeId; questions: unknown[] }>(
       `/api/admin/quizzes/${id}`,
     );
     setPreviewing(null);
     if (!ok) return;
     setPreview({
       title: data.title,
+      theme: data.theme,
       questions: (data.questions ?? []).map((q) =>
         mapDbQuestionToImport(q as Parameters<typeof mapDbQuestionToImport>[0]),
       ),
@@ -156,7 +174,13 @@ export default function Dashboard() {
               onClick={() => handleStartClick(q.id)}
               disabled={starting === q.id}
             >
-              {starting === q.id ? '…' : '▶ Start'}
+              {starting === q.id ? (
+                '…'
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Play className="size-4" /> Start
+                </span>
+              )}
             </Button>
             <Button
               type="button"
@@ -166,10 +190,20 @@ export default function Dashboard() {
               disabled={previewing === q.id}
               title="Preview how this quiz looks — no session needed"
             >
-              {previewing === q.id ? '…' : '👁 Preview'}
+              {previewing === q.id ? (
+                '…'
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Eye className="size-4" /> Preview
+                </span>
+              )}
             </Button>
             <Button variant="secondary" size="sm" asChild>
-              <Link to={`${basePath}/quiz/${q.id}/edit`}>✎ Edit</Link>
+              <Link to={`${basePath}/quiz/${q.id}/edit`}>
+                <span className="flex items-center gap-1.5">
+                  <Pencil className="size-4" /> Edit
+                </span>
+              </Link>
             </Button>
             <Button
               type="button"
@@ -178,7 +212,7 @@ export default function Dashboard() {
               onClick={() => deleteQuiz(q.id)}
               disabled={deleting === q.id}
             >
-              🗑
+              <Trash2 className="size-4" />
             </Button>
           </div>
         </td>
@@ -222,7 +256,9 @@ export default function Dashboard() {
                         size="sm"
                         onClick={() => navigate(`${basePath}/game/${s.id}`)}
                       >
-                        Resume →
+                        <span className="flex items-center gap-1.5">
+                          Resume <ArrowRight className="size-4" />
+                        </span>
                       </Button>
                       <Button
                         type="button"
@@ -233,7 +269,7 @@ export default function Dashboard() {
                         title="Force-close this session"
                         className="text-destructive hover:bg-destructive/10"
                       >
-                        {closing === s.id ? '…' : '✕'}
+                        {closing === s.id ? '…' : <X className="size-4" />}
                       </Button>
                     </div>
                   </div>
@@ -243,7 +279,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1>{showGroupedByUser ? 'All Quizzes' : 'My Quizzes'}</h1>
             <Subtitle>
@@ -254,14 +290,18 @@ export default function Dashboard() {
             </Subtitle>
           </div>
           <Button size="lg" asChild>
-            <Link to={`${basePath}/quiz/new`}>+ Create Quiz</Link>
+            <Link to={`${basePath}/quiz/new`}>
+              <span className="flex items-center gap-1.5">
+                <Plus className="size-4" /> Create Quiz
+              </span>
+            </Link>
           </Button>
         </div>
 
         {quizzes.length === 0 ? (
           <Card>
             <CardContent className="px-8 py-16 text-center">
-              <div className="mb-3 text-5xl">📝</div>
+              <FileText className="mx-auto mb-3 size-10 text-muted-foreground" />
               <h2>No quizzes yet</h2>
               <Subtitle className="mt-2 mb-6">Create your first quiz to get started</Subtitle>
               <Button size="lg" asChild>
@@ -294,21 +334,35 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <Card className="w-full max-w-6xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Questions</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>{quizzes.map(renderQuizRow)}</tbody>
-              </table>
-            </div>
-          </Card>
+          <>
+            <Card className="w-full max-w-6xl overflow-hidden md:hidden">
+              <CompactQuizList
+                items={quizzes}
+                basePath={basePath}
+                starting={starting}
+                deleting={deleting}
+                previewing={previewing}
+                onStart={handleStartClick}
+                onDelete={deleteQuiz}
+                onPreview={openPreview}
+              />
+            </Card>
+            <Card className="hidden w-full max-w-6xl overflow-hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="px-4 py-3 font-medium">Title</th>
+                      <th className="px-4 py-3 font-medium">Questions</th>
+                      <th className="px-4 py-3 font-medium">Created</th>
+                      <th className="px-4 py-3 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>{quizzes.map(renderQuizRow)}</tbody>
+                </table>
+              </div>
+            </Card>
+          </>
         )}
       </MainContent>
 
@@ -327,6 +381,7 @@ export default function Dashboard() {
         <QuizPreviewModal
           title={preview.title}
           questions={preview.questions}
+          theme={preview.theme}
           onClose={() => setPreview(null)}
         />
       )}

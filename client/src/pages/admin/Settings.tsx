@@ -1,21 +1,25 @@
+import { Check, Lock, Pencil, Smile, Target, Timer, Trash2, Upload } from 'lucide-react';
 import { type ChangeEvent, useEffect, useState } from 'react';
 import { AppAlert } from '@/components/AppAlert';
 import { FormRow, MainContent, Page, PageLoading, Subtitle } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input as FileInput } from '@/components/ui/input';
+import { invalidateAvatarCache } from '@/lib/avatars';
+import { cn } from '@/lib/utils';
 import AdminNav from '../../components/AdminNav';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import type { AppConfig } from '../../types';
 import { SettingsFieldGroup, SettingsSection, SettingsToggle } from './components/SettingsSection';
 
 const NAV_SECTIONS = [
-  { id: 'branding', label: 'Branding', icon: '✏️' },
-  { id: 'gameplay', label: 'Gameplay', icon: '⏱' },
-  { id: 'scoring', label: 'Scoring', icon: '🎯' },
-  { id: 'avatars', label: 'Avatars', icon: '😊' },
-  { id: 'security', label: 'Security', icon: '🔐' },
+  { id: 'branding', label: 'Branding', icon: Pencil },
+  { id: 'gameplay', label: 'Gameplay', icon: Timer },
+  { id: 'scoring', label: 'Scoring', icon: Target },
+  { id: 'avatars', label: 'Avatars', icon: Smile },
+  { id: 'security', label: 'Security', icon: Lock },
 ] as const;
 
 function computeSpeedBonus(position: number, totalPlayers: number, max: number, min: number) {
@@ -86,6 +90,7 @@ function BrandingPreview({ appName, appSubtitle }: { appName: string; appSubtitl
 
 export default function Settings() {
   const { isSuperAdmin, logout } = useAuth();
+  const { alert, confirm } = useDialog();
   const api = useAuthFetch();
   const [cfg, setCfg] = useState<Partial<AppConfig> | null>(null);
   const [saved, setSaved] = useState(false);
@@ -99,6 +104,7 @@ export default function Settings() {
   const [avatarUploadMessage, setAvatarUploadMessage] = useState<string | null>(null);
   const [availableAvatars, setAvailableAvatars] = useState<string[] | null>(null);
   const [avatarsError, setAvatarsError] = useState<string | null>(null);
+  const [deletingAvatar, setDeletingAvatar] = useState<string | null>(null);
   const [dbAdmins, setDbAdmins] = useState<
     { id: number; username: string; created_at: string; last_password_change: string | null }[]
   >([]);
@@ -140,11 +146,11 @@ export default function Settings() {
 
   async function changePassword() {
     if (!currentPassword) {
-      alert('Please enter your current password');
+      await alert({ message: 'Please enter your current password' });
       return;
     }
     if (!newPassword && !newUsername) {
-      alert('Please enter a new password or username to change');
+      await alert({ message: 'Please enter a new password or username to change' });
       return;
     }
 
@@ -157,16 +163,19 @@ export default function Settings() {
       const { ok, data } = await api.post<{ error?: string }>('/api/admin/change-password', body);
 
       if (!ok) {
-        alert(data?.error || 'Failed to change password');
+        await alert({ message: data?.error || 'Failed to change password' });
         return;
       }
 
-      alert('Password changed successfully! Please log in again.');
+      await alert({
+        title: 'Password changed',
+        message: 'Please log in again.',
+      });
       await logout();
-      window.location.href = '/admin/login';
+      window.location.href = '/login';
     } catch (error) {
       console.error('Password change failed:', error);
-      alert('Failed to change password');
+      await alert({ message: 'Failed to change password' });
     } finally {
       setChangingPassword(false);
       setCurrentPassword('');
@@ -181,7 +190,7 @@ export default function Settings() {
     const { ok } = await api.put('/api/admin/config', { ...cfg });
     setSaving(false);
     if (!ok) {
-      alert('Failed to save settings');
+      await alert({ message: 'Failed to save settings' });
       return;
     }
     setSaved(true);
@@ -240,6 +249,30 @@ export default function Settings() {
     }
   }
 
+  async function handleDeleteAvatar(url: string) {
+    const ok = await confirm({
+      title: 'Delete avatar?',
+      message: 'Players who picked this avatar will keep it until they change it.',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    setDeletingAvatar(url);
+    setAvatarUploadMessage(null);
+    const { ok: deleted, data } = await api.delete<{ error?: string }>('/api/admin/avatars', { url });
+    setDeletingAvatar(null);
+
+    if (!deleted) {
+      setAvatarUploadMessage(data?.error ?? 'Could not delete avatar.');
+      return;
+    }
+
+    setAvailableAvatars((prev) => (prev ?? []).filter((u) => u !== url));
+    invalidateAvatarCache();
+    setAvatarUploadMessage('Avatar deleted.');
+  }
+
   function update<K extends keyof AppConfig>(key: K, value: AppConfig[K]) {
     setCfg((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
@@ -260,7 +293,15 @@ export default function Settings() {
             <Subtitle>Configure branding, gameplay, scoring, and admin access</Subtitle>
           </div>
           <Button type="button" onClick={save} disabled={saving} size="lg">
-            {saving ? 'Saving…' : saved ? '✓ Saved!' : 'Save changes'}
+            {saving ? (
+              'Saving…'
+            ) : saved ? (
+              <span className="flex items-center gap-1.5">
+                <Check className="size-4" /> Saved!
+              </span>
+            ) : (
+              'Save changes'
+            )}
           </Button>
         </header>
 
@@ -271,13 +312,13 @@ export default function Settings() {
             className="flex gap-1 overflow-x-auto lg:sticky lg:top-20 lg:flex-col lg:self-start"
             aria-label="Settings sections"
           >
-            {NAV_SECTIONS.map(({ id, label, icon }) => (
+            {NAV_SECTIONS.map(({ id, label, icon: Icon }) => (
               <a
                 key={id}
                 href={`#${id}`}
                 className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
-                <span aria-hidden>{icon}</span>
+                <Icon className="size-4" aria-hidden />
                 {label}
               </a>
             ))}
@@ -286,7 +327,7 @@ export default function Settings() {
           <div className="flex min-w-0 flex-col gap-6">
             <SettingsSection
               id="branding"
-              icon="✏️"
+              icon={Pencil}
               title="Branding"
               description="Customise how the app appears on the player join screen."
             >
@@ -310,7 +351,7 @@ export default function Settings() {
 
             <SettingsSection
               id="gameplay"
-              icon="⏱"
+              icon={Timer}
               title="Gameplay"
               description="Default timing and session limits for new games."
             >
@@ -365,7 +406,7 @@ export default function Settings() {
 
             <SettingsSection
               id="scoring"
-              icon="🎯"
+              icon={Target}
               title="Scoring"
               description="Points awarded for correct answers, speed, and streaks."
             >
@@ -447,7 +488,7 @@ export default function Settings() {
 
             <SettingsSection
               id="avatars"
-              icon="😊"
+              icon={Smile}
               title="Avatar library"
               description="Upload emoji-style images for players to pick as avatars."
             >
@@ -460,9 +501,7 @@ export default function Settings() {
                   disabled={uploadingAvatars}
                   className="hidden"
                 />
-                <span className="text-3xl" aria-hidden>
-                  📤
-                </span>
+                <Upload className="size-10 text-muted-foreground" aria-hidden />
                 <span className="font-semibold">
                   {uploadingAvatars ? 'Uploading…' : 'Click to upload avatars'}
                 </span>
@@ -492,9 +531,21 @@ export default function Settings() {
                     {availableAvatars.map((url) => (
                       <div
                         key={url}
-                        className="aspect-square overflow-hidden rounded-lg border border-border bg-muted"
+                        className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted"
                       >
                         <img src={url} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          aria-label="Delete avatar"
+                          disabled={deletingAvatar === url}
+                          onClick={() => handleDeleteAvatar(url)}
+                          className={cn(
+                            'absolute right-1 top-1 flex size-7 items-center justify-center rounded-md border border-border bg-background/90 text-muted-foreground opacity-0 shadow-sm transition hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100 focus-visible:opacity-100',
+                            deletingAvatar === url && 'opacity-100',
+                          )}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -504,7 +555,7 @@ export default function Settings() {
 
             <SettingsSection
               id="security"
-              icon="🔐"
+              icon={Lock}
               title="Security"
               description={
                 isSuperAdmin
@@ -555,13 +606,13 @@ export default function Settings() {
                                   { newPassword: resetPasswords[admin.id] },
                                 );
                                 if (ok) {
-                                  alert(`Password reset for ${admin.username}`);
+                                  await alert({ message: `Password reset for ${admin.username}` });
                                   setResetPasswords((prev) => ({ ...prev, [admin.id]: '' }));
                                 } else {
-                                  alert(err?.error || 'Reset failed');
+                                  await alert({ message: err?.error || 'Reset failed' });
                                 }
                               } catch {
-                                alert('Reset failed');
+                                await alert({ message: 'Reset failed' });
                               } finally {
                                 setResettingId(null);
                               }

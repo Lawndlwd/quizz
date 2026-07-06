@@ -1,9 +1,9 @@
 {
   "port": 3000,
-  "appName": "SCaleway",
+  "appName": "Scaleway",
   "appSubtitle": "",
-  "jwtSecret": "change-this-secret-in-production",
-  "allowedDomain": "test.local",
+  "jwtSecret": "f5d9d85fd335fab4193190bd1758d7657e500f4dd75d45bcf650375ec71019c4",
+  "allowedDomain": "",
   "questionTimeSec": 20,
   "defaultBaseScore": 500,
   "speedBonusMax": 200,

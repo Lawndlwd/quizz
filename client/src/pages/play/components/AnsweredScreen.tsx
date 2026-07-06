@@ -1,24 +1,21 @@
+import { Lock, SkipForward } from 'lucide-react';
 import { PageCenter } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface Props {
   isCorrect: boolean;
   score: number;
-  streak?: number;
   wasPassJoker?: boolean;
   answeredCount: number;
   totalPlayers: number;
 }
 
 export function AnsweredScreen({
-  isCorrect,
-  streak = 0,
   wasPassJoker,
   answeredCount,
   totalPlayers,
 }: Props) {
   const answerPct = totalPlayers > 0 ? (answeredCount / totalPlayers) * 100 : 0;
-  const showCombo = isCorrect && !wasPassJoker && streak >= 2;
 
   return (
     <PageCenter>
@@ -27,21 +24,14 @@ export function AnsweredScreen({
           <div className="answer-overlay">
             {wasPassJoker ? (
               <>
-                <span className="answer-icon">⏭</span>
+                <SkipForward className="answer-icon mx-auto size-12" />
                 <div className="answer-label">Question Skipped</div>
               </>
             ) : (
               <>
-                <span className="answer-icon">🔒</span>
+                <Lock className="answer-icon mx-auto size-12" />
                 <div className="answer-label">Answer locked in!</div>
               </>
-            )}
-
-            {showCombo && (
-              <div className="streak-combo">
-                <span className="streak-flame">🔥</span>
-                <span className="streak-count">{streak}× streak!</span>
-              </div>
             )}
 
             {totalPlayers > 0 && (

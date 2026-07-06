@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
+import { splitFenced } from '@/helpers';
 
-// Fenced code block: ```lang\n…code…\n```  (lang optional)
-const FENCE = /```[a-zA-Z0-9+#.-]*\n?([\s\S]*?)```/g;
 // Inline code: `code` (single line, no backticks inside)
 const INLINE = /`([^`\n]+)`/g;
 
@@ -34,26 +33,16 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
  * into whatever container already styles the question.
  */
 export function QuestionText({ text }: { text: string }) {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  let i = 0;
-  FENCE.lastIndex = 0;
-  let m: RegExpExecArray | null = FENCE.exec(text);
-  while (m !== null) {
-    if (m.index > last) {
-      parts.push(<Fragment key={`t${i}`}>{renderInline(text.slice(last, m.index), `t${i}`)}</Fragment>);
-    }
-    parts.push(
+  const parts: ReactNode[] = splitFenced(text).map((seg, i) =>
+    seg.type === 'code' ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: static per render
       <pre key={`p${i}`} className="q-code-block">
-        <code>{m[1].replace(/\n$/, '')}</code>
-      </pre>,
-    );
-    last = m.index + m[0].length;
-    i++;
-    m = FENCE.exec(text);
-  }
-  if (last < text.length) {
-    parts.push(<Fragment key="tail">{renderInline(text.slice(last), 'tail')}</Fragment>);
-  }
+        <code>{seg.content}</code>
+      </pre>
+    ) : (
+      // biome-ignore lint/suspicious/noArrayIndexKey: static per render
+      <Fragment key={`t${i}`}>{renderInline(seg.content, `t${i}`)}</Fragment>
+    ),
+  );
   return <>{parts.length ? parts : text}</>;
 }

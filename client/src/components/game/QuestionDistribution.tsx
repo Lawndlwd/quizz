@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { QuadGlyph } from '@/components/game/QuadGlyph';
 import { QuestionReveal } from '@/components/game/QuestionReveal';
 import { OptionText } from '@/components/OptionText';
@@ -74,12 +75,17 @@ export function QuestionDistribution({
   const totalVotes = dist.reduce((a, b) => a + b, 0);
   const maxVotes = Math.max(1, ...dist);
   const correctText = results.options.filter((_, i) => isCorrect(i)).join(', ');
+  // Reveal drama: bars grow one after another; the correct bar(s) land last.
+  const stagger = 0.15;
+  const lastDelay = (results.options.length - 1) * stagger + 0.3;
 
   return (
     <>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <span className="text-[22px] font-extrabold tracking-tight">Answers</span>
-        <span className="correct-pill">✓ Correct: {correctText}</span>
+        <span className="correct-pill inline-flex items-center gap-1">
+          <Check className="size-4" /> Correct: {correctText}
+        </span>
       </div>
       <div className="mb-4 text-[13px] text-muted-foreground">
         {totalVotes} vote{totalVotes === 1 ? '' : 's'} total
@@ -106,17 +112,21 @@ export function QuestionDistribution({
                 <div className="dist-head">
                   <span>
                     <OptionText value={opt} imgClassName="option-img-sm" />
-                    {correct && <span className="ml-1.5 text-[#4ade80]">✓</span>}
+                    {correct && <Check className="ml-1.5 inline size-4 text-[#4ade80]" />}
                     {mine && <span className="ml-1.5 text-muted-foreground">· you</span>}
                   </span>
                   <span>
                     {votes} vote{votes === 1 ? '' : 's'}
                   </span>
                 </div>
-                <div className="dist-bar">
+                <div className={`dist-bar${correct ? ' correct-glow' : ''}`}>
                   <div
                     className="dist-bar-fill"
-                    style={{ width: `${width}%`, background: barColor }}
+                    style={{
+                      width: `${width}%`,
+                      background: barColor,
+                      animationDelay: `${correct ? lastDelay : i * stagger}s`,
+                    }}
                   />
                 </div>
               </div>

@@ -1,5 +1,10 @@
 import type { DbQuestion } from './types';
 
+/** SQLite may return is_banned as number or string — treat 1 as banned. */
+export function isUserBanned(is_banned: unknown): boolean {
+  return Number(is_banned) === 1;
+}
+
 export function normalizeImageUrl(url?: string | null): string | undefined {
   const trimmed = url?.trim();
   return trimmed || undefined;
@@ -8,6 +13,34 @@ export function normalizeImageUrl(url?: string | null): string | undefined {
 export function normalizeOptionalText(text?: string | null): string | undefined {
   const trimmed = text?.trim();
   return trimmed || undefined;
+}
+
+/** Extract the 11-char video id from any common YouTube URL (or a bare id). */
+export function parseYouTubeId(url?: string | null): string | null {
+  if (!url) return null;
+  const s = url.trim();
+  const m = s.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/,
+  );
+  if (m) return m[1];
+  if (/^[\w-]{11}$/.test(s)) return s;
+  return null;
+}
+
+/**
+ * Validate a question's media pair before persisting. Only YouTube-backed
+ * audio/video is supported — the client picker enforces this, but JSON import
+ * and direct API calls bypass it, so garbage would otherwise be stored and
+ * pushed to every player as silently-blank media.
+ */
+export function normalizeQuestionMedia(
+  mediaType?: string | null,
+  mediaUrl?: string | null,
+): { mediaUrl: string | null; mediaType: string | null } {
+  if ((mediaType === 'audio' || mediaType === 'video') && mediaUrl && parseYouTubeId(mediaUrl)) {
+    return { mediaUrl: mediaUrl.trim(), mediaType };
+  }
+  return { mediaUrl: null, mediaType: null };
 }
 
 /** Clean a tag list → trimmed, non-empty, de-duped, capped — stored as a JSON string. */

@@ -4,13 +4,18 @@ import { cn } from '@/lib/utils';
 import CreatorNav from './CreatorNav';
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('flex min-h-0 flex-1 flex-col', className)}>{children}</div>;
+  return (
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-x-hidden', className)}>{children}</div>
+  );
 }
 
 export function PageCenter({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={cn('flex min-h-screen flex-1 flex-col items-center justify-center p-6', className)}
+      className={cn(
+        'flex min-h-screen flex-1 flex-col items-center justify-center p-4 sm:p-6',
+        className,
+      )}
     >
       {children}
     </div>
@@ -31,7 +36,9 @@ export function PageVCenter({ children, className }: { children: ReactNode; clas
 }
 
 export function MainContent({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('mx-auto w-full max-w-6xl flex-1 p-6', className)}>{children}</div>;
+  return (
+    <div className={cn('mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:p-6', className)}>{children}</div>
+  );
 }
 
 type AuthCardProps = {
@@ -49,7 +56,7 @@ const maxWidthClass = {
 export function AuthCard({ children, className, maxWidth = 'md' }: AuthCardProps) {
   return (
     <Card className={cn('w-full shadow-xl ring-foreground/10', maxWidthClass[maxWidth], className)}>
-      <CardContent className="p-8">{children}</CardContent>
+      <CardContent className="p-6 sm:p-8">{children}</CardContent>
     </Card>
   );
 }

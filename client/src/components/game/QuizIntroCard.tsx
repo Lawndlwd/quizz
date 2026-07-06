@@ -1,3 +1,4 @@
+import { CircleHelp, Timer, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { TagChips } from '@/components/TagChips';
 import { formatTime, QUESTION_TYPE_META } from '@/helpers';
@@ -51,10 +52,10 @@ export function QuizIntroCard({
           />
         ) : (
           <div
-            className="absolute inset-0 flex items-center justify-center text-6xl"
+            className="absolute inset-0 flex items-center justify-center text-white/90"
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--surface2))' }}
           >
-            <span aria-hidden>⚡</span>
+            <Zap className="size-16" aria-hidden />
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
@@ -84,11 +85,12 @@ export function QuizIntroCard({
         {intro && (
           <div className={cn('flex flex-wrap gap-2', isRow ? 'mt-3' : 'mt-4')}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium">
-              ❓ {intro.questionCount} question{intro.questionCount === 1 ? '' : 's'}
+              <CircleHelp className="size-4" /> {intro.questionCount} question
+              {intro.questionCount === 1 ? '' : 's'}
             </span>
             {intro.totalTimeSec > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium">
-                ⏱ ~{formatTime(intro.totalTimeSec)}
+                <Timer className="size-4" /> ~{formatTime(intro.totalTimeSec)}
               </span>
             )}
           </div>
@@ -102,12 +104,13 @@ export function QuizIntroCard({
             <div className="flex flex-wrap gap-1.5">
               {intro.typeCounts.map(([type, count]) => {
                 const meta = QUESTION_TYPE_META[type];
+                const Icon = meta.icon;
                 return (
                   <span
                     key={type}
                     className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium"
                   >
-                    <span aria-hidden>{meta.icon}</span>
+                    <Icon className="size-3.5" aria-hidden />
                     {meta.label}
                     {count > 1 && <b className="text-foreground">×{count}</b>}
                   </span>

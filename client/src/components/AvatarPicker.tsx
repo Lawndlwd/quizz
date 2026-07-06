@@ -1,3 +1,4 @@
+import { RotateCcw, Upload } from 'lucide-react';
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,7 +109,15 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
             Your avatar
           </p>
           <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
-            {isImage ? '↺ Change photo' : '↑ Upload photo'}
+            {isImage ? (
+              <>
+                <RotateCcw className="size-4" /> Change photo
+              </>
+            ) : (
+              <>
+                <Upload className="size-4" /> Upload photo
+              </>
+            )}
           </Button>
           <Input
             ref={fileRef}

@@ -1,15 +1,19 @@
+import { Check, Heart, MapPin, Target, Trophy, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { AppAlert } from '@/components/AppAlert';
 import { ClosestGuessesList, LeaderboardList } from '@/components/game/LeaderboardList';
 import { QuestionDistribution } from '@/components/game/QuestionDistribution';
 import { Page } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { sound } from '@/lib/sound';
 import type { LeaderboardEntry, QuestionResults } from '../../../types';
 
 interface Props {
   results: QuestionResults;
   playerId: number;
   autoAdvanceLeft: number;
+  onReveal?: () => void;
 }
 
 function AdvanceHint({
@@ -62,7 +66,9 @@ function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: Ques
       body =
         entry.chosenPoint != null ? (
           <>
-            📍 your pin
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="size-4" /> your pin
+            </span>
             {entry.distance != null && (
               <span className="text-muted-foreground">
                 {' '}
@@ -100,10 +106,35 @@ function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: Ques
   );
 }
 
-export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
+export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: Props) {
   const myEntry = results.leaderboard.find((e) => e.playerId === playerId);
   const isClosestTo = results.questionType === 'closest_to';
   const closestList = results.closestRanking ?? [];
+
+  // Reveal drama: a short heartbeat pause before the answer distribution, then
+  // the correct/wrong sting lands exactly when the result appears.
+  const [revealed, setRevealed] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per question (keyed on questionId); myEntry is stable within a round
+  useEffect(() => {
+    sound.play('heartbeat');
+    const t = setTimeout(() => {
+      setRevealed(true);
+      onReveal?.();
+      if (myEntry) sound.play(myEntry.isCorrect ? 'correct' : 'wrong');
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [results.questionId]);
+
+  if (!revealed) {
+    return (
+      <Page className="mx-auto w-full max-w-[600px] px-4 py-6">
+        <div className="pre-reveal">
+          <Heart className="pre-reveal-heart" fill="currentColor" />
+          <span>Revealing…</span>
+        </div>
+      </Page>
+    );
+  }
 
   return (
     <Page className="mx-auto w-full max-w-[600px] px-4 py-6">
@@ -127,7 +158,9 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
           className="text-center text-[1.05rem] font-semibold"
         >
           {myEntry.isCorrect ? (
-            <>✓ Exact match!</>
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="size-4" /> Exact match!
+            </span>
           ) : (
             <>
               Your guess: <strong>{myEntry.chosenNumber}</strong>
@@ -153,12 +186,15 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
           )}
         >
           {myEntry.isCorrect ? (
-            <>
-              ✓ Correct! <span className="score-pop">+{myEntry.questionScore}</span> pts · Total:{' '}
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="size-4" /> Correct!{' '}
+              <span className="score-pop">+{myEntry.questionScore}</span> pts · Total:{' '}
               {myEntry.totalScore.toLocaleString()}
-            </>
+            </span>
           ) : (
-            <>✗ Wrong — {myEntry.totalScore.toLocaleString()} pts total</>
+            <span className="inline-flex items-center gap-1.5">
+              <X className="size-4" /> Wrong — {myEntry.totalScore.toLocaleString()} pts total
+            </span>
           )}
         </AppAlert>
       )}
@@ -166,12 +202,10 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
       {isClosestTo && closestList.length > 0 && (
         <Card className="mb-4 min-w-0 max-w-full">
           <CardContent className="p-6">
-            <h2 className="mb-4 text-center">🎯 Closest Guesses</h2>
-            <ClosestGuessesList
-              entries={closestList}
-              highlightPlayerId={playerId}
-              animate
-            />
+            <h2 className="mb-4 flex items-center justify-center gap-1.5">
+              <Target className="size-4" /> Closest Guesses
+            </h2>
+            <ClosestGuessesList entries={closestList} highlightPlayerId={playerId} animate />
           </CardContent>
         </Card>
       )}
@@ -179,7 +213,9 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft }: Props) {
       {results.showLeaderboard !== false && (
         <Card className="min-w-0 max-w-full">
           <CardContent className="p-6">
-            <h2 className="mb-4 text-center">🏆 Standings</h2>
+            <h2 className="mb-4 flex items-center justify-center gap-1.5">
+              <Trophy className="size-4" /> Standings
+            </h2>
             <LeaderboardList
               entries={results.leaderboard}
               limit={8}

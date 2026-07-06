@@ -39,6 +39,36 @@ export function listAvatars(): string[] {
     .map((f) => `/avatars/${encodeURIComponent(f)}`);
 }
 
+/** Resolve a public avatar URL to a safe basename inside avatarsDir. */
+export function avatarFilenameFromUrl(url: string): string | null {
+  const match = /^\/avatars\/(.+)$/.exec(url.trim());
+  if (!match) return null;
+  try {
+    const filename = decodeURIComponent(match[1]);
+    if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+      return null;
+    }
+    if (!SUPPORTED.has(path.extname(filename).toLowerCase())) return null;
+    return filename;
+  } catch {
+    return null;
+  }
+}
+
+/** Delete one avatar file by public URL. Returns false if missing or invalid. */
+export function deleteAvatarByUrl(url: string): boolean {
+  const filename = avatarFilenameFromUrl(url);
+  if (!filename) return false;
+
+  const filepath = path.resolve(avatarsDir, filename);
+  const dir = path.resolve(avatarsDir);
+  if (filepath !== dir && !filepath.startsWith(`${dir}${path.sep}`)) return false;
+  if (!fs.existsSync(filepath)) return false;
+
+  fs.unlinkSync(filepath);
+  return true;
+}
+
 /** Saves a single avatar provided as a data: URL and returns its public URL. */
 export function saveAvatarFromDataUrl(dataUrl: string): string {
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,/.exec(dataUrl);

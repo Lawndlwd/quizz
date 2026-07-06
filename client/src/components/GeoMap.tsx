@@ -1,17 +1,18 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 export interface LatLng {
   lat: number;
   lng: number;
 }
 
-// Standard OpenStreetMap raster tiles. Wikimedia's osm-intl layer 403s for
-// non-Wikimedia referers (their tiles are for Wikimedia projects only).
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TILE_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+// Esri World Street Map — free, no API key, and labels places/countries in
+// English worldwide (raw OSM tiles use each country's local script). Note the
+// {z}/{y}/{x} order (ArcGIS convention), not {z}/{x}/{y}.
+const TILE_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+const TILE_ATTR = 'Tiles &copy; Esri — Esri, DeLorme, NAVTEQ, and contributors';
 
 const MAP_OPTS: L.MapOptions = {
   worldCopyJump: true,
@@ -28,48 +29,34 @@ function addTiles(map: L.Map): void {
   L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 18 }).addTo(map);
 }
 
-/** Emoji pin as a Leaflet divIcon (avoids bundling default marker image assets). */
-function pin(emoji: string): L.DivIcon {
+// lucide `map-pin` glyph, inlined so the Leaflet divIcon needs no image assets.
+const MAP_PIN_PATH =
+  '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>';
+
+/** A color-coded lucide map pin as a Leaflet divIcon (violet = guess, green = correct). */
+function pin(color: string): L.DivIcon {
   return L.divIcon({
-    html: `<div style="font-size:26px;line-height:1">${emoji}</div>`,
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))">${MAP_PIN_PATH}</svg>`,
     className: 'geo-pin',
-    iconSize: [26, 26],
-    iconAnchor: [13, 26],
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
   });
 }
 
-/** Look up a place name → coordinates (English-preferring). */
-async function geocode(query: string): Promise<LatLng | null> {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=en&q=${encodeURIComponent(
-    query,
-  )}`;
-  try {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    const data = (await res.json()) as Array<{ lat: string; lon: string }>;
-    if (Array.isArray(data) && data[0]) {
-      return { lat: Number.parseFloat(data[0].lat), lng: Number.parseFloat(data[0].lon) };
-    }
-  } catch {
-    /* network / parse error → treated as not found */
-  }
-  return null;
-}
+const PIN_GUESS = '#7c3aed';
+const PIN_CORRECT = '#22c55e';
 
 /**
- * Interactive map — click to drop / move a single pin. When `searchable`, a
- * place-name search box (editor only) flies to and pins a location; players
- * never get search so the answer isn't given away.
+ * Interactive map — click to drop / move a single pin.
  */
 export function MapPicker({
   value,
   onChange,
   height = 320,
-  searchable = false,
 }: {
   value: LatLng | null;
   onChange: (p: LatLng) => void;
   height?: number | string;
-  searchable?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -78,10 +65,6 @@ export function MapPicker({
   onChangeRef.current = onChange;
   // Initial view only — later pin moves must not recenter or rebuild the map.
   const initialValueRef = useRef(value);
-
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -109,71 +92,25 @@ export function MapPicker({
     if (!map) return;
     if (value) {
       if (markerRef.current) markerRef.current.setLatLng([value.lat, value.lng]);
-      else markerRef.current = L.marker([value.lat, value.lng], { icon: pin('📍') }).addTo(map);
+      else
+        markerRef.current = L.marker([value.lat, value.lng], { icon: pin(PIN_GUESS) }).addTo(map);
     } else if (markerRef.current) {
       markerRef.current.remove();
       markerRef.current = null;
     }
   }, [value]);
 
-  async function runSearch() {
-    const q = query.trim();
-    if (!q || searching) return;
-    setSearching(true);
-    setNotFound(false);
-    const hit = await geocode(q);
-    setSearching(false);
-    if (hit) {
-      mapRef.current?.flyTo([hit.lat, hit.lng], 6, { duration: 0.8 });
-      onChangeRef.current(hit);
-    } else {
-      setNotFound(true);
-    }
-  }
-
   return (
     <div
       className="relative w-full overflow-hidden rounded-lg border border-border"
       style={{ height }}
     >
-      {searchable && (
-        <div className="absolute left-2 top-2 z-[1000] flex items-center gap-1">
-          <input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setNotFound(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                runSearch();
-              }
-            }}
-            placeholder="Search a place…"
-            className="w-44 rounded-md border border-border bg-background/95 px-2.5 py-1.5 text-sm shadow outline-none focus:ring-1 focus:ring-ring"
-          />
-          <button
-            type="button"
-            onClick={runSearch}
-            disabled={searching}
-            className="rounded-md border border-border bg-background/95 px-2.5 py-1.5 text-sm font-medium shadow hover:brightness-110 disabled:opacity-60"
-          >
-            {searching ? '…' : '🔍'}
-          </button>
-          {notFound && (
-            <span className="rounded bg-background/95 px-2 py-1 text-xs text-destructive shadow">
-              Not found
-            </span>
-          )}
-        </div>
-      )}
       <div ref={ref} className="h-full w-full" />
     </div>
   );
 }
 
-/** Static reveal map — correct spot (✅), the player's pin (📍) and a link line. */
+/** Static reveal map — correct spot (green pin), the player's guess (violet pin) and a link line. */
 export function MapReveal({
   correct,
   guess,
@@ -190,9 +127,9 @@ export function MapReveal({
     if (!ref.current || mapRef.current) return;
     const map = L.map(ref.current, MAP_OPTS);
     addTiles(map);
-    L.marker([correct.lat, correct.lng], { icon: pin('✅') }).addTo(map);
+    L.marker([correct.lat, correct.lng], { icon: pin(PIN_CORRECT) }).addTo(map);
     if (guess) {
-      L.marker([guess.lat, guess.lng], { icon: pin('📍') }).addTo(map);
+      L.marker([guess.lat, guess.lng], { icon: pin(PIN_GUESS) }).addTo(map);
       L.polyline(
         [
           [guess.lat, guess.lng],
