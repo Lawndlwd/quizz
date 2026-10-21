@@ -26,11 +26,7 @@ export function StreakBadge({ streak }: Props) {
         filter: `drop-shadow(0 0 ${glow}px var(--warn))`,
       }}
     >
-      <Flame
-        size={18}
-        className="streak-flame"
-        style={{ animationDuration: `${flicker}s` }}
-      />
+      <Flame size={18} className="streak-flame" style={{ animationDuration: `${flicker}s` }} />
       <span className="streak-count">{streak}</span>
     </div>
   );
