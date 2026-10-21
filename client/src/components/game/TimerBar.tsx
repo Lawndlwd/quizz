@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { cn } from '@/lib/utils';
 import { sound } from '@/lib/sound';
+import { cn } from '@/lib/utils';
 
 interface Props {
   timeLeft: number;
