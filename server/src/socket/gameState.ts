@@ -1,12 +1,17 @@
 import type { DbPlayer, DbQuestion, DbSession, GameSettings, LeaderboardEntry } from '../types';
 import type { TranslationsByLocale } from './localization';
 
+type SessionSeed = Pick<
+  DbSession,
+  'id' | 'quiz_id' | 'pin' | 'status' | 'current_question_index' | 'presentation_mode'
+>;
+
 const defaultGameSettings = (): GameSettings => ({
   jokersEnabled: { pass: false, fiftyFifty: false },
 });
 
 export function createActiveSession(
-  session: Pick<DbSession, 'id' | 'quiz_id' | 'pin' | 'status' | 'current_question_index'>,
+  session: SessionSeed,
   questions: DbQuestion[],
   translations: TranslationsByLocale,
   adminSocketId = '',
@@ -15,6 +20,7 @@ export function createActiveSession(
     sessionId: session.id,
     quizId: session.quiz_id,
     pin: session.pin,
+    presentationMode: session.presentation_mode === 1,
     adminSocketId,
     questions,
     translations,
@@ -49,6 +55,8 @@ export interface ActiveSession {
   sessionId: number;
   quizId: number;
   pin: string;
+  // Big-screen game: /screen/:pin displays it and the host paces every step.
+  presentationMode: boolean;
   adminSocketId: string;
   questions: DbQuestion[];
   // Uploaded translations for this quiz, snapshotted at session creation.
@@ -119,7 +127,7 @@ const pendingSessionCreation = new Map<string, Promise<ActiveSession>>();
  * instance that actually ends up in the map.
  */
 export async function getOrCreateActiveSession(
-  session: Pick<DbSession, 'id' | 'quiz_id' | 'pin' | 'status' | 'current_question_index'>,
+  session: SessionSeed,
   fetchQuestions: () => Promise<DbQuestion[]>,
   fetchTranslations: () => Promise<TranslationsByLocale>,
   adminSocketId = '',

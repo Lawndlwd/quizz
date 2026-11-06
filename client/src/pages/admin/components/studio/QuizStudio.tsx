@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Copy,
   Eye,
+  Library,
   PencilLine,
   Search,
   SlidersHorizontal,
@@ -14,14 +15,16 @@ import { Input, Textarea } from '@/components/Input';
 import { MediaPicker } from '@/components/MediaPicker';
 import { QuizPreviewModal } from '@/components/QuizPreviewModal';
 import { Button } from '@/components/ui/button';
-import { type QuestionWithKey, validateQuizPayload, withKey } from '@/helpers';
+import { copyText, type QuestionWithKey, validateQuizPayload, withKey } from '@/helpers';
 import { COMMON_LOCALES, DEFAULT_LOCALE, localeName } from '@/helpers/locale';
 import { cn } from '@/lib/utils';
-import { type ImportPayload, type ImportQuestion, THEME_IDS, type ThemeId } from '@/types';
+import type { ImportPayload, ImportQuestion } from '@/types';
 import { PropertiesPanel } from './PropertiesPanel';
+import { QuestionBankDialog } from './QuestionBankDialog';
 import { QuestionCanvas } from './QuestionCanvas';
 import {
   blankQuestion,
+  isBlankQuestion,
   normalizeQuestion,
   questionOps,
   stripTrailingEmptyOptions,
@@ -31,20 +34,10 @@ import { SlideRail } from './SlideRail';
 // Autosaved new-quiz draft, so a reload mid-creation doesn't lose work.
 const DRAFT_KEY = 'quizz:create-draft-v1';
 
-/** Preview colors for the theme swatch picker (bg + accent per theme). */
-const THEME_SWATCH: Record<ThemeId, { bg: string; accent: string }> = {
-  default: { bg: '#0d0d1a', accent: '#7c3aed' },
-  neon: { bg: '#05010f', accent: '#22d3ee' },
-  paper: { bg: '#f5f0e6', accent: '#b45309' },
-  space: { bg: '#020617', accent: '#818cf8' },
-  retro: { bg: '#001200', accent: '#22c55e' },
-};
-
 interface Draft {
   title: string;
   description: string;
   coverImage: string;
-  theme?: ThemeId;
   language?: string;
   questions: QuestionWithKey[];
 }
@@ -102,7 +95,6 @@ interface Props {
   initialTitle?: string;
   initialDescription?: string;
   initialCoverImage?: string;
-  initialTheme?: ThemeId;
   initialLanguage?: string;
   initialQuestions?: QuestionWithKey[];
   saving: boolean;
@@ -119,7 +111,6 @@ export function QuizStudio({
   initialTitle = '',
   initialDescription = '',
   initialCoverImage = '',
-  initialTheme = 'default',
   initialLanguage = DEFAULT_LOCALE,
   initialQuestions,
   saving,
@@ -135,7 +126,6 @@ export function QuizStudio({
   const [title, setTitle] = useState(draft?.title ?? initialTitle);
   const [description, setDescription] = useState(draft?.description ?? initialDescription);
   const [coverImage, setCoverImage] = useState(draft?.coverImage ?? initialCoverImage);
-  const [theme, setTheme] = useState<ThemeId>(draft?.theme ?? initialTheme);
   const [language, setLanguage] = useState(draft?.language ?? initialLanguage);
   const [questions, setQuestions] = useState<QuestionWithKey[]>(() =>
     (
@@ -150,6 +140,7 @@ export function QuizStudio({
   const [previewing, setPreviewing] = useState(false);
   const [coverPicker, setCoverPicker] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
 
   const activeQ = questions[Math.min(active, questions.length - 1)];
 
@@ -165,7 +156,7 @@ export function QuizStudio({
         } else {
           localStorage.setItem(
             DRAFT_KEY,
-            JSON.stringify({ title, description, coverImage, theme, language, questions }),
+            JSON.stringify({ title, description, coverImage, language, questions }),
           );
         }
       } catch {
@@ -173,7 +164,7 @@ export function QuizStudio({
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [mode, title, description, coverImage, theme, language, questions]);
+  }, [mode, title, description, coverImage, language, questions]);
 
   // Once the quiz is created, drop the draft so it doesn't reappear next time.
   useEffect(() => {
@@ -189,6 +180,14 @@ export function QuizStudio({
     // double-invokes them), so use the current length for the new index.
     setQuestions((prev) => [...prev, withKey(blankQuestion())]);
     setActive(questions.length);
+  }
+
+  function addFromBank(picked: ImportQuestion[]) {
+    // An untouched starter slide would otherwise fail validation on save.
+    const untouched = questions.length === 1 && isBlankQuestion(questions[0]);
+    setQuestions((prev) => [...(untouched ? [] : prev), ...picked.map(withKey)]);
+    setActive(untouched ? 0 : questions.length);
+    setBankOpen(false);
   }
 
   function removeSlide(i: number) {
@@ -210,7 +209,6 @@ export function QuizStudio({
       title,
       description,
       coverImage: coverImage || undefined,
-      theme,
       language,
       questions: prepared,
     });
@@ -221,7 +219,6 @@ export function QuizStudio({
       title,
       description: description || undefined,
       coverImage: coverImage || undefined,
-      theme,
       language,
       questions: questions.map((q) => {
         const { _key, ...base } = q;
@@ -230,8 +227,8 @@ export function QuizStudio({
     };
   }
 
-  function handleExportJson() {
-    navigator.clipboard.writeText(JSON.stringify(buildExportPayload(), null, 2));
+  async function handleExportJson() {
+    if (!(await copyText(JSON.stringify(buildExportPayload(), null, 2)))) return;
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 1500);
   }
@@ -250,11 +247,11 @@ export function QuizStudio({
   const ops = questionOps(activeQ, updateActive);
 
   return (
-    <div data-theme={theme} className="flex h-dvh flex-col overflow-hidden bg-background">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* Top bar */}
       <header className="z-20 flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 backdrop-blur sm:gap-3 sm:px-4">
         <span className="flex shrink-0 items-center gap-1.5 text-lg font-extrabold text-foreground">
-          <Zap className="size-5 fill-violet-500 text-violet-500" />
+          <Zap className="size-5 fill-brand text-brand" />
           <span className="hidden sm:inline">Quizz</span>
         </span>
         <span className="hidden h-5 w-px bg-border sm:block" />
@@ -286,6 +283,10 @@ export function QuizStudio({
           {headerExtra}
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Exit
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setBankOpen(true)}>
+            <Library className="size-4" />
+            <span className="hidden sm:inline">Question bank</span>
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={() => setPreviewing(true)}>
             <Eye className="size-4" />
@@ -449,104 +450,23 @@ export function QuizStudio({
                   />
                 )}
               </div>
-              <div>
-                <div className="mb-1.5 block text-sm font-medium text-foreground">Theme</div>
-                <div className="flex flex-wrap gap-2">
-                  {THEME_IDS.map((t) => {
-                    const selected = theme === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTheme(t)}
-                        aria-pressed={selected}
-                        title={t}
-                        className={cn(
-                          'relative flex flex-col items-center gap-1 rounded-lg border-2 p-1.5 transition-all',
-                          selected
-                            ? 'border-primary ring-2 ring-primary/40'
-                            : 'border-border opacity-70 hover:opacity-100',
-                        )}
-                      >
-                        {selected && (
-                          <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Check className="size-3" />
-                          </span>
-                        )}
-                        <span
-                          className="h-8 w-12 rounded"
-                          style={{ background: THEME_SWATCH[t].bg }}
-                        >
-                          <span
-                            className="block h-2 w-6 translate-x-1 translate-y-3 rounded-full"
-                            style={{ background: THEME_SWATCH[t].accent }}
-                          />
-                        </span>
-                        <span
-                          className={cn('text-[10px] capitalize', selected && 'font-bold')}
-                          style={{ color: selected ? 'var(--accent2)' : 'var(--text2)' }}
-                        >
-                          {t}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Live preview: data-theme scopes the CSS var overrides to this box,
-                    so the sample game elements reflect the picked theme instantly. */}
-                <div
-                  data-theme={theme}
-                  className="mt-3 rounded-xl border p-3"
-                  style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
-                >
-                  <div
-                    className="mb-1 text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ color: 'var(--text2)' }}
-                  >
-                    Preview
-                  </div>
-                  <div
-                    className="rounded-lg p-3"
-                    style={{ background: 'var(--surface)', color: 'var(--foreground)' }}
-                  >
-                    <div className="mb-2 text-sm font-bold">Which planet is largest?</div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="rounded-md px-2.5 py-1 text-xs font-bold"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
-                      >
-                        Jupiter
-                      </span>
-                      <span
-                        className="rounded-md px-2.5 py-1 text-xs font-semibold"
-                        style={{ background: 'var(--surface2)', color: 'var(--text2)' }}
-                      >
-                        Mars
-                      </span>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
-                        style={{
-                          background: 'color-mix(in srgb, var(--success) 18%, transparent)',
-                          color: 'var(--success)',
-                        }}
-                      >
-                        <Check className="size-3" /> Correct
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </aside>
       </div>
 
+      {bankOpen && (
+        <QuestionBankDialog
+          language={language}
+          onAdd={addFromBank}
+          onClose={() => setBankOpen(false)}
+        />
+      )}
+
       {previewing && (
         <QuizPreviewModal
           title={title}
           questions={questions}
-          theme={theme}
           onClose={() => setPreviewing(false)}
         />
       )}

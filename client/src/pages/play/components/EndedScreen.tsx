@@ -39,8 +39,8 @@ export function EndedScreen({ leaderboard, username, onPlayAgain }: Props) {
             <h1>{title}</h1>
             {myRank && (
               <Subtitle className="mt-2">
-                You finished <strong className="text-blue-400">#{myRank.rank}</strong> with{' '}
-                <strong className="text-blue-400">{myRank.totalScore.toLocaleString()} pts</strong>
+                You finished <strong className="text-brand">#{myRank.rank}</strong> with{' '}
+                <strong className="text-brand">{myRank.totalScore.toLocaleString()} pts</strong>
               </Subtitle>
             )}
           </div>

@@ -74,6 +74,17 @@ async function requireAdminAuth(
   return auth;
 }
 
+/**
+ * Players to list on the host and big screen. In the lobby that's who is connected
+ * right now, matching the live player-joined/left events. Once a game is running,
+ * disconnected players still have scores, so they stay listed.
+ */
+function listedPlayers(state: ActiveSession, players: DbPlayer[]): DbPlayer[] {
+  return state.status === 'waiting'
+    ? players.filter((p) => state.playerSockets.has(p.id))
+    : players;
+}
+
 /** Allowed lobby reaction emojis — mirrors the client button set. */
 const REACTION_EMOJIS = ['👍', '😂', '🔥', '❤️', '🎉', '😮'];
 const REACTION_COOLDOWN_MS = 1500;
@@ -122,7 +133,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
 
       socket.emit('session:state', {
         session,
-        players: players.map((p) => ({
+        players: listedPlayers(state, players).map((p) => ({
           id: p.id,
           username: p.username,
           totalScore: p.total_score,
@@ -132,6 +143,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         gameSettings: state?.gameSettings ?? { jokersEnabled: { pass: false, fiftyFifty: false } },
         quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
       });
+      if (state.presentationMode) emitScreenStatus(io, session.id);
 
       // Restore the host's in-game view on reload / resume. Without this the
       // client sets phase='question' from session:state but never receives the
@@ -154,6 +166,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           const currentQ = state.questions[state.currentQuestionIndex];
           if (state.lastQuestionPayload && currentQ) {
             restoreQuestionPhase(socket, state, 'base');
+            if (state.presentationMode) emitAnswerKey(io, state, currentQ);
             const answered = state.answeredPlayers.get(currentQ.id);
             socket.emit('game:answer-received', {
               answeredCount: answered?.size ?? 0,
@@ -161,6 +174,83 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
             });
           }
         }
+      }
+    });
+
+    // ─── Presentation screen join (read-only, PIN-scoped) ──────────────────────
+    // No login so any TV browser works. It only receives what players already
+    // get (base-locale question/results) plus the player list — never the
+    // admin room, which carries the next-question preview.
+    socket.on('screen:join', async (data: { pin?: unknown }) => {
+      const pin = typeof data?.pin === 'string' ? data.pin.trim() : '';
+      const session = pin
+        ? await db.get<DbSession>('SELECT * FROM sessions WHERE pin = ?', pin)
+        : undefined;
+      if (!session || session.presentation_mode !== 1) {
+        socket.emit('screen:error', { message: 'No presentation game found for this PIN' });
+        return;
+      }
+
+      const quiz = await db.get<DbQuiz>('SELECT * FROM quizzes WHERE id = ?', session.quiz_id);
+      const screenState = {
+        pin: session.pin,
+        status: session.status,
+        quizTitle: quiz?.title ?? '',
+        chooseQuizMaker: session.choose_quiz_maker === 1,
+      };
+
+      if (session.status === 'finished') {
+        socket.emit('screen:state', { ...screenState, players: [], questionCount: 0 });
+        const players = await getRankedPlayers(session.id);
+        const avatars = new Map(players.map((p) => [p.id, p.avatar ?? '']));
+        socket.emit('game:ended', { leaderboard: buildLeaderboard(players, avatars) });
+        return;
+      }
+
+      const state = await getOrCreateActiveSession(
+        session,
+        () =>
+          db.all<DbQuestion[]>(
+            'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+            session.quiz_id,
+          ),
+        () => loadQuizTranslations(session.quiz_id),
+      );
+
+      socket.join(`session:${session.id}`);
+      socket.join(`screen:${session.id}`);
+      socket.data.screenSessionId = session.id;
+      emitScreenStatus(io, session.id);
+
+      // Read after joining the room, so a player joining in between can't be missed.
+      const players = await getRankedPlayers(session.id);
+      socket.emit('screen:state', {
+        ...screenState,
+        players: listedPlayers(state, players).map((p) => ({
+          id: p.id,
+          username: p.username,
+          totalScore: p.total_score,
+          avatar: state.playerAvatars.get(p.id),
+        })),
+        questionCount: state.questions.length,
+        quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
+      });
+
+      if (session.status !== 'active') return;
+      if (state.questionPhase === 'results' && state.lastResultsPayload) {
+        restoreResultsPhase(socket, state, 'base');
+        return;
+      }
+      if (!(state.questionPhase === 'question' && state.lastQuestionPayload)) {
+        coldRebuildQuestion(io, state, session, 'base');
+      }
+      const currentQ = state.questions[state.currentQuestionIndex];
+      if (state.lastQuestionPayload && currentQ) {
+        restoreQuestionPhase(socket, state, 'base');
+        socket.emit('game:answer-count', {
+          answeredCount: state.answeredPlayers.get(currentQ.id)?.size ?? 0,
+          totalPlayers: state.playerSockets.size,
+        });
       }
     });
 
@@ -456,16 +546,19 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
             playerCount: players.length,
             avatar: state?.playerAvatars.get(playerId) ?? avatar,
             reconnected: true,
+            presentationMode: state.presentationMode,
             quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
           });
 
           // Notify admin that player is back
-          io.to(`admin:${session.id}`).emit('game:player-joined', {
-            playerId,
-            username: cleanName,
-            playerCount: state?.playerSockets.size,
-            avatar: state?.playerAvatars.get(playerId) ?? avatar,
-          });
+          io.to(`admin:${session.id}`)
+            .to(`screen:${session.id}`)
+            .emit('game:player-joined', {
+              playerId,
+              username: cleanName,
+              playerCount: state?.playerSockets.size,
+              avatar: state?.playerAvatars.get(playerId) ?? avatar,
+            });
 
           await emitReconnectGameState(socket, io, state, session, playerId);
           return;
@@ -528,10 +621,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           status: session.status,
           playerCount: players.length,
           avatar,
+          presentationMode: state.presentationMode,
           quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
         });
 
-        io.to(`admin:${session.id}`).emit('game:player-joined', {
+        io.to(`admin:${session.id}`).to(`screen:${session.id}`).emit('game:player-joined', {
           playerId,
           username: cleanName,
           playerCount: players.length,
@@ -855,9 +949,12 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         if (playerId) {
           state.socketPlayers.delete(socket.id);
           state.playerSockets.delete(playerId);
-          io.to(`admin:${state.sessionId}`).emit('game:player-left', { playerId });
+          io.to(`admin:${state.sessionId}`)
+            .to(`screen:${state.sessionId}`)
+            .emit('game:player-left', { playerId });
         }
       }
+      if (socket.data.screenSessionId) emitScreenStatus(io, socket.data.screenSessionId);
     });
   });
 
@@ -966,6 +1063,25 @@ async function recordAnswer(opts: {
     }
     showResults(io, state, questionId);
   }
+}
+
+/** Tell the host how many presentation screens are connected to the game. */
+function emitScreenStatus(io: SocketServer, sessionId: number): void {
+  io.to(`admin:${sessionId}`).emit('game:screen-status', {
+    count: io.sockets.adapter.rooms.get(`screen:${sessionId}`)?.size ?? 0,
+  });
+}
+
+/**
+ * Presentation mode: give the host (only) the current question's answer. Goes to
+ * the host's own socket — the question payload itself never carries answers.
+ */
+function emitAnswerKey(io: SocketServer, state: ActiveSession, q: DbQuestion): void {
+  if (!state.adminSocketId) return;
+  io.to(state.adminSocketId).emit('game:answer-key', {
+    questionId: q.id,
+    ...buildAnswerReveal(q, state.answerSeed),
+  });
 }
 
 /** Send the host (only) a preview of the next question's text so they can talk it up. */
@@ -1203,6 +1319,8 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
   // a payload localized to their own chosen locale — so the host (always
   // base-locale) is emitted to directly instead of via that shared room.
   if (state.adminSocketId) io.to(state.adminSocketId).emit('game:question', payload);
+  io.to(`screen:${state.sessionId}`).emit('game:question', payload);
+  if (state.presentationMode) emitAnswerKey(io, state, q);
   for (const playerId of state.playerSockets.keys()) {
     const locale = state.playerLocales.get(playerId) ?? 'base';
     const playerPayload =
@@ -1328,23 +1446,14 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
           )
       : undefined;
 
-    const autoAdvanceSec = config.resultsAutoAdvanceSec ?? 5;
+    // Presentation games are paced by the host talking over the results.
+    const autoAdvanceSec = state.presentationMode ? 0 : (config.resultsAutoAdvanceSec ?? 5);
 
     const showLeaderboard =
       state.gameSettings.showLeaderboardAfterQuestion ?? config.showLeaderboardAfterQuestion;
 
-    // Reveal everything in the same shuffled order the players saw, so the
-    // correct highlight and vote distribution (keyed by display slot) line up.
-    const perm = optionPerm(q, state.answerSeed);
-    const rawOptions = JSON.parse(q.options) as string[];
-    const options = perm ? perm.map((i) => rawOptions[i]) : rawOptions;
-    const correctIndex = originalToSlot(q, state.answerSeed, q.correct_index);
-    const correctIndices =
-      q.question_type === 'multi_select' && q.correct_indices
-        ? (JSON.parse(q.correct_indices) as number[]).map((i) =>
-            originalToSlot(q, state.answerSeed, i),
-          )
-        : undefined;
+    const reveal = buildAnswerReveal(q, state.answerSeed);
+    const { options } = reveal;
 
     // Vote distribution — how many players chose each option (option-based types only)
     let answerDistribution: number[] | undefined;
@@ -1364,41 +1473,11 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
       }
     }
 
-    // Reveal-only fields for the newer question types (safe post-answer).
-    const correctBlanks =
-      q.question_type === 'fill_blank'
-        ? (() => {
-            try {
-              const b = JSON.parse(q.blanks ?? '[]') as string[][];
-              return b.map((accepted) => accepted[0] ?? '');
-            } catch {
-              return [];
-            }
-          })()
-        : undefined;
-    const correctOrder = q.question_type === 'ordering' ? options : undefined;
-    const correctPairs = isMatching
-      ? matchingLeftItems.map((left, i) => ({ left, right: matchingRightItems[i] ?? '' }))
-      : undefined;
-    const geoPoint = isGeo ? (parseLatLng(q.geo) ?? undefined) : undefined;
-
     const resultsPayload = {
       questionId,
       questionText: q.text,
-      correctIndex,
-      correctIndices,
-      correctAnswer: q.correct_answer,
-      correctBlanks,
-      correctOrder,
-      correctPairs,
-      geo: geoPoint,
-      imageUrl: isGeo ? normalizeImageUrl(q.image_url) : undefined,
-      questionType: q.question_type,
-      options,
+      ...reveal,
       answerDistribution,
-      explanation: q.explanation?.trim() || undefined,
-      rangeMin: isClosestTo ? (q.range_min ?? undefined) : undefined,
-      rangeMax: isClosestTo ? (q.range_max ?? undefined) : undefined,
       closestRanking,
       leaderboard,
       showLeaderboard,
@@ -1417,6 +1496,7 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
     if (state.adminSocketId) {
       io.to(state.adminSocketId).emit('game:question-results', resultsPayload);
     }
+    io.to(`screen:${state.sessionId}`).emit('game:question-results', resultsPayload);
     for (const playerId of state.playerSockets.keys()) {
       const locale = state.playerLocales.get(playerId) ?? 'base';
       const overlay = localizeResultsOverlay(state, resultsPayload, locale);
@@ -1443,6 +1523,54 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
       }, autoAdvanceSec * 1000);
     }
   });
+}
+
+/**
+ * The question's correct answer, in the display order players saw, so correct
+ * highlights and vote distributions (keyed by display slot) line up. Results-phase
+ * data: never put this in a question payload, which goes to players.
+ */
+function buildAnswerReveal(q: DbQuestion, answerSeed: number) {
+  const perm = optionPerm(q, answerSeed);
+  const rawOptions = JSON.parse(q.options) as string[];
+  const options = perm ? perm.map((i) => rawOptions[i]) : rawOptions;
+  const isClosestTo = q.question_type === 'closest_to';
+  const isGeo = q.question_type === 'geo';
+
+  return {
+    questionType: q.question_type,
+    options,
+    correctIndex: originalToSlot(q, answerSeed, q.correct_index),
+    correctIndices:
+      q.question_type === 'multi_select' && q.correct_indices
+        ? (JSON.parse(q.correct_indices) as number[]).map((i) => originalToSlot(q, answerSeed, i))
+        : undefined,
+    correctAnswer: q.correct_answer,
+    correctBlanks:
+      q.question_type === 'fill_blank'
+        ? (() => {
+            try {
+              const b = JSON.parse(q.blanks ?? '[]') as string[][];
+              return b.map((accepted) => accepted[0] ?? '');
+            } catch {
+              return [];
+            }
+          })()
+        : undefined,
+    correctOrder: q.question_type === 'ordering' ? options : undefined,
+    correctPairs:
+      q.question_type === 'matching'
+        ? (() => {
+            const rightItems = JSON.parse(q.matches ?? '[]') as string[];
+            return rawOptions.map((left, i) => ({ left, right: rightItems[i] ?? '' }));
+          })()
+        : undefined,
+    geo: isGeo ? (parseLatLng(q.geo) ?? undefined) : undefined,
+    imageUrl: isGeo ? normalizeImageUrl(q.image_url) : undefined,
+    explanation: q.explanation?.trim() || undefined,
+    rangeMin: isClosestTo ? (q.range_min ?? undefined) : undefined,
+    rangeMax: isClosestTo ? (q.range_max ?? undefined) : undefined,
+  };
 }
 
 function endGame(_io: SocketServer, state: ActiveSession): void {
@@ -1490,7 +1618,6 @@ function buildQuizIntro(quiz: DbQuiz, questions: DbQuestion[]): QuizIntro {
     questionCount: questions.length,
     typeCounts: [...counts.entries()],
     totalTimeSec,
-    theme: (quiz.theme as QuizIntro['theme']) ?? 'default',
   };
 }
 

@@ -15,8 +15,8 @@ import { useDialog } from '../../context/DialogContext';
 import { groupQuizzesByOwner } from '../../helpers/groupByOwner';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useCreatorBase } from '../../hooks/useCreatorBase';
-import type { AppConfig, GameSettings, ImportQuestion, Quiz, Session, ThemeId } from '../../types';
-import { PreGameSettingsModal } from './components/PreGameSettingsModal';
+import type { AppConfig, GameSettings, ImportQuestion, Quiz, Session } from '../../types';
+import { PreGameSettingsModal, type SessionOptions } from './components/PreGameSettingsModal';
 
 export default function Dashboard() {
   const { isSuperAdmin } = useAuth();
@@ -36,7 +36,6 @@ export default function Dashboard() {
   const [previewing, setPreviewing] = useState<number | null>(null);
   const [preview, setPreview] = useState<{
     title: string;
-    theme?: ThemeId;
     questions: ImportQuestion[];
   } | null>(null);
 
@@ -100,12 +99,13 @@ export default function Dashboard() {
     setShowSettingsModal(true);
   }
 
-  async function confirmStart(gameSettings: GameSettings) {
+  async function confirmStart(gameSettings: GameSettings, options: SessionOptions) {
     if (!pendingStartQuizId) return;
     setStarting(pendingStartQuizId);
     setShowSettingsModal(false);
     const { ok, data } = await api.post<{ id: number }>('/api/admin/sessions', {
       quizId: pendingStartQuizId,
+      ...options,
     });
     setStarting(null);
     setPendingStartQuizId(null);
@@ -131,14 +131,13 @@ export default function Dashboard() {
 
   async function openPreview(id: number) {
     setPreviewing(id);
-    const { ok, data } = await api.get<{ title: string; theme?: ThemeId; questions: unknown[] }>(
+    const { ok, data } = await api.get<{ title: string; questions: unknown[] }>(
       `/api/admin/quizzes/${id}`,
     );
     setPreviewing(null);
     if (!ok) return;
     setPreview({
       title: data.title,
-      theme: data.theme,
       questions: (data.questions ?? []).map((q) =>
         mapDbQuestionToImport(q as Parameters<typeof mapDbQuestionToImport>[0]),
       ),
@@ -227,12 +226,12 @@ export default function Dashboard() {
       <CreatorNav />
       <MainContent>
         {activeSessions.length > 0 && (
-          <Card className="mb-6 border-blue-500/30 bg-blue-500/[0.05]">
+          <Card className="mb-6 zync-gs">
             <CardContent className="flex flex-col gap-3 p-5">
               <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-70" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-ok" />
                 </span>
                 {activeSessions.length} open session{activeSessions.length > 1 ? 's' : ''}
               </span>
@@ -244,7 +243,7 @@ export default function Dashboard() {
                   >
                     <StatusBadge status={s.status} className="shrink-0" />
                     <span className="min-w-0 flex-1 truncate font-semibold">{s.quiz_title}</span>
-                    <span className="flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1 font-mono text-sm tracking-wider text-blue-400">
+                    <span className="flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1 font-mono text-sm tracking-wider text-brand">
                       <span className="text-[0.7rem] font-sans uppercase tracking-wide text-muted-foreground">
                         PIN
                       </span>
@@ -381,7 +380,6 @@ export default function Dashboard() {
         <QuizPreviewModal
           title={preview.title}
           questions={preview.questions}
-          theme={preview.theme}
           onClose={() => setPreview(null)}
         />
       )}

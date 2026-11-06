@@ -7,6 +7,7 @@ import { MainContent, Page, Subtitle } from '@/components/layout';
 import { QuizPreviewModal } from '@/components/QuizPreviewModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { copyText } from '@/helpers';
 import {
   importPayloadToStudioDraft,
   parseQuizImportJson,
@@ -27,14 +28,12 @@ const COPY_TONE = {
   example: {
     label: 'Copy example',
     icon: Braces,
-    className:
-      'border-violet-500/35 bg-violet-600 text-white hover:bg-violet-500 focus-visible:ring-violet-500/40',
+    className: 'bg-primary text-primary-foreground hover:bg-primary/85',
   },
   prompt: {
     label: 'Copy prompt',
     icon: Sparkles,
-    className:
-      'border-cyan-500/35 bg-cyan-600 text-white hover:bg-cyan-500 focus-visible:ring-cyan-500/40',
+    className: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   },
 } as const;
 
@@ -57,12 +56,12 @@ function CopyTextButton({
       type="button"
       size="sm"
       className={cn(toneClassName, className)}
-      onClick={(e) => {
+      onClick={async (e) => {
         if (inSummary) {
           e.preventDefault();
           e.stopPropagation();
         }
-        navigator.clipboard.writeText(text);
+        if (!(await copyText(text))) return;
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}

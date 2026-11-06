@@ -25,15 +25,33 @@ function UserActions({ user, actionId, onUnban, onBan, onReset, onDelete }: User
   return (
     <>
       {user.is_banned ? (
-        <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => onUnban(user.id)}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() => onUnban(user.id)}
+        >
           Unban
         </Button>
       ) : (
-        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => onBan(user.id)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => onBan(user.id)}
+        >
           Ban
         </Button>
       )}
-      <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => onReset(user.id)}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={busy}
+        onClick={() => onReset(user.id)}
+      >
         Reset pw
       </Button>
       <Button
@@ -170,7 +188,7 @@ export default function UserManagement() {
                       'shrink-0 font-semibold uppercase',
                       u.is_banned
                         ? 'border-border bg-muted text-muted-foreground'
-                        : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+                        : 'border-ok/30 bg-ok/15 text-ok',
                     )}
                   >
                     {u.is_banned ? 'banned' : 'active'}
@@ -214,7 +232,7 @@ export default function UserManagement() {
                               'font-semibold uppercase',
                               u.is_banned
                                 ? 'border-border bg-muted text-muted-foreground'
-                                : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+                                : 'border-ok/30 bg-ok/15 text-ok',
                             )}
                           >
                             {u.is_banned ? 'banned' : 'active'}

@@ -9,6 +9,7 @@ import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { mediaRouter } from './routes/media';
 import { playRouter } from './routes/play';
+import { questionBankRouter } from './routes/questionBank';
 import { usersRouter } from './routes/users';
 import { setupSockets } from './socket/index';
 
@@ -24,6 +25,7 @@ app.get('/api/public', (_req, res) =>
     appName: config.appName ?? '',
     appSubtitle: config.appSubtitle ?? '',
     allowedDomain: config.allowedDomain ?? '',
+    publicUrl: config.publicUrl ?? '',
   }),
 );
 
@@ -32,6 +34,7 @@ initAvatars();
 app.use('/avatars', express.static(avatarsDir));
 app.get('/api/avatars', (_req, res) => res.json(listAvatars()));
 
+app.use('/api/admin/question-bank', questionBankRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/admin/users', usersRouter);
 app.use('/api/auth', authRouter);

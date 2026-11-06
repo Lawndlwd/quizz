@@ -176,10 +176,10 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
                   borderRadius: 10,
                   padding: 3,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(59,130,246,.18)' : 'var(--surface2)',
+                  background: selected ? 'var(--accent-soft)' : 'var(--surface2)',
                   cursor: 'pointer',
                   overflow: 'hidden',
-                  boxShadow: selected ? '0 0 0 3px rgba(59,130,246,.25)' : 'none',
+                  boxShadow: selected ? '0 0 0 3px var(--accent-soft)' : 'none',
                   transition: 'all .15s',
                   flexShrink: 0,
                 }}
@@ -216,13 +216,13 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
                   height: 46,
                   borderRadius: 10,
                   border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(59,130,246,.18)' : 'var(--surface2)',
+                  background: selected ? 'var(--accent-soft)' : 'var(--surface2)',
                   fontSize: '1.6rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: selected ? '0 0 0 3px rgba(59,130,246,.25)' : 'none',
+                  boxShadow: selected ? '0 0 0 3px var(--accent-soft)' : 'none',
                   transition: 'all .15s',
                 }}
               >

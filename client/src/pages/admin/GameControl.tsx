@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainContent, Page, PageLoading } from '@/components/layout';
 import { useCountdown } from '@/hooks/useCountdown';
-import { useTheme } from '@/hooks/useTheme';
+import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/context/DialogContext';
+import { copyText, publicBaseUrl } from '@/helpers';
 import { MuteToggle } from '@/components/MuteToggle';
 import { sound } from '@/lib/sound';
 import CreatorNav from '../../components/CreatorNav';
@@ -11,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCreatorBase } from '../../hooks/useCreatorBase';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type {
+  AnswerKey,
   FinalLeaderboardEntry,
   GameEndedPayload,
   GameSettings,
@@ -22,10 +24,12 @@ import type {
   Session,
 } from '../../types';
 import { CountdownScreen } from '../play/components/CountdownScreen';
+import { AnswerKeyPanel } from './components/AnswerKeyPanel';
 import { GameEnded } from './components/GameEnded';
 import { GameLobby } from './components/GameLobby';
 import { GameQuestion } from './components/GameQuestion';
 import { GameResults } from './components/GameResults';
+import { PresentationActionBar, PresentationPanel } from './components/PresentationControls';
 import { RemovePointsModal } from './components/RemovePointsModal';
 
 interface SessionState {
@@ -53,6 +57,7 @@ export default function GameControl() {
   const basePath = useCreatorBase();
   const socket = getSocket();
   const { confirm } = useDialog();
+  const { publicUrl } = useApp();
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -62,24 +67,20 @@ export default function GameControl() {
   const [finalBoard, setFinalBoard] = useState<FinalLeaderboardEntry[]>([]);
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
-  const [shareUrl, setShareUrl] = useState('');
-  const [chooseQuizMaker, setChooseQuizMaker] = useState(false);
   const [nextPreview, setNextPreview] = useState<NextPreview | null>(null);
+  const [screenCount, setScreenCount] = useState(0);
+  const [answerKey, setAnswerKey] = useState<AnswerKey | null>(null);
 
   const questionTimer = useCountdown(0);
   const autoAdvanceTimer = useCountdown(0);
 
-  useTheme(sessionState?.quizIntro?.theme);
+  const presentationMode = sessionState?.session.presentation_mode === 1;
 
+  // The big screen is the room's speaker; a second source here would echo.
   useEffect(() => {
-    if (!token) return;
-    fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg) setChooseQuizMaker(!!cfg.chooseQuizMaker);
-      })
-      .catch(() => {});
-  }, [token]);
+    sound.setSuppressed(presentationMode);
+    return () => sound.setSuppressed(false);
+  }, [presentationMode]);
 
   const [modalPlayerId, setModalPlayerId] = useState<number | null>(null);
   const [modalPlayerAnswers, setModalPlayerAnswers] = useState<PlayerAnswer[]>([]);
@@ -95,10 +96,12 @@ export default function GameControl() {
   useSocketEvent<SessionState>('session:state', (data) => {
     setSessionState(data);
     setPlayers(data.players);
-    setShareUrl(`${window.location.origin}/play/${data.session.pin}`);
     if (data.session.status === 'active') setPhase('question');
     if (data.session.status === 'finished') setPhase('ended');
   });
+
+  useSocketEvent<{ count: number }>('game:screen-status', (data) => setScreenCount(data.count));
+  useSocketEvent<AnswerKey>('game:answer-key', setAnswerKey);
 
   useSocketEvent<{ playerId: number; username: string; playerCount: number; avatar?: string }>(
     'game:player-joined',
@@ -252,6 +255,27 @@ export default function GameControl() {
     [sessionId, token, socket],
   );
 
+  // Clicker and keyboard pacing. Debounced so a double press can't skip a whole question.
+  const lastAdvanceAt = useRef(0);
+  useEffect(() => {
+    if (!presentationMode) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (!['n', 'N', 'ArrowRight', 'PageDown'].includes(e.key)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select')) return;
+      if (modalPlayerId !== null || document.querySelector('[role="dialog"]')) return;
+      if (phase !== 'question' && phase !== 'results') return;
+      const now = Date.now();
+      if (now - lastAdvanceAt.current < 800) return;
+      lastAdvanceAt.current = now;
+      e.preventDefault();
+      if (phase === 'question') finishQuestion();
+      else nextQuestion();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [presentationMode, modalPlayerId, phase, finishQuestion, nextQuestion]);
+
   const modalPlayerName =
     players.find((p) => p.id === modalPlayerId)?.username ?? `Player #${modalPlayerId}`;
 
@@ -259,11 +283,16 @@ export default function GameControl() {
 
   const pin = sessionState.session.pin;
   const totalQ = sessionState.questionCount;
+  const baseUrl = publicBaseUrl(publicUrl);
+  const shareUrl = `${baseUrl}/play/${pin}`;
 
   return (
-    <Page>
+    <Page className={presentationMode ? 'pb-20 sm:pb-0' : undefined}>
       <CreatorNav />
-      <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      {!presentationMode && <MuteToggle className="fixed left-3 bottom-3 z-50" />}
+      {presentationMode && phase !== 'ended' && (
+        <PresentationPanel baseUrl={baseUrl} pin={pin} screenCount={screenCount} />
+      )}
       {phase === 'lobby' && (
         <GameLobby
           quizTitle={sessionState.session.quiz_title ?? ''}
@@ -274,7 +303,7 @@ export default function GameControl() {
           players={players}
           onStart={startGame}
           onDiscard={endGame}
-          onCopyLink={() => navigator.clipboard.writeText(shareUrl)}
+          onCopyLink={() => void copyText(shareUrl)}
         />
       )}
       {phase === 'countdown' && (
@@ -288,9 +317,14 @@ export default function GameControl() {
           timeLeft={questionTimer.seconds}
           answeredCount={answeredCount}
           totalPlayers={players.length}
+          presentationMode={presentationMode}
           onEndGame={endGame}
           onFinishQuestion={finishQuestion}
-        />
+        >
+          {presentationMode && answerKey?.questionId === question.questionId && (
+            <AnswerKeyPanel key={question.questionId} answerKey={answerKey} />
+          )}
+        </GameQuestion>
       )}
       {phase === 'results' && results && (
         <GameResults
@@ -308,10 +342,17 @@ export default function GameControl() {
         <GameEnded
           quizTitle={sessionState.session.quiz_title ?? ''}
           leaderboard={finalBoard}
-          chooseQuizMaker={chooseQuizMaker}
-          theme={sessionState.quizIntro?.theme}
+          chooseQuizMaker={sessionState.session.choose_quiz_maker === 1 && !presentationMode}
           onViewDetails={() => navigate(`${basePath}/sessions/${sessionId ?? ''}`)}
           onDashboard={() => navigate(basePath)}
+        />
+      )}
+      {presentationMode && (phase === 'question' || phase === 'results') && (
+        <PresentationActionBar
+          phase={phase}
+          isLastQuestion={!!results?.isLastQuestion}
+          onFinishQuestion={finishQuestion}
+          onNextQuestion={nextQuestion}
         />
       )}
       {modalPlayerId !== null && (

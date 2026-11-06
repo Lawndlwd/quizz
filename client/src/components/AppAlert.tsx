@@ -6,9 +6,9 @@ type AppAlertVariant = 'error' | 'success' | 'warn' | 'info';
 
 const variantClass: Record<AppAlertVariant, string> = {
   error: 'border-destructive/30 bg-destructive/10 text-destructive [&_p]:text-destructive/90',
-  success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-  warn: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-  info: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
+  success: 'border-ok/30 bg-ok/10 text-ok',
+  warn: 'border-warn/30 bg-warn/10 text-warn',
+  info: 'border-brand/30 bg-brand/10 text-brand',
 };
 
 export function AppAlert({

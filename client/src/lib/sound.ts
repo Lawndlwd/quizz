@@ -1,5 +1,3 @@
-import type { ThemeId } from '@/types';
-
 export type SoundName =
   | 'tick'
   | 'blip'
@@ -11,24 +9,13 @@ export type SoundName =
 
 const MUTE_KEY = 'quizz:muted';
 
-/**
- * Per-theme oscillator "flavor". Themes swap the default waveform so the same
- * synth recipes take on a different character (e.g. retro = square/chiptune).
- */
-type Flavor = { osc: OscillatorType; detune: number };
-const FLAVORS: Record<ThemeId, Flavor> = {
-  default: { osc: 'sine', detune: 0 },
-  neon: { osc: 'sawtooth', detune: 6 },
-  paper: { osc: 'sine', detune: 0 },
-  space: { osc: 'triangle', detune: -4 },
-  retro: { osc: 'square', detune: 0 },
-};
-
 class SoundManager {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private muted = false;
-  private flavor: Flavor = FLAVORS.default;
+  // Session-only silence for devices that aren't the room's speaker. Unlike
+  // `muted` it isn't persisted, so it can't leak into the next normal game.
+  private suppressed = false;
   private loops = new Map<SoundName, AudioBufferSourceNode>();
   private resumeBound = false;
 
@@ -43,8 +30,7 @@ class SoundManager {
     if (!this.ctx) {
       const Ctor =
         window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctor) return null;
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
@@ -70,16 +56,17 @@ class SoundManager {
     if (m) this.stop();
   }
 
+  setSuppressed(s: boolean): void {
+    this.suppressed = s;
+    if (s) this.stop();
+  }
+
   isMuted(): boolean {
     return this.muted;
   }
 
-  setFlavor(theme: ThemeId): void {
-    this.flavor = FLAVORS[theme] ?? FLAVORS.default;
-  }
-
   play(name: SoundName): void {
-    if (this.muted) return;
+    if (this.muted || this.suppressed) return;
     const ctx = this.ensureCtx();
     if (!ctx || !this.master) return;
     // Cheap no-op when already running; won't unlock a suspended context, but
@@ -92,7 +79,7 @@ class SoundManager {
         this.blip(1100, 0.04, 'square', 0.6);
         break;
       case 'blip':
-        this.sweep(660, 880, 0.09, this.flavor.osc);
+        this.sweep(660, 880, 0.09, 'sine');
         break;
       case 'correct':
         this.correctChime();
@@ -145,7 +132,6 @@ class SoundManager {
     const g = ctx.createGain();
     o.type = osc;
     o.frequency.value = freq;
-    o.detune.value = this.flavor.detune;
     const t = startAt;
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.008);

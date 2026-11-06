@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils';
 
 /** Gold / silver / bronze tint per podium place — single source for all screens. */
 export const MEDAL_COLORS: Record<number, string> = {
-  1: 'text-yellow-400',
-  2: 'text-slate-300',
+  1: 'text-[#c08a1e]',
+  2: 'text-slate-400',
   3: 'text-amber-600',
 };
 

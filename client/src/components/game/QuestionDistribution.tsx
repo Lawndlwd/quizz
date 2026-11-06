@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { useMemo } from 'react';
 import { QuadGlyph } from '@/components/game/QuadGlyph';
 import { QuestionReveal } from '@/components/game/QuestionReveal';
 import { OptionText } from '@/components/OptionText';
@@ -51,6 +52,28 @@ export function QuestionDistribution({
     results.questionType === 'true_false';
   const isMultiSelect = results.questionType === 'multi_select';
 
+  // Memoized: a new array would rebuild the Leaflet map on every parent render.
+  const mapGuesses = useMemo(
+    () =>
+      results.leaderboard.flatMap((e) =>
+        e.chosenPoint
+          ? [
+              {
+                playerId: e.playerId,
+                username: e.username,
+                avatar: e.avatar,
+                point: e.chosenPoint,
+                distanceKm: e.distance,
+                isMine:
+                  e.chosenPoint.lat === myChosenPoint?.lat &&
+                  e.chosenPoint.lng === myChosenPoint?.lng,
+              },
+            ]
+          : [],
+      ),
+    [results.leaderboard, myChosenPoint?.lat, myChosenPoint?.lng],
+  );
+
   const dist =
     isOptionBased && results.options.length > 0
       ? (results.answerDistribution ??
@@ -64,6 +87,7 @@ export function QuestionDistribution({
         myChosenIndex={myChosenIndex}
         myChosenIndices={myChosenIndices}
         myChosenPoint={myChosenPoint}
+        mapGuesses={mapGuesses}
         animate
       />
     );
@@ -100,7 +124,7 @@ export function QuestionDistribution({
           const width = (votes / maxVotes) * 100;
           // Only the correct answer's bar is green; others are a neutral grey so
           // the per-option colors don't read as "also correct".
-          const barColor = correct ? '#22c55e' : '#6b6b85';
+          const barColor = correct ? 'var(--success)' : '#7f8b5b';
           const mine =
             (myChosenIndex != null && myChosenIndex === i) || !!myChosenIndices?.includes(i);
           return (
@@ -112,7 +136,7 @@ export function QuestionDistribution({
                 <div className="dist-head">
                   <span>
                     <OptionText value={opt} imgClassName="option-img-sm" />
-                    {correct && <Check className="ml-1.5 inline size-4 text-[#4ade80]" />}
+                    {correct && <Check className="ml-1.5 inline size-4 text-ok" />}
                     {mine && <span className="ml-1.5 text-muted-foreground">· you</span>}
                   </span>
                   <span>

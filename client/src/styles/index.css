@@ -1,141 +1,73 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/inter-tight";
+@import "@fontsource-variable/jetbrains-mono";
 
+/* Light only: nothing sets `.dark`, so `dark:` utilities never follow the OS setting. */
 @custom-variant dark (&:is(.dark *));
 
+/* Default palette: the Zync light theme from ai-dashboard (packages/web/src/zync.css). */
 :root {
-  --bg: #0d0d1a;
-  --surface: #161628;
-  --surface2: #1e1e38;
-  --accent: #7c3aed;
-  --accent2: #a855f7;
-  --success: #22c55e;
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --text2: #94a3b8;
-  --radius: 0.8rem;
-  --background: #0d0d1a;
-  --foreground: #f1f5f9;
-  --card: #161628;
-  --card-foreground: #f1f5f9;
-  --popover: #161628;
-  --popover-foreground: #f1f5f9;
-  --primary: #7c3aed;
-  --primary-foreground: #f1f5f9;
-  --secondary: #1e1e38;
-  --secondary-foreground: #f1f5f9;
-  --muted: #1e1e38;
-  --muted-foreground: #94a3b8;
-  --accent-foreground: #f1f5f9;
-  --destructive: #ef4444;
-  --border: #2a2a4a;
-  --input: #1e1e38;
-  --ring: #a855f7;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: #161628;
-  --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #7c3aed;
-  --sidebar-primary-foreground: #f1f5f9;
-  --sidebar-accent: #1e1e38;
-  --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: #2a2a4a;
-  --sidebar-ring: #a855f7;
-}
-
-/* ── Per-quiz themes ─────────────────────────────────────────
-   Set on <html data-theme="…"> during game screens only (see useTheme).
-   Each block overrides the shared design tokens; components read the vars. */
-[data-theme='neon'],
-:root[data-theme='neon'] {
-  --bg: #05010f;
-  --background: #05010f;
-  --surface: #12082a;
-  --surface2: #1c1040;
-  --card: #12082a;
-  --accent: #22d3ee;
-  --accent2: #e879f9;
-  --primary: #22d3ee;
-  --ring: #e879f9;
-  --success: #34d399;
-  --warn: #fbbf24;
-  --border: #33206a;
-  --text2: #a5b4fc;
-}
-[data-theme='space'],
-:root[data-theme='space'] {
-  --bg: #020617;
-  --background: #020617;
-  --surface: #0b1120;
-  --surface2: #131c33;
-  --card: #0b1120;
-  --accent: #818cf8;
-  --accent2: #c084fc;
-  --primary: #818cf8;
-  --ring: #c084fc;
-  --border: #1e2a4a;
-  --text2: #94a3b8;
-}
-[data-theme='retro'],
-:root[data-theme='retro'] {
-  --bg: #001200;
-  --background: #001200;
-  --surface: #002200;
-  --surface2: #013301;
-  --card: #002200;
-  --foreground: #22ff88;
-  --card-foreground: #22ff88;
-  --accent: #22c55e;
-  --accent2: #4ade80;
-  --primary: #22c55e;
-  --ring: #4ade80;
-  --success: #4ade80;
-  --warn: #facc15;
-  --border: #044d04;
-  --text2: #16a34a;
-  --radius: 0.15rem;
-  --font-sans: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-[data-theme='retro'] body,
-[data-theme='retro'] button,
-[data-theme='retro'] input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-[data-theme='paper'],
-:root[data-theme='paper'] {
-  --bg: #f5f0e6;
-  --background: #f5f0e6;
-  --surface: #fffdf7;
-  --surface2: #ece5d5;
-  --card: #fffdf7;
-  --card-foreground: #1a1a1a;
-  --foreground: #1a1a1a;
-  --popover: #fffdf7;
-  --popover-foreground: #1a1a1a;
-  --accent: #b45309;
-  --accent2: #d97706;
-  --primary: #b45309;
-  --primary-foreground: #fffdf7;
-  --secondary: #ece5d5;
-  --secondary-foreground: #1a1a1a;
-  --muted: #ece5d5;
-  --muted-foreground: #6b5d45;
-  --accent-foreground: #fffdf7;
-  --ring: #d97706;
-  --border: #d6cbb3;
-  --input: #ece5d5;
-  --text2: #6b5d45;
-  --radius: 0.35rem;
+  color-scheme: light;
+  --bg: #fafcf6;
+  --surface: #eff1e7;
+  --surface2: #ffffff;
+  --accent: #273918;
+  --accent2: #5a5b39;
+  --accent-soft: #dfe9c1;
+  --on-soft: #1c2a10;
+  --track: #e2e5da;
+  --glow: rgba(223, 233, 193, 0.55);
+  --success: #4f7a28;
+  --danger: #a3452c;
+  --warn: #96680f;
+  --text2: #5e6258;
+  --radius: 12px;
+  --background: #fafcf6;
+  --foreground: #070707;
+  --card: #eff1e7;
+  --card-foreground: #070707;
+  --popover: #ffffff;
+  --popover-foreground: #070707;
+  --primary: #273918;
+  --primary-foreground: #f4f7ec;
+  --secondary: #dfe9c1;
+  --secondary-foreground: #1c2a10;
+  --muted: #f6f6f4;
+  --muted-foreground: #5e6258;
+  --accent-foreground: #f4f7ec;
+  --destructive: #a3452c;
+  --border: #bfc3b3;
+  --input: #bfc3b3;
+  --ring: #273918;
+  --chart-1: #273918;
+  --chart-2: #5a5b39;
+  --chart-3: #7f8b5b;
+  --chart-4: #c4cbb4;
+  --chart-5: #dfe9c1;
+  --sidebar: #eff1e7;
+  --sidebar-foreground: #070707;
+  --sidebar-primary: #273918;
+  --sidebar-primary-foreground: #f4f7ec;
+  --sidebar-accent: #dfe9c1;
+  --sidebar-accent-foreground: #1c2a10;
+  --sidebar-border: #bfc3b3;
+  --sidebar-ring: #273918;
 }
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-sans: "Inter Tight Variable", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 600;
+  --font-weight-black: 600;
+  --color-brand: var(--accent2);
+  --color-brand-strong: var(--accent);
+  --color-ok: var(--success);
+  --color-warn: var(--warn);
+  --color-bad: var(--danger);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -167,34 +99,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.8333);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-.dark {
-  --background: #0d0d1a;
-  --foreground: #f1f5f9;
-  --card: #161628;
-  --card-foreground: #f1f5f9;
-  --popover: #161628;
-  --popover-foreground: #f1f5f9;
-  --primary: #7c3aed;
-  --primary-foreground: #f1f5f9;
-  --secondary: #1e1e38;
-  --secondary-foreground: #f1f5f9;
-  --muted: #1e1e38;
-  --muted-foreground: #94a3b8;
-  --accent: #7c3aed;
-  --accent-foreground: #f1f5f9;
-  --destructive: #ef4444;
-  --border: #2a2a4a;
-  --input: #1e1e38;
-  --ring: #a855f7;
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
 }
 
 @layer base {
@@ -213,11 +124,7 @@
     @apply min-h-full bg-background text-foreground antialiased;
     line-height: 1.6;
     transition: background-color 0.4s ease, color 0.4s ease;
-    background-image: radial-gradient(
-      1200px 600px at 50% -8%,
-      rgba(124, 58, 237, 0.16),
-      transparent 60%
-    );
+    background-image: radial-gradient(1200px 600px at 50% -8%, var(--glow), transparent 60%);
     background-repeat: no-repeat;
     background-attachment: fixed;
   }
@@ -227,7 +134,7 @@
   }
 
   a {
-    @apply text-violet-400 no-underline;
+    @apply text-brand-strong no-underline;
   }
 
   button {
@@ -237,24 +144,24 @@
   /* Consistent heading typography across every page (design-aligned) */
   h1 {
     font-size: 1.75rem;
-    font-weight: 800;
+    font-weight: 500;
     line-height: 1.15;
     letter-spacing: -0.02em;
   }
   h2 {
     font-size: 1.25rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
   h3 {
     font-size: 1.05rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.3;
   }
   h4 {
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 }
 
@@ -264,21 +171,21 @@
   font-size: clamp(2.6rem, 7vw, 62px);
   font-weight: 900;
   letter-spacing: 0.14em;
-  color: var(--accent2);
+  color: var(--accent);
   text-align: center;
   padding: 18px 40px;
-  background: rgba(124, 58, 237, 0.08);
-  border-radius: 18px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
   border: 2px dashed var(--accent);
   animation: pinGlow 3s ease-in-out infinite;
 }
 @keyframes pinGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    box-shadow: 0 0 40px 2px rgba(124, 58, 237, 0.25);
+    box-shadow: 0 0 40px 2px var(--glow);
   }
 }
 
@@ -438,11 +345,11 @@
 }
 .option-btn:hover:not(:disabled):not(.selected):not(.correct):not(.wrong) {
   border-color: var(--accent);
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--accent-soft);
 }
 .option-btn.selected {
   border-color: var(--accent);
-  background: rgba(124, 58, 237, 0.15);
+  background: var(--accent-soft);
 }
 .option-btn.correct {
   border-color: var(--success);
@@ -476,7 +383,7 @@
 }
 .option-btn.selected .option-letter {
   background: var(--accent);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .option-btn.correct .option-letter {
   background: var(--success);
@@ -729,7 +636,7 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: countdownPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  filter: drop-shadow(0 0 40px rgba(168, 85, 247, 0.3));
+  filter: drop-shadow(0 0 40px var(--glow));
 }
 
 @keyframes countdownPop {
@@ -937,12 +844,12 @@
    Color Quadrants — bold per-answer colored tiles (chosen design)
    ══════════════════════════════════════════════════════════════ */
 .mono-label {
-  font-family: "Geist Variable", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--faint, #64748b);
+  color: var(--text2);
 }
 
 .quad-grid {
@@ -960,7 +867,7 @@
     min-height: 64px;
     gap: 12px;
     font-size: 15px;
-    border-radius: 15px;
+    border-radius: var(--radius);
   }
 }
 
@@ -972,7 +879,7 @@
   padding: 22px;
   min-height: 92px;
   border: none;
-  border-radius: 18px;
+  border-radius: var(--radius);
   text-align: left;
   font-weight: 700;
   font-size: 22px;
@@ -999,7 +906,7 @@
   cursor: default;
 }
 .option-quad.selected {
-  outline: 3px solid #fff;
+  outline: 3px solid var(--foreground);
   outline-offset: 2px;
 }
 .option-quad.correct {
@@ -1088,7 +995,7 @@
 .timer-bar {
   flex: 1;
   height: 18px;
-  background: #1c1c34;
+  background: var(--track);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -1146,8 +1053,8 @@
 }
 .dist-bar {
   height: 14px;
-  background: #0e0e1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--track);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1162,7 +1069,7 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--success);
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.35);
   padding: 6px 14px;
@@ -1316,4 +1223,131 @@
 .reaction-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Presentation screen: room-scale type for a projector or TV. */
+.screen-stage .option-quad {
+  font-size: clamp(18px, 2.4vw, 40px);
+  min-height: clamp(72px, 13vh, 150px);
+}
+.screen-stage .quad-grid {
+  gap: clamp(12px, 1.5vw, 28px);
+}
+.screen-stage .timer-num {
+  font-size: clamp(2rem, 4vw, 4.5rem);
+}
+.screen-stage .lb-item,
+.screen-stage .dist-head {
+  font-size: clamp(1rem, 1.6vw, 1.8rem);
+}
+/* Fixed-size question-type notes, lists and answer reveals. Maps stay out: Leaflet
+   computes its own pointer and tile geometry. */
+.screen-stage .question-detail:not(:has(.leaflet-container)),
+.screen-stage .result-reveal-correct:not(:has(.leaflet-container)) {
+  zoom: 1.6;
+}
+.screen-stage .pin-display {
+  max-width: 100%;
+  padding: 14px 24px;
+  font-size: clamp(2.25rem, 4.5vw, 6rem);
+}
+@media (min-width: 1600px) {
+  .screen-stage .screen-intro {
+    zoom: 1.35;
+  }
+}
+.screen-stage .result-reveal-correct .leaflet-container {
+  height: 52vh !important;
+}
+
+/* Leaflet layers use z-indexes up to 1000: keep them from covering modals. */
+.leaflet-container {
+  isolation: isolate;
+}
+
+/* Player avatar pins on the geo reveal map. */
+.geo-guess-icon {
+  background: none;
+  border: none;
+}
+.geo-guess {
+  position: relative;
+  width: 36px;
+  height: 44px;
+}
+.geo-guess::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-width: 10px 6px 0;
+  border-color: #fff transparent transparent;
+}
+.geo-guess-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #273918;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.geo-guess-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.geo-guess.mine .geo-guess-face {
+  border-color: var(--accent);
+}
+.geo-guess.mine::after {
+  border-top-color: var(--accent);
+}
+.geo-guess-label {
+  display: flex;
+  gap: 5px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.geo-guess > .geo-guess-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(28, 42, 16, 0.88);
+}
+.geo-guess-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.geo-guess-distance {
+  font-weight: 400;
+  opacity: 0.75;
+}
+.leaflet-tooltip .geo-guess-label {
+  color: #111;
+}
+
+/* Zync's green callout: soft green fading into the card surface. */
+.zync-gs {
+  border-style: solid;
+  border-color: var(--accent-soft);
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--surface) 55%);
 }

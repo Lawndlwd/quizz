@@ -55,7 +55,7 @@ export default function History() {
           <span className="font-semibold">{s.quiz_title}</span>
         </td>
         <td className="px-4 py-3">
-          <code className="font-mono text-blue-400">{s.pin}</code>
+          <code className="font-mono text-brand">{s.pin}</code>
         </td>
         <td className="px-4 py-3">{s.player_count ?? '—'}</td>
         <td className="px-4 py-3">

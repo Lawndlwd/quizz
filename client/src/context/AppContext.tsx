@@ -4,6 +4,8 @@ interface AppContextValue {
   appName: string;
   appSubtitle: string;
   allowedDomain: string;
+  /** Configured base URL for phones; empty means use the current origin. */
+  publicUrl: string;
   /** Full display string: "Scaleway by ⚡ Quizz" or "⚡ Quizz" */
   displayName: string;
   /** Short brand string: "Scaleway" or "⚡ Quizz" */
@@ -14,6 +16,7 @@ const AppContext = createContext<AppContextValue>({
   appName: '',
   appSubtitle: '',
   allowedDomain: '',
+  publicUrl: '',
   displayName: '⚡ Quizz',
   brandName: '⚡ Quizz',
 });
@@ -22,19 +25,21 @@ function buildDisplay(
   appName: string,
   appSubtitle: string,
   allowedDomain: string,
+  publicUrl: string,
 ): AppContextValue {
   const trimmed = appName.trim();
   return {
     appName: trimmed,
     appSubtitle: appSubtitle.trim(),
     allowedDomain: allowedDomain.trim(),
+    publicUrl: publicUrl.trim(),
     displayName: trimmed ? `${trimmed} by ⚡ Quizz` : '⚡ Quizz',
     brandName: trimmed || '⚡ Quizz',
   };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [value, setValue] = useState<AppContextValue>(buildDisplay('', '', ''));
+  const [value, setValue] = useState<AppContextValue>(buildDisplay('', '', '', ''));
 
   useEffect(() => {
     fetch('/api/public')
@@ -44,11 +49,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           appName,
           appSubtitle,
           allowedDomain,
+          publicUrl,
         }: {
           appName: string;
           appSubtitle: string;
           allowedDomain?: string;
-        }) => setValue(buildDisplay(appName, appSubtitle ?? '', allowedDomain ?? '')),
+          publicUrl?: string;
+        }) =>
+          setValue(buildDisplay(appName, appSubtitle ?? '', allowedDomain ?? '', publicUrl ?? '')),
       )
       .catch(() => {});
   }, []);

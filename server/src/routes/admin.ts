@@ -13,9 +13,7 @@ import type {
   QuizImportPayload,
   QuizQuestion,
   QuizTranslationPayload,
-  ThemeId,
 } from '../types';
-import { THEME_IDS } from '../types';
 import {
   normalizeImageUrl,
   normalizeOptionalText,
@@ -86,6 +84,20 @@ adminRouter.get('/metrics', requireSuperAdmin, async (_req, res) => {
 
 // ─── Config (super admin only — branding + global settings) ──────────────────
 
+/** '' stays '' (unset); otherwise an http(s) origin plus path, no trailing slash. Null = invalid. */
+function normalizePublicUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+  } catch {
+    return null;
+  }
+}
+
 adminRouter.get('/config', requireAuth, (_req, res) => {
   res.json(toPublicConfig());
 });
@@ -104,8 +116,15 @@ adminRouter.put('/config', requireSuperAdmin, (req: Request, res: Response) => {
     'streakMinimum',
     'streakBonusBase',
     'resultsAutoAdvanceSec',
-    'chooseQuizMaker',
   ];
+  const publicUrl = req.body.publicUrl as unknown;
+  if (publicUrl !== undefined) {
+    const normalized = normalizePublicUrl(publicUrl);
+    if (normalized === null) {
+      return res.status(400).json({ error: 'Public URL must be a valid http(s) URL' });
+    }
+    config.publicUrl = normalized;
+  }
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
       (config as unknown as Record<string, unknown>)[key] = req.body[key];
@@ -249,11 +268,6 @@ adminRouter.get('/quizzes/:id', requireAuth, async (req: Request, res: Response)
   });
 });
 
-/** Validate a client-supplied theme against the allowlist, defaulting to 'default'. */
-function normalizeTheme(theme: unknown): ThemeId {
-  return THEME_IDS.includes(theme as ThemeId) ? (theme as ThemeId) : 'default';
-}
-
 /** The quiz's authoring language (open-ended locale code). Defaults to French. */
 function normalizeLanguage(language: unknown): string {
   return typeof language === 'string' && language.trim() ? language.trim() : 'fr';
@@ -272,11 +286,10 @@ adminRouter.post('/quizzes', requireAuth, async (req: Request, res: Response) =>
   await db.run('BEGIN');
   try {
     const quizResult = await db.run(
-      'INSERT INTO quizzes (title, description, cover_image, theme, language, owner_id, owner_kind) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO quizzes (title, description, cover_image, language, owner_id, owner_kind) VALUES (?, ?, ?, ?, ?, ?)',
       body.title,
       body.description ?? '',
       normalizeImageUrl(body.coverImage) ?? null,
-      normalizeTheme(body.theme),
       normalizeLanguage(body.language),
       ownerId,
       ownerKind,
@@ -308,11 +321,10 @@ adminRouter.put('/quizzes/:id', requireAuth, async (req: Request, res: Response)
   await db.run('BEGIN');
   try {
     await db.run(
-      'UPDATE quizzes SET title = ?, description = ?, cover_image = ?, theme = ?, language = ? WHERE id = ?',
+      'UPDATE quizzes SET title = ?, description = ?, cover_image = ?, language = ? WHERE id = ?',
       body.title,
       body.description ?? '',
       normalizeImageUrl(body.coverImage) ?? null,
-      normalizeTheme(body.theme),
       normalizeLanguage(body.language),
       req.params.id,
     );
@@ -441,7 +453,11 @@ function generatePin(): string {
 }
 
 adminRouter.post('/sessions', requireAuth, async (req: Request, res: Response) => {
-  const { quizId } = req.body as { quizId: number };
+  const { quizId, presentationMode, chooseQuizMaker } = req.body as {
+    quizId: number;
+    presentationMode?: boolean;
+    chooseQuizMaker?: boolean;
+  };
   const quiz = await db.get<DbQuiz>('SELECT * FROM quizzes WHERE id = ?', quizId);
   if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
   if (!(await canAccessQuiz(req, quiz))) {
@@ -457,11 +473,13 @@ adminRouter.post('/sessions', requireAuth, async (req: Request, res: Response) =
   const hostedBy = isSuperAdmin(req) ? null : currentUserId(req);
 
   const result = await db.run(
-    'INSERT INTO sessions (quiz_id, pin, status, hosted_by_user_id) VALUES (?, ?, ?, ?)',
+    'INSERT INTO sessions (quiz_id, pin, status, hosted_by_user_id, presentation_mode, choose_quiz_maker) VALUES (?, ?, ?, ?, ?, ?)',
     quizId,
     pin,
     'waiting',
     hostedBy,
+    presentationMode === true ? 1 : 0,
+    chooseQuizMaker === false ? 0 : 1,
   );
 
   res.status(201).json({ id: result.lastID, pin });

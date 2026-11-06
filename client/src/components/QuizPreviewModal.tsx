@@ -9,14 +9,12 @@ import { Button } from '@/components/ui/button';
 import { countBlanks, hasQuestionImage } from '@/helpers';
 import { useCountdown } from '@/hooks/useCountdown';
 import { QuestionScreen } from '@/pages/play/components/QuestionScreen';
-import type { ImportQuestion, QuestionPayload, QuestionResults, ThemeId } from '@/types';
+import type { ImportQuestion, QuestionPayload, QuestionResults } from '@/types';
 
 interface Props {
   title: string;
   questions: ImportQuestion[];
   onClose: () => void;
-  /** Render the preview in the quiz's theme (matches the real game). */
-  theme?: ThemeId;
 }
 
 type Phase = 'question' | 'reveal';
@@ -39,7 +37,7 @@ function shuffle<T>(items: T[]): T[] {
  * starting a real session or opening a second window. Interactive, with a
  * skippable timer.
  */
-export function QuizPreviewModal({ title, questions, onClose, theme }: Props) {
+export function QuizPreviewModal({ title, questions, onClose }: Props) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('question');
 
@@ -192,10 +190,10 @@ export function QuizPreviewModal({ title, questions, onClose, theme }: Props) {
   const v = phase === 'reveal' ? verdict() : null;
 
   return (
-    <div data-theme={theme} className="fixed inset-0 z-[1100] overflow-y-auto bg-[var(--bg)]">
+    <div className="fixed inset-0 z-[1100] overflow-y-auto bg-[var(--bg)]">
       {/* Top-left preview badge */}
       <div className="fixed left-3 top-3 z-[210] flex max-w-[calc(100%-4rem)] items-center gap-2 sm:left-4 sm:top-4">
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--accent)] px-2 py-1.5 text-xs font-bold tracking-wide text-white shadow-lg sm:px-2.5">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--accent)] px-2 py-1.5 text-xs font-bold tracking-wide text-primary-foreground shadow-lg sm:px-2.5">
           <Eye className="size-4" /> PREVIEW
         </span>
         <span className="truncate rounded-md bg-black/55 px-2 py-1.5 text-xs font-medium text-white backdrop-blur sm:max-w-[38vw] sm:px-2.5">
@@ -295,7 +293,7 @@ export function QuizPreviewModal({ title, questions, onClose, theme }: Props) {
               {v !== null && (
                 <div
                   className={`mb-4 rounded-lg px-4 py-2 text-center font-semibold ${
-                    v ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                    v ? 'bg-ok/15 text-ok' : 'bg-bad/15 text-bad'
                   }`}
                 >
                   {v ? (

@@ -10,13 +10,8 @@ export function QuestionExplanation({ explanation, className }: Props) {
   if (!hasText(explanation)) return null;
 
   return (
-    <div
-      className={
-        className ??
-        'mt-6 rounded-2xl border border-blue-500/35 bg-blue-500/[0.12] px-6 py-5 shadow-[0_0_30px_-12px_rgba(59,130,246,0.6)]'
-      }
-    >
-      <p className="mb-2 flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[0.1em] text-blue-300">
+    <div className={className ?? 'mt-6 rounded-2xl border zync-gs px-6 py-5'}>
+      <p className="mb-2 flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[0.1em] text-brand">
         <Lightbulb aria-hidden className="size-4" />
         Explanation
       </p>

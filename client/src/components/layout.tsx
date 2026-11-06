@@ -5,7 +5,9 @@ import CreatorNav from './CreatorNav';
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col overflow-x-hidden', className)}>{children}</div>
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-x-hidden', className)}>
+      {children}
+    </div>
   );
 }
 
@@ -37,7 +39,9 @@ export function PageVCenter({ children, className }: { children: ReactNode; clas
 
 export function MainContent({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:p-6', className)}>{children}</div>
+    <div className={cn('mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:p-6', className)}>
+      {children}
+    </div>
   );
 }
 
@@ -65,7 +69,7 @@ export function AppLogo({ children, className }: { children: ReactNode; classNam
   return (
     <div
       className={cn(
-        'bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-2xl font-extrabold text-transparent',
+        'bg-gradient-to-br from-brand-strong to-brand bg-clip-text text-2xl font-extrabold text-transparent',
         className,
       )}
     >

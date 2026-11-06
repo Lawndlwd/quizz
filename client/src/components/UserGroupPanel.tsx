@@ -36,7 +36,7 @@ export function UserGroupPanel({
         <div
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold',
-            isAdmin ? 'bg-muted text-muted-foreground' : 'bg-blue-500/20 text-blue-300',
+            isAdmin ? 'bg-muted text-muted-foreground' : 'bg-brand/20 text-brand',
           )}
         >
           {isAdmin ? <Settings className="size-5" /> : userInitials(username)}

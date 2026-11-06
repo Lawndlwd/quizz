@@ -55,10 +55,10 @@ export default function CreatorNavBar({
           to={basePath}
           className="mr-1 flex min-w-0 items-center gap-1.5 text-lg font-extrabold sm:mr-3 sm:text-xl"
         >
-          <Zap className="size-5 shrink-0 fill-blue-500 text-blue-500" />
+          <Zap className="size-5 shrink-0 fill-brand text-brand" />
           {appName ? (
             <span className="truncate">
-              <span className="bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-br from-brand-strong to-brand bg-clip-text text-transparent">
                 {appName}
               </span>{' '}
               <span className="hidden font-normal text-[0.72em] text-muted-foreground opacity-80 sm:inline">
@@ -66,7 +66,7 @@ export default function CreatorNavBar({
               </span>
             </span>
           ) : (
-            <span className="bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-br from-brand-strong to-brand bg-clip-text text-transparent">
               Quizz
             </span>
           )}

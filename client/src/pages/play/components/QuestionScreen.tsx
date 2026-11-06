@@ -1,4 +1,4 @@
-import { ArrowRight, Check, GripVertical, SkipForward, X } from 'lucide-react';
+import { ArrowRight, Check, GripVertical, Presentation, SkipForward, X } from 'lucide-react';
 import { useState } from 'react';
 import { type LatLng, MapPicker } from '@/components/GeoMap';
 import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
@@ -18,6 +18,9 @@ import type { QuestionPayload } from '@/types';
 
 interface Props {
   question: QuestionPayload;
+  /** Presentation mode: media lives on the big screen, this phone only answers. */
+  controller?: boolean;
+  showQuestionText?: boolean;
   timeLeft: number;
   selectedIndex: number | null;
   selectedIndices: number[];
@@ -48,6 +51,8 @@ interface Props {
 
 export function QuestionScreen({
   question,
+  controller = false,
+  showQuestionText = true,
   timeLeft,
   selectedIndex,
   selectedIndices,
@@ -127,7 +132,7 @@ export function QuestionScreen({
     multiSelectSubmitted ||
     closestSubmitted ||
     localSubmitted;
-  const showImage = hasQuestionImage(question.imageUrl);
+  const showImage = !controller && hasQuestionImage(question.imageUrl);
 
   function submitFill() {
     if (localSubmitted) return;
@@ -182,17 +187,23 @@ export function QuestionScreen({
           <div className="question-counter">
             Question {question.questionIndex + 1} of {question.totalQuestions}
           </div>
-          {question.mediaType ? (
+          {controller ? (
+            <p className="my-2 inline-flex w-full items-center justify-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <Presentation className="size-4" /> Look at the big screen
+            </p>
+          ) : question.mediaType ? (
             <QuestionMedia url={question.mediaUrl} kind={question.mediaType} className="my-3" />
           ) : (
             <QuestionImage src={question.imageUrl} className="question-image" />
           )}
-          <div
-            className="question-text"
-            style={{ marginTop: question.mediaType || showImage ? 12 : 0 }}
-          >
-            <QuestionText text={question.text} />
-          </div>
+          {showQuestionText && (
+            <div
+              className="question-text"
+              style={{ marginTop: !controller && (question.mediaType || showImage) ? 12 : 0 }}
+            >
+              <QuestionText text={question.text} />
+            </div>
+          )}
           {isClosestTo && (
             <p
               style={{
