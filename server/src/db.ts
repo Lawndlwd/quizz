@@ -122,7 +122,6 @@ export async function initDb(): Promise<void> {
     `ALTER TABLE quizzes ADD COLUMN cover_image TEXT`,
     `ALTER TABLE questions ADD COLUMN tags TEXT`,
     `ALTER TABLE questions ADD COLUMN geo TEXT`,
-    `ALTER TABLE quizzes ADD COLUMN theme TEXT NOT NULL DEFAULT 'default'`,
     `ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE users ADD COLUMN play_display_name TEXT`,
     `ALTER TABLE users ADD COLUMN play_avatar TEXT`,
@@ -132,6 +131,7 @@ export async function initDb(): Promise<void> {
     `ALTER TABLE players ADD COLUMN locale TEXT`,
     `ALTER TABLE quizzes ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
     `ALTER TABLE sessions ADD COLUMN presentation_mode INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN choose_quiz_maker INTEGER NOT NULL DEFAULT 1`,
   ];
   for (const sql of columnMigrations) {
     try {

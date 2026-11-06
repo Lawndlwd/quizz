@@ -63,7 +63,7 @@ export default function PlaySessionDetail() {
           <div>
             <h1>{session.quiz_title}</h1>
             <Subtitle>
-              PIN <code className="font-mono text-blue-400">{session.pin}</code>
+              PIN <code className="font-mono text-brand">{session.pin}</code>
               {session.finished_at && ` · ${new Date(session.finished_at).toLocaleString()}`}
             </Subtitle>
           </div>
@@ -72,17 +72,17 @@ export default function PlaySessionDetail() {
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">{myRank ?? '—'}</div>
+            <div className="text-3xl font-extrabold text-brand">{myRank ?? '—'}</div>
             <div className="mt-1 text-sm text-muted-foreground">Your rank</div>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">
+            <div className="text-3xl font-extrabold text-brand">
               {myPlayer?.total_score.toLocaleString() ?? 0}
             </div>
             <div className="mt-1 text-sm text-muted-foreground">Your score</div>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">{players.length}</div>
+            <div className="text-3xl font-extrabold text-brand">{players.length}</div>
             <div className="mt-1 text-sm text-muted-foreground">Players</div>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default function PlaySessionDetail() {
                       {a == null ? (
                         <span className="text-muted-foreground">No answer</span>
                       ) : a.is_correct ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-500">
+                        <span className="inline-flex items-center gap-1 text-ok">
                           <Check className="size-4" /> Correct (+{a.score})
                         </span>
                       ) : (

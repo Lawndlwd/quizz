@@ -6,7 +6,6 @@ import { PageCenter, PageLoading } from '@/components/layout';
 import { MuteToggle } from '@/components/MuteToggle';
 import { useCountdown } from '@/hooks/useCountdown';
 import { getSocket, useSocketEvent } from '@/hooks/useSocket';
-import { useTheme } from '@/hooks/useTheme';
 import { sound } from '@/lib/sound';
 import type {
   FinalLeaderboardEntry,
@@ -58,7 +57,6 @@ export default function Screen() {
 
   const questionTimer = useCountdown(0);
 
-  useTheme(info?.quizIntro?.theme);
 
   useEffect(() => {
     function join() {
@@ -199,7 +197,6 @@ export default function Screen() {
           title={info.quizTitle}
           leaderboard={finalBoard}
           chooseQuizMaker={info.chooseQuizMaker}
-          theme={info.quizIntro?.theme}
         />
       )}
 
@@ -219,7 +216,7 @@ export default function Screen() {
         </p>
       )}
       {!online && (
-        <output className="fixed inset-x-0 bottom-14 z-50 mx-auto flex w-fit items-center gap-2 rounded-full bg-amber-500 px-4 py-1.5 text-sm font-semibold text-black">
+        <output className="fixed inset-x-0 bottom-14 z-50 mx-auto flex w-fit items-center gap-2 rounded-full bg-warn px-4 py-1.5 text-sm font-semibold text-black">
           <WifiOff className="size-4" /> Reconnecting…
         </output>
       )}

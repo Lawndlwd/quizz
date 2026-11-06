@@ -4,20 +4,19 @@ import { Confetti } from '@/components/game/Confetti';
 import { Podium } from '@/components/game/Podium';
 import { PageCenter } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import type { GameEndedPayload, ThemeId } from '@/types';
+import type { GameEndedPayload } from '@/types';
 
 interface Props {
   leaderboard: GameEndedPayload['leaderboard'];
   onContinue: () => void;
-  theme?: ThemeId;
 }
 
-export function PodiumScreen({ leaderboard, onContinue, theme }: Props) {
+export function PodiumScreen({ leaderboard, onContinue }: Props) {
   const [celebrate, setCelebrate] = useState(false);
   return (
     <PageCenter className="flex-col gap-8">
       {celebrate && (
-        <Confetti count={40} spread="center" durationRange={[0.6, 2]} palette={theme} />
+        <Confetti count={40} spread="center" durationRange={[0.6, 2]} />
       )}
 
       <h1 className="flex items-center justify-center gap-2 text-center text-[2rem]">

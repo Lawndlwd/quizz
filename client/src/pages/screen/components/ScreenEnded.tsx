@@ -5,16 +5,15 @@ import { FinalLeaderboard } from '@/components/game/LeaderboardList';
 import { Podium } from '@/components/game/Podium';
 import { QuizMakerPicker } from '@/components/game/QuizMakerPicker';
 import { Card, CardContent } from '@/components/ui/card';
-import type { FinalLeaderboardEntry, ThemeId } from '@/types';
+import type { FinalLeaderboardEntry } from '@/types';
 
 interface Props {
   title: string;
   leaderboard: FinalLeaderboardEntry[];
   chooseQuizMaker: boolean;
-  theme?: ThemeId;
 }
 
-export function ScreenEnded({ title, leaderboard, chooseQuizMaker, theme }: Props) {
+export function ScreenEnded({ title, leaderboard, chooseQuizMaker }: Props) {
   const [celebrate, setCelebrate] = useState(false);
 
   if (leaderboard.length === 0) {
@@ -28,7 +27,7 @@ export function ScreenEnded({ title, leaderboard, chooseQuizMaker, theme }: Prop
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col items-center justify-center gap-8 p-6">
-      {celebrate && <Confetti palette={theme} />}
+      {celebrate && <Confetti />}
       <h1 className="flex items-center gap-3 text-center text-5xl font-extrabold">
         <Trophy className="size-12" /> Final Podium
       </h1>

@@ -73,12 +73,10 @@ export function WaitingScreen({
                     </span>
                   </p>
                 </div>
-                <span className="inline-block h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-400" />
+                <span className="inline-block h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-ok" />
               </div>
               <div className="mt-4">
-                <p className="mb-2 text-center text-xs text-muted-foreground">
-                  Send a reaction
-                </p>
+                <p className="mb-2 text-center text-xs text-muted-foreground">Send a reaction</p>
                 <div className="reaction-bar">
                   {REACTIONS.map((emoji) => (
                     <button

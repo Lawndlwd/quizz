@@ -64,8 +64,8 @@ export default function SessionDetail() {
           <div>
             <h1>{session.quiz_title}</h1>
             <Subtitle>
-              Session <code className="font-mono text-blue-400">#{session.id}</code> · PIN{' '}
-              <code className="font-mono text-blue-400">{session.pin}</code>
+              Session <code className="font-mono text-brand">#{session.id}</code> · PIN{' '}
+              <code className="font-mono text-brand">{session.pin}</code>
               {session.finished_at && ` · ${new Date(session.finished_at).toLocaleString()}`}
             </Subtitle>
           </div>
@@ -74,15 +74,15 @@ export default function SessionDetail() {
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">{players.length}</div>
+            <div className="text-3xl font-extrabold text-brand">{players.length}</div>
             <div className="mt-1 text-sm text-muted-foreground">Players</div>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">{questions.length}</div>
+            <div className="text-3xl font-extrabold text-brand">{questions.length}</div>
             <div className="mt-1 text-sm text-muted-foreground">Questions</div>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-5 text-center">
-            <div className="text-3xl font-extrabold text-blue-400">
+            <div className="text-3xl font-extrabold text-brand">
               {sortedPlayers[0]?.total_score ?? 0}
             </div>
             <div className="mt-1 text-sm text-muted-foreground">Top Score</div>
@@ -174,7 +174,7 @@ export default function SessionDetail() {
                           {a == null ? (
                             <span className="text-muted-foreground">—</span>
                           ) : a.is_correct ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-500">
+                            <span className="inline-flex items-center gap-1 text-ok">
                               <Check className="size-4" /> +{a.score}
                             </span>
                           ) : (
@@ -185,7 +185,7 @@ export default function SessionDetail() {
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 font-bold text-blue-400">
+                    <td className="px-4 py-3 font-bold text-brand">
                       {p.total_score.toLocaleString()}
                     </td>
                   </tr>

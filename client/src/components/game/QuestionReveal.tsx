@@ -51,38 +51,38 @@ export function QuestionReveal({
   return (
     <>
       {isFillBlank ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 px-4 py-3">
           <p className="mb-2 text-[0.78rem] text-muted-foreground">Correct answers</p>
           <ol className="list-decimal space-y-1 pl-5">
             {(results.correctBlanks ?? []).map((ans, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: positional blanks
-              <li key={i} className="font-bold text-emerald-500">
+              <li key={i} className="font-bold text-ok">
                 {ans}
               </li>
             ))}
           </ol>
         </div>
       ) : isOrdering ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 px-4 py-3">
           <p className="mb-2 text-[0.78rem] text-muted-foreground">Correct order</p>
           <ol className="list-decimal space-y-1 pl-5">
             {(results.correctOrder ?? results.options).map((item, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: positional order
-              <li key={i} className="font-semibold text-emerald-500">
+              <li key={i} className="font-semibold text-ok">
                 {item}
               </li>
             ))}
           </ol>
         </div>
       ) : isMatching ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 px-4 py-3">
           <p className="mb-2 text-[0.78rem] text-muted-foreground">Correct pairs</p>
           <ul className="space-y-1">
             {(results.correctPairs ?? []).map((p, i) => (
               <li
                 // biome-ignore lint/suspicious/noArrayIndexKey: left items may repeat text
                 key={`pair-${i}`}
-                className="flex items-center gap-2 font-semibold text-emerald-500"
+                className="flex items-center gap-2 font-semibold text-ok"
               >
                 <span>{p.left}</span>
                 <span className="text-muted-foreground">→</span>
@@ -92,7 +92,7 @@ export function QuestionReveal({
           </ul>
         </div>
       ) : isGeo ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 p-3">
           <p className="mb-2 text-[0.78rem] text-muted-foreground">Correct location</p>
           {results.geo ? (
             <MapReveal
@@ -105,7 +105,7 @@ export function QuestionReveal({
             <p className="text-sm text-muted-foreground">Location revealed on the host screen.</p>
           )}
           <p className="mt-2 flex items-center justify-center gap-1 text-center text-xs text-muted-foreground">
-            <Check className="size-3.5 text-emerald-500" /> correct
+            <Check className="size-3.5 text-ok" /> correct
             {myChosenPoint ? (
               <>
                 · <MapPin className="size-3.5" /> your pin
@@ -119,17 +119,17 @@ export function QuestionReveal({
           </p>
         </div>
       ) : isClosestTo ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 px-4 py-3">
           <p className="mb-1 text-[0.78rem] text-muted-foreground">Correct answer</p>
-          <p className="text-[1.8rem] font-bold text-emerald-500">{results.correctAnswer}</p>
+          <p className="text-[1.8rem] font-bold text-ok">{results.correctAnswer}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Range: {results.rangeMin}–{results.rangeMax}
           </p>
         </div>
       ) : isOpenText ? (
-        <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+        <div className="result-reveal-correct rounded-lg border border-ok/30 bg-ok/10 px-4 py-3">
           <p className="mb-1 text-[0.78rem] text-muted-foreground">Correct answer</p>
-          <p className="text-[1.1rem] font-bold text-emerald-500">{results.correctAnswer}</p>
+          <p className="text-[1.1rem] font-bold text-ok">{results.correctAnswer}</p>
         </div>
       ) : (
         <div className={`options-grid ${animate ? 'gap-2 p-0' : ''}`}>

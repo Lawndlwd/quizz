@@ -39,7 +39,7 @@ export function PresentationPanel({ baseUrl, pin, screenCount }: PanelProps) {
         <output className="inline-flex items-center gap-2 text-sm font-semibold">
           <span
             aria-hidden="true"
-            className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-amber-400'}`}
+            className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-ok' : 'bg-warn'}`}
           />
           {connected
             ? `Screen connected${screenCount > 1 ? ` (${screenCount})` : ''}`
@@ -64,7 +64,7 @@ export function PresentationPanel({ baseUrl, pin, screenCount }: PanelProps) {
         </div>
         {copyState === 'failed' && (
           <div className="w-full">
-            <p className="mb-1 text-sm text-amber-400">
+            <p className="mb-1 text-sm text-warn">
               Your browser blocked copying. Select this link and copy it yourself:
             </p>
             <Input
@@ -76,7 +76,7 @@ export function PresentationPanel({ baseUrl, pin, screenCount }: PanelProps) {
           </div>
         )}
         {isLocalUrl(baseUrl) && (
-          <p className="flex w-full items-center gap-1.5 text-sm text-amber-400">
+          <p className="flex w-full items-center gap-1.5 text-sm text-warn">
             <TriangleAlert className="size-4 shrink-0" />
             Phones can't reach localhost. Set a Public URL in Settings so the QR code works.
           </p>

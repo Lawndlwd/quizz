@@ -77,7 +77,7 @@ function BrandingPreview({ appName, appSubtitle }: { appName: string; appSubtitl
         Join screen preview
       </p>
       <div className="py-4 text-center">
-        <div className="text-xl font-extrabold bg-gradient-to-br from-blue-600 to-blue-400 bg-clip-text text-transparent">
+        <div className="text-xl font-extrabold bg-gradient-to-br from-brand-strong to-brand bg-clip-text text-transparent">
           {logo}
         </div>
         {appSubtitle.trim() && (
@@ -260,7 +260,9 @@ export default function Settings() {
 
     setDeletingAvatar(url);
     setAvatarUploadMessage(null);
-    const { ok: deleted, data } = await api.delete<{ error?: string }>('/api/admin/avatars', { url });
+    const { ok: deleted, data } = await api.delete<{ error?: string }>('/api/admin/avatars', {
+      url,
+    });
     setDeletingAvatar(null);
 
     if (!deleted) {
@@ -394,19 +396,6 @@ export default function Settings() {
                   noMargin
                 />
               </SettingsFieldGroup>
-
-              <SettingsFieldGroup
-                title="Post-game"
-                description="What to show on the final podium screen after a game ends."
-              >
-                <SettingsToggle
-                  id="choose-quiz-maker"
-                  label="Pick the next quiz maker"
-                  description="On the final podium, show a picker where you check players and spin to randomly choose who makes the next quiz."
-                  checked={cfg.chooseQuizMaker ?? false}
-                  onChange={(v) => update('chooseQuizMaker', v)}
-                />
-              </SettingsFieldGroup>
             </SettingsSection>
 
             <SettingsSection
@@ -492,7 +481,7 @@ export default function Settings() {
               title="Avatar library"
               description="Upload emoji-style images for players to pick as avatars."
             >
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 p-8 transition hover:border-blue-500/50 hover:bg-muted/40">
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 p-8 transition hover:border-brand/50 hover:bg-muted/40">
                 <FileInput
                   type="file"
                   accept="image/*"

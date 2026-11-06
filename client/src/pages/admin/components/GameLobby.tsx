@@ -55,9 +55,7 @@ export function GameLobby({
       )}
 
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <div className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">
-          Join the game
-        </div>
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand">Join the game</div>
         <div className="text-[15px] text-muted-foreground">
           Go to <strong className="text-foreground">{joinHost}</strong> and enter this PIN
         </div>
@@ -77,7 +75,7 @@ export function GameLobby({
           </Button>
         </div>
 
-        <div className="mt-5 mb-3 text-sm font-semibold text-slate-300">
+        <div className="mt-5 mb-3 text-sm font-semibold text-muted-foreground">
           {players.length} player{players.length !== 1 ? 's' : ''} joined
         </div>
 
@@ -88,7 +86,7 @@ export function GameLobby({
           size="lg"
           onClick={onStart}
           disabled={players.length === 0}
-          className="mt-8 rounded-2xl border-none bg-gradient-to-br from-blue-400 to-blue-600 px-8 py-[15px] text-[17px] font-bold text-white shadow-[0_10px_30px_-8px_#3b82f6aa] hover:opacity-95"
+          className="mt-8 rounded-2xl border-none bg-gradient-to-br from-brand-strong to-brand px-8 py-[15px] text-[17px] font-bold text-primary-foreground hover:opacity-95"
         >
           Start game →
         </Button>

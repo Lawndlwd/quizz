@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { clearPlayerSession, loadPlayerSession } from '@/helpers/playerSession';
 import { useAuth } from '@/context/AuthContext';
 import { useCountdown } from '@/hooks/useCountdown';
-import { useTheme } from '@/hooks/useTheme';
 import { MuteToggle } from '@/components/MuteToggle';
 import { sound } from '@/lib/sound';
 import { StreakBadge } from '@/components/game/StreakBadge';
@@ -67,7 +66,6 @@ export default function Game() {
 
   const effectiveSessionId = Number(sessionId) || Number(storedSession.sessionId) || 0;
 
-  useTheme(quizIntro?.theme);
 
   // Phones are controllers in a presentation game: the big screen is the speaker.
   useEffect(() => {
@@ -377,7 +375,6 @@ export default function Game() {
       <PodiumScreen
         leaderboard={finalBoard}
         onContinue={() => setPhase('ended')}
-        theme={quizIntro?.theme}
       />
     );
 

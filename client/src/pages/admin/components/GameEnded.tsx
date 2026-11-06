@@ -7,13 +7,12 @@ import { QuizMakerPicker } from '@/components/game/QuizMakerPicker';
 import { MainContent, Subtitle } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { FinalLeaderboardEntry, ThemeId } from '@/types';
+import type { FinalLeaderboardEntry } from '@/types';
 
 interface Props {
   quizTitle?: string;
   leaderboard: FinalLeaderboardEntry[];
   chooseQuizMaker?: boolean;
-  theme?: ThemeId;
   onViewDetails: () => void;
   onDashboard: () => void;
 }
@@ -22,14 +21,13 @@ export function GameEnded({
   quizTitle,
   leaderboard,
   chooseQuizMaker,
-  theme,
   onViewDetails,
   onDashboard,
 }: Props) {
   const [celebrate, setCelebrate] = useState(false);
   return (
     <MainContent>
-      {celebrate && <Confetti palette={theme} />}
+      {celebrate && <Confetti />}
 
       <div className="mb-6 text-center">
         <h1 className="flex items-center justify-center gap-1.5 text-[2rem]">

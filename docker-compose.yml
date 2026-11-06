@@ -3,7 +3,8 @@ services:
     image: ghcr.io/lawndlwd/quizz:latest
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-3000}:3000"
+      # APP_BIND=127.0.0.1 keeps the app reachable only through a reverse proxy.
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-3000}:3000"
     environment:
       - DATA_DIR=/data
       # Set these in a .env file next to this compose file. No insecure defaults:
@@ -20,6 +21,8 @@ services:
       - ./data:/data
       - ./avatars:/data/avatars
 
+  # Optional HTTPS for a server dedicated to Quizz. Start with: --profile caddy
+  # Skip it if the server already has a reverse proxy.
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -31,19 +34,13 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DATA_DIR: /data
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
-      ALLOWED_DOMAIN: ${ALLOWED_DOMAIN:-}
-      PUBLIC_URL: ${PUBLIC_URL:-}
-      UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
-      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
-
+      # Passed only when set: without it, Caddy serves plain HTTP on port 80.
+      - DOMAIN
     volumes:
-      - quizz_data:/data
-      - quizz_avatars:/data/avatars
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
-  quizz_data:
-  quizz_avatars:
+  caddy_data:
+  caddy_config:

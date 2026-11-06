@@ -58,7 +58,7 @@ export default function PlayHistory() {
                   <div className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{g.quiz_title}</span>
                     <span className="mt-0.5 block text-sm text-muted-foreground">
-                      PIN <code className="font-mono text-blue-400">{g.pin}</code> · #{g.rank}/
+                      PIN <code className="font-mono text-brand">{g.pin}</code> · #{g.rank}/
                       {g.player_count} · {g.total_score.toLocaleString()} pts
                     </span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -95,7 +95,7 @@ export default function PlayHistory() {
                     <tr key={g.session_id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 font-semibold">{g.quiz_title}</td>
                       <td className="px-4 py-3">
-                        <code className="font-mono text-blue-400">{g.pin}</code>
+                        <code className="font-mono text-brand">{g.pin}</code>
                       </td>
                       <td className="px-4 py-3">
                         #{g.rank} / {g.player_count}

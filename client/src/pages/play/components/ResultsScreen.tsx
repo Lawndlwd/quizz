@@ -27,7 +27,7 @@ function AdvanceHint({
     <p className="mt-4 text-center text-sm text-muted-foreground">
       {autoAdvanceSec > 0 ? (
         <>
-          Next question in <strong className="text-blue-400">{autoAdvanceLeft}s</strong>…
+          Next question in <strong className="text-brand">{autoAdvanceLeft}s</strong>…
         </>
       ) : (
         'Waiting for admin to continue…'
@@ -94,7 +94,7 @@ function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: Ques
             const isRowCorrect = p.right !== null && p.right === correct[i]?.right;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: pairs are positional
-              <li key={i} className={isRowCorrect ? 'text-emerald-400' : 'text-rose-400'}>
+              <li key={i} className={isRowCorrect ? 'text-ok' : 'text-bad'}>
                 {p.left} → {p.right ?? <em>unlinked</em>}
               </li>
             );
@@ -119,9 +119,7 @@ function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: Ques
       <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">
         Your answer
       </span>
-      <div className={entry.isCorrect ? 'font-semibold text-emerald-400' : 'font-semibold'}>
-        {body}
-      </div>
+      <div className={entry.isCorrect ? 'font-semibold text-ok' : 'font-semibold'}>{body}</div>
     </div>
   );
 }

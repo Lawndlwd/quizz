@@ -19,8 +19,18 @@ import {
 import type { GeoPoint, ImportPayload, ImportQuestion, QuestionType } from '@/types';
 export type QuestionWithKey = ImportQuestion & { _key: string };
 
+/**
+ * Unique id for client-side keys. `crypto.randomUUID` only exists on HTTPS and
+ * localhost, so a host on a plain-http LAN address needs the fallback.
+ */
+export function uniqueId(): string {
+  return (
+    crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
 export function withKey(q: ImportQuestion): QuestionWithKey {
-  return { ...q, _key: crypto.randomUUID() };
+  return { ...q, _key: uniqueId() };
 }
 
 export function optionLetter(index: number): string {
@@ -173,7 +183,7 @@ export function tagHue(tag: string): number {
   return ((h % 360) + 360) % 360;
 }
 
-/** Inline style (bg/text/border) for a colored tag chip on a dark surface. */
+/** Inline style (bg/text/border) for a colored tag chip on a light surface. */
 export function tagChipStyle(tag: string): {
   backgroundColor: string;
   color: string;
@@ -181,9 +191,9 @@ export function tagChipStyle(tag: string): {
 } {
   const hue = tagHue(tag);
   return {
-    backgroundColor: `hsl(${hue} 70% 50% / 0.18)`,
-    color: `hsl(${hue} 85% 78%)`,
-    borderColor: `hsl(${hue} 70% 55% / 0.45)`,
+    backgroundColor: `hsl(${hue} 45% 90%)`,
+    color: `hsl(${hue} 60% 24%)`,
+    borderColor: `hsl(${hue} 35% 72%)`,
   };
 }
 

@@ -23,17 +23,11 @@ export interface AppConfig {
   streakBonusBase: number;
   resultsAutoAdvanceSec: number;
   /** Show the "next quiz maker" random picker on the final podium screen */
-  chooseQuizMaker: boolean;
   /** Base URL phones use to reach this app (QR/join link). Empty = host's browser origin. */
   publicUrl: string;
 }
 
 export type AuthRole = 'super_admin' | 'user';
-
-/** Visual/audio theme applied to a quiz's game screens. */
-export type ThemeId = 'default' | 'neon' | 'paper' | 'space' | 'retro';
-
-export const THEME_IDS: ThemeId[] = ['default', 'neon', 'paper', 'space', 'retro'];
 
 export interface JwtPayload {
   id: number;
@@ -90,7 +84,6 @@ export interface QuizImportPayload {
   title: string;
   description?: string;
   coverImage?: string;
-  theme?: ThemeId;
   /** The language the quiz is authored in (locale code, e.g. "fr"). Defaults to French. */
   language?: string;
   questions: QuizQuestion[];
@@ -132,7 +125,6 @@ export interface QuizIntro {
   /** Ordered [questionType, count] pairs present in this quiz. */
   typeCounts: Array<[QuestionType, number]>;
   totalTimeSec: number;
-  theme?: ThemeId;
 }
 
 export interface DbQuiz {
@@ -140,7 +132,6 @@ export interface DbQuiz {
   title: string;
   description: string;
   cover_image: string | null;
-  theme: string | null;
   language: string;
   created_at: string;
   question_count?: number;
@@ -185,6 +176,7 @@ export interface DbSession {
   hosted_by_user_id: number | null;
   /** 1 = big-screen presentation game: /screen/:pin shows it, phones are controllers. */
   presentation_mode: number;
+  choose_quiz_maker: number;
 }
 
 export interface DbPlayer {

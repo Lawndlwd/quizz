@@ -119,7 +119,7 @@ export function CompactSessionList({ items, basePath }: CompactSessionListProps)
             <div className="min-w-0 flex-1">
               <span className="block truncate font-medium">{s.quiz_title}</span>
               <span className="block text-sm text-muted-foreground">
-                PIN <code className="font-mono text-blue-400">{s.pin}</code> · {s.player_count ?? 0}{' '}
+                PIN <code className="font-mono text-brand">{s.pin}</code> · {s.player_count ?? 0}{' '}
                 player{(s.player_count ?? 0) !== 1 ? 's' : ''}
                 {s.started_at ? ` · ${new Date(s.started_at).toLocaleDateString()}` : ''}
                 {dur != null ? ` · ${Math.floor(dur / 60)}m ${dur % 60}s` : ''}

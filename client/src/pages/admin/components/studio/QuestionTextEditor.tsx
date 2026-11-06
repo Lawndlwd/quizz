@@ -1,7 +1,7 @@
 import { Code2, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { splitFenced } from '@/helpers';
+import { splitFenced, uniqueId } from '@/helpers';
 import { cn } from '@/lib/utils';
 
 interface Block {
@@ -15,7 +15,7 @@ interface Block {
 function parse(md: string): Block[] {
   const blocks: Omit<Block, 'id'>[] = splitFenced(md);
   if (blocks.length === 0) blocks.push({ type: 'text', lang: '', content: '' });
-  return blocks.map((b) => ({ ...b, id: crypto.randomUUID() }));
+  return blocks.map((b) => ({ ...b, id: uniqueId() }));
 }
 
 /** Reassemble blocks back into the markdown string stored on the question. */
@@ -65,7 +65,7 @@ export function QuestionTextEditor({ value, onChange }: Props) {
     commit(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   const remove = (id: string) => commit(blocks.filter((b) => b.id !== id));
   const add = (type: Block['type']) =>
-    commit([...blocks, { id: crypto.randomUUID(), type, lang: '', content: '' }]);
+    commit([...blocks, { id: uniqueId(), type, lang: '', content: '' }]);
 
   return (
     <div className="mb-5 space-y-2">
@@ -77,7 +77,7 @@ export function QuestionTextEditor({ value, onChange }: Props) {
               value={b.content}
               onChange={(e) => update(b.id, { content: e.target.value })}
               placeholder={i === 0 ? 'Start typing your question…' : 'More text…'}
-              className="field-sizing-content w-full resize-none rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-center text-2xl font-extrabold tracking-tight outline-none placeholder:text-muted-foreground focus:border-primary"
+              className="field-sizing-content w-full resize-none rounded-xl border border-border bg-[var(--surface2)] px-4 py-3 text-center text-2xl font-extrabold tracking-tight outline-none placeholder:text-muted-foreground focus:border-primary"
             />
             {blocks.length > 1 && (
               <button

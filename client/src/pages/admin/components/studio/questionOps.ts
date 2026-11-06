@@ -15,6 +15,11 @@ export function blankQuestion(): ImportQuestion {
   };
 }
 
+/** True for a starter slide nobody has typed into yet. */
+export function isBlankQuestion(q: ImportQuestion): boolean {
+  return !q.text.trim() && (q.options ?? []).every((o) => !o.trim());
+}
+
 /**
  * Repair per-type invariants on a question no matter where it came from
  * (blank slide, restored draft, JSON import, DB hydrate). Keeping this here —
@@ -111,7 +116,10 @@ export function questionOps(q: ImportQuestion, onChange: ChangeFn) {
         onChange('options', ['', '']);
         onChange('matches', ['', '']);
       } else if (!q.matches || q.matches.length !== q.options.length) {
-        onChange('matches', Array.from({ length: q.options.length }, () => ''));
+        onChange(
+          'matches',
+          Array.from({ length: q.options.length }, () => ''),
+        );
       }
       onChange('correctIndices', undefined);
     } else {

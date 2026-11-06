@@ -74,13 +74,13 @@ export function GameResults({
 
       {nextPreview &&
         (nextPreview.hasNext ? (
-          <Card className="mb-4 w-full max-w-4xl border-blue-500/30 bg-blue-500/[0.06]">
+          <Card className="mb-4 w-full max-w-4xl zync-gs">
             <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
-              <span className="mono-label text-blue-300">
+              <span className="mono-label text-brand">
                 Up next · Q{nextPreview.index + 1} of {nextPreview.total}
               </span>
               {nextPreview.mediaType && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/15 px-2 py-0.5 text-xs font-semibold text-brand">
                   {nextPreview.mediaType === 'audio' ? (
                     <>
                       <Music className="size-4" /> Audio
@@ -96,9 +96,9 @@ export function GameResults({
             </CardContent>
           </Card>
         ) : (
-          <Card className="mb-4 w-full max-w-4xl border-amber-500/30 bg-amber-500/[0.06]">
+          <Card className="mb-4 w-full max-w-4xl border-warn/30 bg-warn/[0.06]">
             <CardContent className="p-4">
-              <span className="mono-label inline-flex items-center gap-1.5 text-amber-300">
+              <span className="mono-label inline-flex items-center gap-1.5 text-warn">
                 Last question — final scores next <Flag className="size-4" />
               </span>
             </CardContent>

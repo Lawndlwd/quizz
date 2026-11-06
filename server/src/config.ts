@@ -27,7 +27,6 @@ const DEFAULTS: AppConfig = {
   streakMinimum: 2,
   streakBonusBase: 50,
   resultsAutoAdvanceSec: 0,
-  chooseQuizMaker: false,
   publicUrl: '',
 };
 

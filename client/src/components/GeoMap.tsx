@@ -43,7 +43,7 @@ function pin(color: string): L.DivIcon {
   });
 }
 
-const PIN_GUESS = '#7c3aed';
+const PIN_GUESS = '#273918';
 const PIN_CORRECT = '#22c55e';
 
 /** One player's pin on the reveal map. */

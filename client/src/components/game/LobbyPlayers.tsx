@@ -37,7 +37,7 @@ export function LobbyPlayers({ players }: { players: PlayerInfo[] }) {
         players.map((p, i) => (
           <div
             key={p.id}
-            className="relative flex items-center gap-2.5 rounded-full border border-white/[.08] bg-white/[.05] py-2 pl-2 pr-5"
+            className="relative flex items-center gap-2.5 rounded-full border border-border bg-[var(--surface2)] py-2 pl-2 pr-5"
             style={{ animation: `fadeUp .3s ${i * 0.04}s both` }}
           >
             {/* Reactions this player sent float up out of their own chip. */}

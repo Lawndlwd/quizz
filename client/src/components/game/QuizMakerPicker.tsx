@@ -86,7 +86,7 @@ export function QuizMakerPicker({ players }: Props) {
 
   return (
     <Card
-      className={`relative mx-auto mb-8 w-full overflow-hidden border-blue-500/40 bg-blue-500/[0.06] ${
+      className={`relative mx-auto mb-8 w-full overflow-hidden zync-gs ${
         phase === 'idle' ? 'max-w-xl' : 'max-w-4xl'
       }`}
     >

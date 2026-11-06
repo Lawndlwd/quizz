@@ -7,9 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import type { AppConfig, GameSettings } from '../../../types';
 
+/** Stored on the session when it's created, so every screen agrees on them. */
+export interface SessionOptions {
+  presentationMode: boolean;
+  chooseQuizMaker: boolean;
+}
+
 interface Props {
   config: AppConfig;
-  onConfirm: (settings: GameSettings, presentationMode: boolean) => void;
+  onConfirm: (settings: GameSettings, options: SessionOptions) => void;
   onCancel: () => void;
 }
 
@@ -20,6 +26,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
   const [passEnabled, setPassEnabled] = useState(false);
   const [fiftyFiftyEnabled, setFiftyFiftyEnabled] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const [chooseQuizMaker, setChooseQuizMaker] = useState(true);
 
   const defaultSettings: GameSettings = {
     baseScore: config.defaultBaseScore,
@@ -59,6 +66,23 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
                 <p className="text-sm text-muted-foreground">
                   Show the game on a projector or TV. Players answer from their phones and you
                   control each step.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="choose-quiz-maker"
+                className="mt-0.5"
+                checked={chooseQuizMaker}
+                onCheckedChange={(v) => setChooseQuizMaker(v === true)}
+              />
+              <div>
+                <Label htmlFor="choose-quiz-maker" className="font-semibold">
+                  Pick the next quiz maker
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  On the final podium, randomly choose who makes the next quiz.
                 </p>
               </div>
             </div>
@@ -152,7 +176,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
               type="button"
               variant="secondary"
               className="flex-1"
-              onClick={() => onConfirm(defaultSettings, presentationMode)}
+              onClick={() => onConfirm(defaultSettings, { presentationMode, chooseQuizMaker })}
             >
               Use defaults
             </Button>
@@ -160,7 +184,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
               type="button"
               variant="success"
               className="flex-1"
-              onClick={() => onConfirm(currentSettings, presentationMode)}
+              onClick={() => onConfirm(currentSettings, { presentationMode, chooseQuizMaker })}
             >
               Start →
             </Button>

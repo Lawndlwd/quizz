@@ -1,13 +1,12 @@
 import { type QuestionWithKey, validateClosestToQuestion, withKey } from '@/helpers';
 import { normalizeQuestion } from '@/pages/admin/components/studio/questionOps';
-import { type ImportPayload, type QuizTranslationPayload, THEME_IDS, type ThemeId } from '@/types';
+import type { ImportPayload, QuizTranslationPayload } from '@/types';
 
 /** Full import example — one question per supported type, with every optional field shown. */
 export const QUIZ_IMPORT_EXAMPLE = {
   title: 'General Knowledge Quiz',
   description: 'A quick 12-question warm-up — geography, code, music & more',
   coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200',
-  theme: 'space',
   language: 'fr',
   questions: [
     {
@@ -170,7 +169,6 @@ export const QUIZ_IMPORT_JSON_SHORT = `{
   "title": "My Quiz",
   "description": "Optional subtitle shown in the lobby",
   "coverImage": "https://example.com/cover.jpg",
-  "theme": "default",
   "language": "fr",
   "questions": [
     {
@@ -194,12 +192,6 @@ const QUIZ_IMPORT_SCHEMA_OBJECT = {
     title: { type: 'string', description: 'Quiz name' },
     description: { type: 'string', description: 'Lobby subtitle' },
     coverImage: { type: 'string', description: 'Lobby cover image URL' },
-    theme: {
-      type: 'string',
-      enum: THEME_IDS,
-      default: 'default',
-      description: 'Visual theme for game screens',
-    },
     language: {
       type: 'string',
       default: 'fr',
@@ -422,14 +414,12 @@ export function importPayloadToStudioDraft(payload: ImportPayload): {
   title: string;
   description: string;
   coverImage: string;
-  theme: ThemeId;
   questions: QuestionWithKey[];
 } {
   return {
     title: payload.title,
     description: payload.description ?? '',
     coverImage: payload.coverImage ?? '',
-    theme: THEME_IDS.includes(payload.theme as ThemeId) ? (payload.theme as ThemeId) : 'default',
     questions: payload.questions.map((q) => withKey(normalizeQuestion(q))),
   };
 }

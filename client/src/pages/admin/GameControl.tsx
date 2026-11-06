@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainContent, Page, PageLoading } from '@/components/layout';
 import { useCountdown } from '@/hooks/useCountdown';
-import { useTheme } from '@/hooks/useTheme';
 import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/context/DialogContext';
 import { copyText, publicBaseUrl } from '@/helpers';
@@ -68,15 +67,12 @@ export default function GameControl() {
   const [finalBoard, setFinalBoard] = useState<FinalLeaderboardEntry[]>([]);
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
-  const [chooseQuizMaker, setChooseQuizMaker] = useState(false);
   const [nextPreview, setNextPreview] = useState<NextPreview | null>(null);
   const [screenCount, setScreenCount] = useState(0);
   const [answerKey, setAnswerKey] = useState<AnswerKey | null>(null);
 
   const questionTimer = useCountdown(0);
   const autoAdvanceTimer = useCountdown(0);
-
-  useTheme(sessionState?.quizIntro?.theme);
 
   const presentationMode = sessionState?.session.presentation_mode === 1;
 
@@ -85,16 +81,6 @@ export default function GameControl() {
     sound.setSuppressed(presentationMode);
     return () => sound.setSuppressed(false);
   }, [presentationMode]);
-
-  useEffect(() => {
-    if (!token) return;
-    fetch('/api/admin/config', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg) setChooseQuizMaker(!!cfg.chooseQuizMaker);
-      })
-      .catch(() => {});
-  }, [token]);
 
   const [modalPlayerId, setModalPlayerId] = useState<number | null>(null);
   const [modalPlayerAnswers, setModalPlayerAnswers] = useState<PlayerAnswer[]>([]);
@@ -356,8 +342,7 @@ export default function GameControl() {
         <GameEnded
           quizTitle={sessionState.session.quiz_title ?? ''}
           leaderboard={finalBoard}
-          chooseQuizMaker={chooseQuizMaker && !presentationMode}
-          theme={sessionState.quizIntro?.theme}
+          chooseQuizMaker={sessionState.session.choose_quiz_maker === 1 && !presentationMode}
           onViewDetails={() => navigate(`${basePath}/sessions/${sessionId ?? ''}`)}
           onDashboard={() => navigate(basePath)}
         />

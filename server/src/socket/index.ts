@@ -196,7 +196,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         pin: session.pin,
         status: session.status,
         quizTitle: quiz?.title ?? '',
-        chooseQuizMaker: config.chooseQuizMaker,
+        chooseQuizMaker: session.choose_quiz_maker === 1,
       };
 
       if (session.status === 'finished') {
@@ -1618,7 +1618,6 @@ function buildQuizIntro(quiz: DbQuiz, questions: DbQuestion[]): QuizIntro {
     questionCount: questions.length,
     typeCounts: [...counts.entries()],
     totalTimeSec,
-    theme: (quiz.theme as QuizIntro['theme']) ?? 'default',
   };
 }
 

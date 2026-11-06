@@ -8,7 +8,7 @@ import { DEFAULT_LOCALE } from '@/helpers/locale';
 import CreatorNav from '../../components/CreatorNav';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useCreatorBase } from '../../hooks/useCreatorBase';
-import type { ImportPayload, ThemeId } from '../../types';
+import type { ImportPayload } from '../../types';
 import { QuizStudio } from './components/studio/QuizStudio';
 import { TranslationsDialog } from './components/TranslationsDialog';
 
@@ -26,7 +26,6 @@ export default function EditQuiz() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState('');
-  const [theme, setTheme] = useState<ThemeId>('default');
   const [language, setLanguage] = useState(DEFAULT_LOCALE);
   const [questions, setQuestions] = useState<QuestionWithKey[]>([]);
   const [translationsOpen, setTranslationsOpen] = useState(false);
@@ -37,7 +36,6 @@ export default function EditQuiz() {
         title: string;
         description: string;
         cover_image?: string | null;
-        theme?: ThemeId | null;
         language?: string | null;
         questions: unknown[];
       }>(`/api/admin/quizzes/${id}`)
@@ -50,7 +48,6 @@ export default function EditQuiz() {
         setTitle(data.title ?? '');
         setDescription(data.description ?? '');
         setCoverImage(data.cover_image ?? '');
-        setTheme(data.theme ?? 'default');
         setLanguage(data.language ?? DEFAULT_LOCALE);
         setQuestions(
           (data.questions ?? []).map((q) =>
@@ -95,7 +92,6 @@ export default function EditQuiz() {
         initialTitle={title}
         initialDescription={description}
         initialCoverImage={coverImage}
-        initialTheme={theme}
         initialLanguage={language}
         initialQuestions={questions}
         saving={saving}

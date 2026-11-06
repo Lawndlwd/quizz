@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 type SessionStatus = 'waiting' | 'active' | 'finished';
 
 const statusClass: Record<SessionStatus, string> = {
-  waiting: 'border-amber-500/30 bg-amber-500/15 text-amber-300',
-  active: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300',
+  waiting: 'border-warn/30 bg-warn/15 text-warn',
+  active: 'border-ok/30 bg-ok/15 text-ok',
   finished: 'border-border bg-muted text-muted-foreground',
 };
 

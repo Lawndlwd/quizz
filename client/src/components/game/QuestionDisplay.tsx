@@ -1,3 +1,4 @@
+import { ArrowDownUp, GripVertical } from 'lucide-react';
 import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
 import { TimerBar } from '@/components/game/TimerBar';
 import { OptionText } from '@/components/OptionText';
@@ -84,7 +85,12 @@ export function QuestionDisplay({
           silent={silent}
         />
 
-        <div className={cn('mb-6 text-center text-[#64748b]', stage ? 'text-2xl' : 'text-[13px]')}>
+        <div
+          className={cn(
+            'mb-6 text-center text-muted-foreground',
+            stage ? 'text-2xl' : 'text-[13px]',
+          )}
+        >
           {answeredCount} / {totalPlayers} answered
         </div>
 
@@ -113,24 +119,26 @@ export function QuestionDisplay({
           {question.questionType === 'ordering' && (
             <div
               className={cn(
-                'w-full',
-                stage ? 'grid grid-cols-2 gap-3' : 'mx-auto flex max-w-xl flex-col gap-2',
+                'mx-auto w-full gap-2',
+                // Long lists only fit a projector side by side.
+                stage && options.length > 4
+                  ? 'grid max-w-4xl grid-cols-2'
+                  : 'flex max-w-xl flex-col',
               )}
             >
-              <p className="col-span-2 mb-1 text-center text-sm text-muted-foreground">
-                Ordering question — players are dragging these into the correct order
+              <p className="col-span-2 mb-1 flex items-center justify-center gap-2 text-center text-sm font-medium">
+                <ArrowDownUp className="size-4 shrink-0" />
+                Sort these into the correct order on your phone
               </p>
-              {options.map((opt, pos) => (
+              {options.map((opt) => (
                 <div
                   key={opt}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-[var(--surface2)] p-3"
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border border-border bg-[var(--surface2)] px-3',
+                    stage ? 'py-1.5' : 'py-3',
+                  )}
                 >
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.8rem] font-extrabold text-white"
-                    style={{ background: quadColor(pos) }}
-                  >
-                    {pos + 1}
-                  </span>
+                  <GripVertical className="size-5 shrink-0 text-muted-foreground" />
                   <span className="flex-1">
                     <OptionText value={opt} imgClassName="option-img-sm" />
                   </span>

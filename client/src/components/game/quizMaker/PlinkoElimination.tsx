@@ -197,7 +197,7 @@ export function PlinkoElimination({ players, onStatus, onFinish }: PickerGamePro
   return (
     <div
       ref={frameRef}
-      className="relative w-full overflow-hidden rounded-xl border border-indigo-500/40 bg-[radial-gradient(circle_at_50%_0%,#1e293b,#020617_75%)]"
+      className="relative w-full overflow-hidden rounded-xl border border-brand/40 bg-[radial-gradient(circle_at_50%_0%,#3d5526,#1c2a10_75%)]"
       style={{ height: BOARD_H * scale }}
     >
       <div

@@ -24,7 +24,7 @@ export function CountdownScreen({ seconds }: Props) {
       <div className="countdown-number" key={label}>
         {label}
       </div>
-      <div className="text-base text-[#64748b]">First question coming up</div>
+      <div className="text-base text-muted-foreground">First question coming up</div>
     </PageCenter>
   );
 }

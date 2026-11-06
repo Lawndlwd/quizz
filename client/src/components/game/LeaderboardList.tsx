@@ -47,7 +47,7 @@ export function LeaderboardList({
             style={{
               ...(animate ? { animationDelay: `${idx * 0.05}s` } : {}),
               ...(isHighlighted
-                ? { borderColor: 'var(--accent2)', background: 'rgba(96,165,250,.08)' }
+                ? { borderColor: 'var(--accent2)', background: 'var(--accent-soft)' }
                 : {}),
             }}
           >
@@ -97,7 +97,7 @@ export function ClosestGuessesList({
       {entries.slice(0, limit).map((e, idx) => (
         <li
           key={e.playerId}
-          className={`lb-item${animate ? ' lb-slide' : ''}${highlightPlayerId === e.playerId ? ' ring-1 ring-blue-400' : ''}`}
+          className={`lb-item${animate ? ' lb-slide' : ''}${highlightPlayerId === e.playerId ? ' ring-1 ring-brand' : ''}`}
           style={animate ? { animationDelay: `${idx * 0.05}s` } : undefined}
         >
           <div className="lb-rank">{idx + 1}</div>
@@ -111,7 +111,7 @@ export function ClosestGuessesList({
             {e.distance != null && e.distance > 0 ? (
               ` (±${e.distance})`
             ) : (
-              <Check className="ml-0.5 inline size-3.5 text-emerald-500" />
+              <Check className="ml-0.5 inline size-3.5 text-ok" />
             )}
           </span>
           {e.questionScore > 0 && <span className="lb-delta">+{e.questionScore}</span>}
@@ -137,7 +137,7 @@ export function FinalLeaderboard({ entries, highlightUsername, footer }: FinalPr
             className={`lb-item rank-${Math.min(e.rank, 4)}`}
             style={
               highlightUsername && e.username === highlightUsername
-                ? { borderColor: 'var(--accent2)', background: 'rgba(96,165,250,.08)' }
+                ? { borderColor: 'var(--accent2)', background: 'var(--accent-soft)' }
                 : {}
             }
           >
