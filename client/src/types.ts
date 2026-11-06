@@ -7,7 +7,11 @@ export type QuestionType =
   | 'fill_blank'
   | 'ordering'
   | 'geo'
-  | 'matching';
+  | 'matching'
+  /** Section intro: `text` is the title, `explanation` the optional body. No answers. */
+  | 'title_slide'
+  /** Shows the current leaderboard under the title in `text`. No answers. */
+  | 'standings_slide';
 
 /** GeoGuessr-style correct location as real-world coordinates. */
 export interface GeoPoint {
@@ -144,6 +148,18 @@ export interface QuestionPayload {
   rightOptions?: string[];
 }
 
+/** A non-question slide: stays on screen until the host advances. */
+export interface SlidePayload {
+  slideId: number;
+  slideType: QuestionType;
+  title: string;
+  body?: string;
+  imageUrl?: string;
+  /** standings_slide only: the live leaderboard. */
+  leaderboard?: LeaderboardEntry[];
+  isLast: boolean;
+}
+
 export interface QuestionResults {
   questionId: number;
   questionText: string;
@@ -207,6 +223,7 @@ export interface NextPreview {
   total: number;
   text: string | null;
   mediaType: 'audio' | 'video' | null;
+  isSlide: boolean;
 }
 
 /** One row of the end-of-game leaderboard. */

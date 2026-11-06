@@ -44,7 +44,11 @@ export type QuestionType =
   | 'fill_blank'
   | 'ordering'
   | 'geo'
-  | 'matching';
+  | 'matching'
+  /** Section intro: `text` is the title, `explanation` the optional body. No answers. */
+  | 'title_slide'
+  /** Shows the current leaderboard under the title in `text`. No answers. */
+  | 'standings_slide';
 
 /**
  * GeoGuessr-style config: the correct location as real-world coordinates.

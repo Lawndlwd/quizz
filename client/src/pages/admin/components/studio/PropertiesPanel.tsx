@@ -2,6 +2,7 @@ import { ListChecks, type LucideIcon, Timer, Trophy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { IntegerInput, Textarea } from '@/components/Input';
 import { TagInput } from '@/components/TagInput';
+import { isSlideType } from '@/helpers';
 import { cn } from '@/lib/utils';
 import type { ImportQuestion } from '@/types';
 import type { questionOps } from './questionOps';
@@ -41,12 +42,13 @@ function chip(active: boolean) {
 export function PropertiesPanel({ q, ops, onChange }: Props) {
   const { type } = ops;
   const supportsMulti = type === 'multiple_choice' || type === 'multi_select';
+  const isSlide = isSlideType(type);
 
   return (
     <div className="flex flex-col gap-6 p-4">
       {/* Question type */}
       <section>
-        <SectionTitle>Question type</SectionTitle>
+        <SectionTitle>Slide type</SectionTitle>
         <div className="flex flex-col gap-1.5">
           {ALL_TYPES.map((t) => {
             const Icon = TYPE_META[t].icon;
@@ -71,54 +73,58 @@ export function PropertiesPanel({ q, ops, onChange }: Props) {
       </section>
 
       {/* Time limit */}
-      <section>
-        <SectionTitle icon={Timer}>Time limit</SectionTitle>
-        <div className="flex flex-wrap gap-1.5">
-          {TIME_PRESETS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange('timeSec', t)}
-              className={chip((q.timeSec ?? 20) === t)}
-            >
-              {t}s
-            </button>
-          ))}
-        </div>
-        <IntegerInput
-          noMargin
-          className="mt-2"
-          min={5}
-          max={120}
-          value={q.timeSec ?? 20}
-          onValueChange={(value) => onChange('timeSec', value)}
-        />
-      </section>
+      {!isSlide && (
+        <section>
+          <SectionTitle icon={Timer}>Time limit</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {TIME_PRESETS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onChange('timeSec', t)}
+                className={chip((q.timeSec ?? 20) === t)}
+              >
+                {t}s
+              </button>
+            ))}
+          </div>
+          <IntegerInput
+            noMargin
+            className="mt-2"
+            min={5}
+            max={120}
+            value={q.timeSec ?? 20}
+            onValueChange={(value) => onChange('timeSec', value)}
+          />
+        </section>
+      )}
 
       {/* Points */}
-      <section>
-        <SectionTitle icon={Trophy}>Points</SectionTitle>
-        <div className="mb-2 flex gap-1.5">
-          {POINT_PRESETS.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              onClick={() => onChange('baseScore', p.value)}
-              className={cn(chip(q.baseScore === p.value), 'flex-1 text-center')}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <IntegerInput
-          noMargin
-          label="Base score"
-          min={0}
-          step={50}
-          value={q.baseScore}
-          onValueChange={(value) => onChange('baseScore', value)}
-        />
-      </section>
+      {!isSlide && (
+        <section>
+          <SectionTitle icon={Trophy}>Points</SectionTitle>
+          <div className="mb-2 flex gap-1.5">
+            {POINT_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => onChange('baseScore', p.value)}
+                className={cn(chip(q.baseScore === p.value), 'flex-1 text-center')}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <IntegerInput
+            noMargin
+            label="Base score"
+            min={0}
+            step={50}
+            value={q.baseScore}
+            onValueChange={(value) => onChange('baseScore', value)}
+          />
+        </section>
+      )}
 
       {/* Answer options mode */}
       {supportsMulti && (
@@ -144,27 +150,31 @@ export function PropertiesPanel({ q, ops, onChange }: Props) {
       )}
 
       {/* Tags */}
-      <section>
-        <TagInput
-          label="Tags"
-          value={q.tags ?? []}
-          onChange={(tags) => onChange('tags', tags)}
-          placeholder="Type a tag, press comma…"
-        />
-      </section>
+      {!isSlide && (
+        <section>
+          <TagInput
+            label="Tags"
+            value={q.tags ?? []}
+            onChange={(tags) => onChange('tags', tags)}
+            placeholder="Type a tag, press comma…"
+          />
+        </section>
+      )}
 
       {/* Explanation */}
-      <section>
-        <Textarea
-          noMargin
-          label="Explanation (shown after timer)"
-          rows={3}
-          className="resize-y"
-          value={q.explanation ?? ''}
-          onChange={(e) => onChange('explanation', e.target.value || undefined)}
-          placeholder="Why is this the answer?"
-        />
-      </section>
+      {!isSlide && (
+        <section>
+          <Textarea
+            noMargin
+            label="Explanation (shown after timer)"
+            rows={3}
+            className="resize-y"
+            value={q.explanation ?? ''}
+            onChange={(e) => onChange('explanation', e.target.value || undefined)}
+            placeholder="Why is this the answer?"
+          />
+        </section>
+      )}
     </div>
   );
 }

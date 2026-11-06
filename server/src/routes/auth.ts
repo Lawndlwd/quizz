@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import { type Request, type Response, Router } from 'express';
+import { SLIDE_TYPES_SQL } from '../questionTypes';
 import { config } from '../config';
 import { db, getRankedPlayers } from '../db';
 import { getRequestUser, requireAuth, signToken } from '../middleware';
@@ -249,9 +250,7 @@ authRouter.get('/play-history/:sessionId', requireAuth, async (req, res) => {
   );
   if (!player) return res.status(404).json({ error: 'Not found' });
 
-  const session = await db.get<
-    DbSession & { quiz_title: string }
-  >(
+  const session = await db.get<DbSession & { quiz_title: string }>(
     `SELECT s.*, q.title as quiz_title
      FROM sessions s JOIN quizzes q ON q.id = s.quiz_id
      WHERE s.id = ?`,
@@ -278,7 +277,7 @@ authRouter.get('/play-history/:sessionId', requireAuth, async (req, res) => {
   }
 
   const questions = await db.all<DbQuestion[]>(
-    'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+    `SELECT * FROM questions WHERE quiz_id = ? AND question_type NOT IN ${SLIDE_TYPES_SQL} ORDER BY order_index`,
     session.quiz_id,
   );
   const answers = await db.all(

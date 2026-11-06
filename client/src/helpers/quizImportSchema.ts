@@ -1,4 +1,4 @@
-import { type QuestionWithKey, validateClosestToQuestion, withKey } from '@/helpers';
+import { isSlideType, type QuestionWithKey, validateClosestToQuestion, withKey } from '@/helpers';
 import { normalizeQuestion } from '@/pages/admin/components/studio/questionOps';
 import type { ImportPayload, QuizTranslationPayload } from '@/types';
 
@@ -149,6 +149,14 @@ export const QUIZ_IMPORT_EXAMPLE = {
       tags: ['geography', 'fun'],
     },
     {
+      text: 'Round 2: Geography',
+      options: [],
+      correctIndex: 0,
+      questionType: 'title_slide',
+      baseScore: 0,
+      explanation: 'The next questions are about places. The host moves on when everyone is ready.',
+    },
+    {
       text: 'Match each capital to its country.',
       options: ['Paris', 'Tokyo', 'Cairo'],
       matches: ['France', 'Japan', 'Egypt'],
@@ -158,6 +166,13 @@ export const QUIZ_IMPORT_EXAMPLE = {
       timeSec: 30,
       explanation: 'Partial credit is awarded per correctly matched pair.',
       tags: ['geography', 'medium'],
+    },
+    {
+      text: 'Current standings',
+      options: [],
+      correctIndex: 0,
+      questionType: 'standings_slide',
+      baseScore: 0,
     },
   ],
 } satisfies ImportPayload;
@@ -245,7 +260,11 @@ const QUIZ_IMPORT_SCHEMA_OBJECT = {
             'ordering',
             'geo',
             'matching',
+            'title_slide',
+            'standings_slide',
           ],
+          description:
+            'title_slide: section intro, text is the title and explanation the body. standings_slide: shows the current leaderboard under the title in text. Slides have no answers or timer and stay up until the host advances; use options [] and correctIndex 0.',
           default: 'multiple_choice',
         },
         baseScore: {
@@ -255,7 +274,10 @@ const QUIZ_IMPORT_SCHEMA_OBJECT = {
         },
         timeSec: { type: 'integer', default: 20, description: 'Seconds to answer' },
         imageUrl: { type: 'string', description: 'Question image URL' },
-        explanation: { type: 'string', description: 'Shown on the results screen after reveal' },
+        explanation: {
+          type: 'string',
+          description: 'Shown on the results screen after reveal; title_slide: the body text',
+        },
         rangeMin: { type: 'number', description: 'closest_to slider minimum' },
         rangeMax: { type: 'number', description: 'closest_to slider maximum' },
         mediaUrl: {
@@ -319,6 +341,7 @@ Requirements:
 4. Add an explanation on each question (shown after the answer is revealed).
 5. Add tags (topic, difficulty) on questions when helpful.
 6. Mix question types where appropriate.
+6b. If the quiz has distinct themes or rounds, put a "title_slide" before each one, and a "standings_slide" between rounds. Slides are not questions: leave out timeSec and tags, and include at least one real question.
 7. Double-check every correctIndex, correctIndices, correctAnswer, blanks, and geo coordinate.`;
 
 /** Prompt + JSON schema — copied by "Copy prompt". */
@@ -349,8 +372,14 @@ export function parseQuizImportJson(
   if (requireTitle && !payload.title) {
     return { ok: false, error: 'JSON must have "title" and a non-empty "questions" array' };
   }
+  if (payload.questions.every((q) => isSlideType(q.questionType))) {
+    return { ok: false, error: 'JSON must have at least one question, not only slides' };
+  }
   for (let i = 0; i < payload.questions.length; i++) {
     const q = payload.questions[i];
+    if (isSlideType(q.questionType) && !q.text?.trim()) {
+      return { ok: false, error: `Slide ${i + 1} is missing "text" (its title)` };
+    }
     if ((q.questionType ?? 'multiple_choice') === 'closest_to') {
       const err = validateClosestToQuestion(q, i);
       if (err) return { ok: false, error: err };

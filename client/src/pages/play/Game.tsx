@@ -5,9 +5,17 @@ import { useAuth } from '@/context/AuthContext';
 import { useCountdown } from '@/hooks/useCountdown';
 import { MuteToggle } from '@/components/MuteToggle';
 import { sound } from '@/lib/sound';
+import { SlideDisplay } from '@/components/game/SlideDisplay';
 import { StreakBadge } from '@/components/game/StreakBadge';
+import { PageVCenter } from '@/components/layout';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
-import type { GameEndedPayload, QuestionPayload, QuestionResults, QuizIntro } from '../../types';
+import type {
+  GameEndedPayload,
+  QuestionPayload,
+  QuestionResults,
+  QuizIntro,
+  SlidePayload,
+} from '../../types';
 import { AnsweredScreen } from './components/AnsweredScreen';
 import { CountdownScreen } from './components/CountdownScreen';
 import { EndedScreen } from './components/EndedScreen';
@@ -16,7 +24,15 @@ import { QuestionScreen } from './components/QuestionScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { WaitingScreen } from './components/WaitingScreen';
 
-type Phase = 'waiting' | 'countdown' | 'question' | 'answered' | 'results' | 'podium' | 'ended';
+type Phase =
+  | 'waiting'
+  | 'countdown'
+  | 'question'
+  | 'answered'
+  | 'results'
+  | 'slide'
+  | 'podium'
+  | 'ended';
 
 export default function Game() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -51,6 +67,7 @@ export default function Game() {
   const [jokersEnabled, setJokersEnabled] = useState({ pass: false, fiftyFifty: false });
   const [jokersUsed, setJokersUsed] = useState({ pass: false, fiftyFifty: false });
   const [results, setResults] = useState<QuestionResults | null>(null);
+  const [slide, setSlide] = useState<SlidePayload | null>(null);
   const [finalBoard, setFinalBoard] = useState<GameEndedPayload['leaderboard']>([]);
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
@@ -154,6 +171,14 @@ export default function Game() {
     setPhase('results');
     questionTimer.stop();
     autoAdvanceTimer.start(data.autoAdvanceSec);
+  });
+
+  useSocketEvent<SlidePayload>('game:slide', (data) => {
+    setReconnecting(false);
+    setSlide(data);
+    setPhase('slide');
+    questionTimer.stop();
+    autoAdvanceTimer.stop();
   });
 
   useSocketEvent<GameEndedPayload>('game:ended', (data) => {
@@ -368,6 +393,13 @@ export default function Game() {
         autoAdvanceLeft={autoAdvanceTimer.seconds}
         onReveal={commitStreakOnReveal}
       />
+    );
+
+  if (phase === 'slide' && slide)
+    return (
+      <PageVCenter>
+        <SlideDisplay slide={slide} playerId={playerId} />
+      </PageVCenter>
     );
 
   if (phase === 'podium')

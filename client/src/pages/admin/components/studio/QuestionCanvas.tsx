@@ -1,7 +1,7 @@
 import { Check, GripVertical, ImageIcon, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MapPicker } from '@/components/GeoMap';
-import { Input, IntegerInput } from '@/components/Input';
+import { Input, IntegerInput, Textarea } from '@/components/Input';
 import { MediaPicker } from '@/components/MediaPicker';
 import { Button } from '@/components/ui/button';
 import { countBlanks, isImageUrl, optionLetter, quadColor, quadIcon } from '@/helpers';
@@ -38,6 +38,40 @@ export function QuestionCanvas({ q, ops, onChange }: Props) {
   }, [type, blankCount, q.blanks, onChange]);
 
   const choiceMode = type === 'multiple_choice' || type === 'multi_select';
+
+  if (type === 'title_slide' || type === 'standings_slide') {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <QuestionTextEditor value={q.text} onChange={(v) => onChange('text', v)} />
+        {type === 'title_slide' ? (
+          <>
+            <MediaZone
+              q={q}
+              ops={ops}
+              allow={['image', 'gif']}
+              label="Add an image to this slide (optional)"
+            />
+            <Textarea
+              noMargin
+              label="Body text (optional)"
+              rows={4}
+              className="resize-y"
+              value={q.explanation ?? ''}
+              onChange={(e) => onChange('explanation', e.target.value || undefined)}
+              placeholder="What are the next questions about?"
+            />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Everyone sees the current leaderboard under this title.
+          </p>
+        )}
+        <p className="mt-3 text-sm text-muted-foreground">
+          Players don't answer anything here. The slide stays up until the host moves on.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">

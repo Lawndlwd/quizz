@@ -1,12 +1,13 @@
 import { ArrowLeft, ArrowRight, Check, Eye, SkipForward, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QuestionReveal } from '@/components/game/QuestionReveal';
+import { SlideDisplay } from '@/components/game/SlideDisplay';
 import { PageVCenter } from '@/components/layout';
 import { QuestionImage } from '@/components/QuestionImage';
 import { QuestionMedia } from '@/components/QuestionMedia';
 import { QuestionText } from '@/components/QuestionText';
 import { Button } from '@/components/ui/button';
-import { countBlanks, hasQuestionImage } from '@/helpers';
+import { countBlanks, hasQuestionImage, isSlideType } from '@/helpers';
 import { useCountdown } from '@/hooks/useCountdown';
 import { QuestionScreen } from '@/pages/play/components/QuestionScreen';
 import type { ImportQuestion, QuestionPayload, QuestionResults } from '@/types';
@@ -58,6 +59,7 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
   const sawPositive = useRef(false);
   const q = questions[index];
   const type = q?.questionType ?? 'multiple_choice';
+  const isSlide = isSlideType(type);
 
   // Reset per-question state and (re)start the timer whenever the question changes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on index only
@@ -78,7 +80,7 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
       setClosestValue(Math.round((min + max) / 2));
     }
     sawPositive.current = false;
-    timer.start(q.timeSec ?? 20);
+    if (!isSlide) timer.start(q.timeSec ?? 20);
     return () => timer.stop();
   }, [index]);
 
@@ -92,8 +94,8 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
   const payload: QuestionPayload | null = useMemo(() => {
     if (!q) return null;
     return {
-      questionIndex: index,
-      totalQuestions: questions.length,
+      questionIndex: questions.slice(0, index).filter((x) => !isSlideType(x.questionType)).length,
+      totalQuestions: questions.filter((x) => !isSlideType(x.questionType)).length,
       questionId: index,
       text: q.text,
       options: q.options ?? [],
@@ -112,7 +114,7 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
       // in buildQuestionPayload), which would otherwise give away every pair.
       rightOptions: type === 'matching' ? shuffle(q.matches ?? []) : undefined,
     };
-  }, [q, index, questions.length, type]);
+  }, [q, index, questions, type]);
 
   if (!q || !payload) return null;
 
@@ -223,7 +225,7 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
         <span className="px-1 text-sm font-semibold tabular-nums">
           {index + 1}/{questions.length}
         </span>
-        {phase === 'question' ? (
+        {phase === 'question' && !isSlide ? (
           <Button type="button" variant="default" size="sm" onClick={reveal}>
             <SkipForward className="size-4" />
             <span className="hidden sm:inline"> Reveal answer</span>
@@ -247,7 +249,20 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
       </div>
 
       <div className="pb-32 sm:pb-28">
-        {phase === 'question' ? (
+        {isSlide ? (
+          <PageVCenter>
+            <SlideDisplay
+              slide={{
+                slideId: index,
+                slideType: type,
+                title: q.text,
+                body: q.explanation?.trim() || undefined,
+                imageUrl: q.imageUrl,
+                isLast: index === questions.length - 1,
+              }}
+            />
+          </PageVCenter>
+        ) : phase === 'question' ? (
           <QuestionScreenPreview
             key={index}
             payload={payload}

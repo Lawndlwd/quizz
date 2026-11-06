@@ -87,7 +87,7 @@ export function PresentationPanel({ baseUrl, pin, screenCount }: PanelProps) {
 }
 
 interface BarProps {
-  phase: 'question' | 'results';
+  phase: 'question' | 'results' | 'slide';
   isLastQuestion: boolean;
   onFinishQuestion: () => void;
   onNextQuestion: () => void;

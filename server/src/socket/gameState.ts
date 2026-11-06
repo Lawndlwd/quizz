@@ -85,7 +85,7 @@ export interface ActiveSession {
   resultsShownAt: number | null;
   status: 'waiting' | 'active' | 'finished';
   // Current phase within an active game
-  questionPhase: 'question' | 'results' | null;
+  questionPhase: 'question' | 'results' | 'slide' | null;
   // Last payloads for reconnecting players
   lastQuestionPayload: object | null;
   lastResultsPayload: object | null;
