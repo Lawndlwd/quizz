@@ -92,6 +92,7 @@ export interface Session {
   hosted_by_user_id?: number | null;
   host_email?: string | null;
   host_username?: string | null;
+  presentation_mode?: number;
 }
 
 export interface Player {
@@ -176,6 +177,25 @@ export interface QuestionResults {
   isLastQuestion: boolean;
   autoAdvanceSec: number;
 }
+
+/** Host-only answer for the live question (presentation mode). */
+export type AnswerKey = Pick<
+  QuestionResults,
+  | 'questionId'
+  | 'questionType'
+  | 'options'
+  | 'correctAnswer'
+  | 'correctIndex'
+  | 'correctIndices'
+  | 'correctBlanks'
+  | 'correctOrder'
+  | 'correctPairs'
+  | 'geo'
+  | 'imageUrl'
+  | 'rangeMin'
+  | 'rangeMax'
+  | 'explanation'
+>;
 
 /** Lobby/host view of a connected player. */
 export interface PlayerInfo {
@@ -300,4 +320,5 @@ export interface AppConfig {
   streakBonusBase: number;
   resultsAutoAdvanceSec: number;
   chooseQuizMaker: boolean;
+  publicUrl: string;
 }

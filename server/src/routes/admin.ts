@@ -86,6 +86,20 @@ adminRouter.get('/metrics', requireSuperAdmin, async (_req, res) => {
 
 // ─── Config (super admin only — branding + global settings) ──────────────────
 
+/** '' stays '' (unset); otherwise an http(s) origin plus path, no trailing slash. Null = invalid. */
+function normalizePublicUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+  } catch {
+    return null;
+  }
+}
+
 adminRouter.get('/config', requireAuth, (_req, res) => {
   res.json(toPublicConfig());
 });
@@ -106,6 +120,14 @@ adminRouter.put('/config', requireSuperAdmin, (req: Request, res: Response) => {
     'resultsAutoAdvanceSec',
     'chooseQuizMaker',
   ];
+  const publicUrl = req.body.publicUrl as unknown;
+  if (publicUrl !== undefined) {
+    const normalized = normalizePublicUrl(publicUrl);
+    if (normalized === null) {
+      return res.status(400).json({ error: 'Public URL must be a valid http(s) URL' });
+    }
+    config.publicUrl = normalized;
+  }
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
       (config as unknown as Record<string, unknown>)[key] = req.body[key];
@@ -441,7 +463,7 @@ function generatePin(): string {
 }
 
 adminRouter.post('/sessions', requireAuth, async (req: Request, res: Response) => {
-  const { quizId } = req.body as { quizId: number };
+  const { quizId, presentationMode } = req.body as { quizId: number; presentationMode?: boolean };
   const quiz = await db.get<DbQuiz>('SELECT * FROM quizzes WHERE id = ?', quizId);
   if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
   if (!(await canAccessQuiz(req, quiz))) {
@@ -457,11 +479,12 @@ adminRouter.post('/sessions', requireAuth, async (req: Request, res: Response) =
   const hostedBy = isSuperAdmin(req) ? null : currentUserId(req);
 
   const result = await db.run(
-    'INSERT INTO sessions (quiz_id, pin, status, hosted_by_user_id) VALUES (?, ?, ?, ?)',
+    'INSERT INTO sessions (quiz_id, pin, status, hosted_by_user_id, presentation_mode) VALUES (?, ?, ?, ?, ?)',
     quizId,
     pin,
     'waiting',
     hostedBy,
+    presentationMode === true ? 1 : 0,
   );
 
   res.status(201).json({ id: result.lastID, pin });

@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { useMemo } from 'react';
 import { QuadGlyph } from '@/components/game/QuadGlyph';
 import { QuestionReveal } from '@/components/game/QuestionReveal';
 import { OptionText } from '@/components/OptionText';
@@ -51,6 +52,28 @@ export function QuestionDistribution({
     results.questionType === 'true_false';
   const isMultiSelect = results.questionType === 'multi_select';
 
+  // Memoized: a new array would rebuild the Leaflet map on every parent render.
+  const mapGuesses = useMemo(
+    () =>
+      results.leaderboard.flatMap((e) =>
+        e.chosenPoint
+          ? [
+              {
+                playerId: e.playerId,
+                username: e.username,
+                avatar: e.avatar,
+                point: e.chosenPoint,
+                distanceKm: e.distance,
+                isMine:
+                  e.chosenPoint.lat === myChosenPoint?.lat &&
+                  e.chosenPoint.lng === myChosenPoint?.lng,
+              },
+            ]
+          : [],
+      ),
+    [results.leaderboard, myChosenPoint?.lat, myChosenPoint?.lng],
+  );
+
   const dist =
     isOptionBased && results.options.length > 0
       ? (results.answerDistribution ??
@@ -64,6 +87,7 @@ export function QuestionDistribution({
         myChosenIndex={myChosenIndex}
         myChosenIndices={myChosenIndices}
         myChosenPoint={myChosenPoint}
+        mapGuesses={mapGuesses}
         animate
       />
     );

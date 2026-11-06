@@ -19,6 +19,7 @@ const PlayHistory = lazy(() => import('./pages/user/PlayHistory'));
 const PlaySessionDetail = lazy(() => import('./pages/user/PlaySessionDetail'));
 const Game = lazy(() => import('./pages/play/Game'));
 const Join = lazy(() => import('./pages/play/Join'));
+const Screen = lazy(() => import('./pages/screen/Screen'));
 
 function Loading() {
   return (
@@ -175,6 +176,14 @@ export default function App() {
         element={
           <Lazy>
             <Game />
+          </Lazy>
+        }
+      />
+      <Route
+        path="/screen/:pin"
+        element={
+          <Lazy>
+            <Screen />
           </Lazy>
         }
       />

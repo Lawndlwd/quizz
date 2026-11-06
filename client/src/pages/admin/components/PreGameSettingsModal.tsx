@@ -9,7 +9,7 @@ import type { AppConfig, GameSettings } from '../../../types';
 
 interface Props {
   config: AppConfig;
-  onConfirm: (settings: GameSettings) => void;
+  onConfirm: (settings: GameSettings, presentationMode: boolean) => void;
   onCancel: () => void;
 }
 
@@ -19,6 +19,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
   const [streakBase, setStreakBase] = useState(config.streakBonusBase);
   const [passEnabled, setPassEnabled] = useState(false);
   const [fiftyFiftyEnabled, setFiftyFiftyEnabled] = useState(false);
+  const [presentationMode, setPresentationMode] = useState(false);
 
   const defaultSettings: GameSettings = {
     baseScore: config.defaultBaseScore,
@@ -44,6 +45,26 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
           </p>
 
           <div className="flex flex-col gap-5">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="presentation-mode"
+                className="mt-0.5"
+                checked={presentationMode}
+                onCheckedChange={(v) => setPresentationMode(v === true)}
+              />
+              <div>
+                <Label htmlFor="presentation-mode" className="font-semibold">
+                  Presentation mode
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Show the game on a projector or TV. Players answer from their phones and you
+                  control each step.
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
             <IntegerInput
               id="pass-joker-score"
               label="Pass joker score"
@@ -131,7 +152,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
               type="button"
               variant="secondary"
               className="flex-1"
-              onClick={() => onConfirm(defaultSettings)}
+              onClick={() => onConfirm(defaultSettings, presentationMode)}
             >
               Use defaults
             </Button>
@@ -139,7 +160,7 @@ export function PreGameSettingsModal({ config, onConfirm, onCancel }: Props) {
               type="button"
               variant="success"
               className="flex-1"
-              onClick={() => onConfirm(currentSettings)}
+              onClick={() => onConfirm(currentSettings, presentationMode)}
             >
               Start →
             </Button>

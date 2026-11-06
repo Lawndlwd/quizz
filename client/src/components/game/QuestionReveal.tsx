@@ -1,5 +1,5 @@
 import { Check, MapPin } from 'lucide-react';
-import { MapReveal } from '@/components/GeoMap';
+import { type MapGuess, MapReveal } from '@/components/GeoMap';
 import { OptionText } from '@/components/OptionText';
 import { QuestionExplanation } from '@/components/QuestionExplanation';
 import { optionLetter } from '@/helpers';
@@ -27,6 +27,8 @@ interface Props {
   myChosenIndices?: number[] | null;
   /** Player view: where this player dropped their pin, for geo questions */
   myChosenPoint?: { lat: number; lng: number } | null;
+  /** Geo: every player's pin. Without it the map shows only `myChosenPoint`. */
+  mapGuesses?: MapGuess[];
   animate?: boolean;
 }
 
@@ -35,6 +37,7 @@ export function QuestionReveal({
   myChosenIndex,
   myChosenIndices,
   myChosenPoint,
+  mapGuesses,
   animate = false,
 }: Props) {
   const isOpenText = results.questionType === 'open_text';
@@ -92,7 +95,12 @@ export function QuestionReveal({
         <div className="result-reveal-correct rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
           <p className="mb-2 text-[0.78rem] text-muted-foreground">Correct location</p>
           {results.geo ? (
-            <MapReveal correct={results.geo} guess={myChosenPoint ?? undefined} height={300} />
+            <MapReveal
+              correct={results.geo}
+              guess={myChosenPoint ?? undefined}
+              guesses={mapGuesses}
+              height={300}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Location revealed on the host screen.</p>
           )}
@@ -101,6 +109,11 @@ export function QuestionReveal({
             {myChosenPoint ? (
               <>
                 · <MapPin className="size-3.5" /> your pin
+              </>
+            ) : null}
+            {mapGuesses?.length ? (
+              <>
+                · {mapGuesses.length} player{mapGuesses.length === 1 ? '' : 's'}
               </>
             ) : null}
           </p>

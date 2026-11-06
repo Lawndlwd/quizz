@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCountdown } from '@/hooks/useCountdown';
 import { useTheme } from '@/hooks/useTheme';
 import { MuteToggle } from '@/components/MuteToggle';
+import { sound } from '@/lib/sound';
 import { StreakBadge } from '@/components/game/StreakBadge';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type { GameEndedPayload, QuestionPayload, QuestionResults, QuizIntro } from '../../types';
@@ -57,6 +58,9 @@ export default function Game() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [quizIntro, setQuizIntro] = useState<QuizIntro | null>(null);
   const [streak, setStreak] = useState(0);
+  const [presentationMode, setPresentationMode] = useState(false);
+  // The big screen shows the base language, so translated players keep the text here.
+  const isTranslated = !!storedSession.locale && storedSession.locale !== 'base';
 
   const questionTimer = useCountdown(0);
   const autoAdvanceTimer = useCountdown(0);
@@ -64,6 +68,12 @@ export default function Game() {
   const effectiveSessionId = Number(sessionId) || Number(storedSession.sessionId) || 0;
 
   useTheme(quizIntro?.theme);
+
+  // Phones are controllers in a presentation game: the big screen is the speaker.
+  useEffect(() => {
+    sound.setSuppressed(presentationMode);
+    return () => sound.setSuppressed(false);
+  }, [presentationMode]);
 
   useEffect(() => {
     if (!playerId) navigate('/play', { replace: true });
@@ -77,8 +87,9 @@ export default function Game() {
     },
   );
 
-  useSocketEvent<{ quizIntro?: QuizIntro }>('player:joined', (data) => {
+  useSocketEvent<{ quizIntro?: QuizIntro; presentationMode?: boolean }>('player:joined', (data) => {
     if (data.quizIntro) setQuizIntro(data.quizIntro);
+    setPresentationMode(!!data.presentationMode);
     // We're connected and in the lobby now — clear the initial "reconnecting" flag.
     setReconnecting(false);
   });
@@ -292,6 +303,7 @@ export default function Game() {
         intro={quizIntro}
         sessionId={effectiveSessionId}
         playerId={playerId}
+        presentationMode={presentationMode}
       />
     );
 
@@ -301,6 +313,8 @@ export default function Game() {
     return (
       <QuestionScreen
         question={question}
+        controller={presentationMode}
+        showQuestionText={!presentationMode || isTranslated}
         timeLeft={questionTimer.seconds}
         selectedIndex={selectedIndex}
         selectedIndices={selectedIndices}
@@ -385,7 +399,7 @@ export default function Game() {
   return (
     <>
       {renderScreen()}
-      <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      {!presentationMode && <MuteToggle className="fixed left-3 bottom-3 z-50" />}
       {showStreak && (
         <div key={streak} className="fixed top-3 right-3 z-40">
           <StreakBadge streak={streak} />

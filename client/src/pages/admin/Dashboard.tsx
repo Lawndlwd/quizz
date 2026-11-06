@@ -100,12 +100,13 @@ export default function Dashboard() {
     setShowSettingsModal(true);
   }
 
-  async function confirmStart(gameSettings: GameSettings) {
+  async function confirmStart(gameSettings: GameSettings, presentationMode: boolean) {
     if (!pendingStartQuizId) return;
     setStarting(pendingStartQuizId);
     setShowSettingsModal(false);
     const { ok, data } = await api.post<{ id: number }>('/api/admin/sessions', {
       quizId: pendingStartQuizId,
+      presentationMode,
     });
     setStarting(null);
     setPendingStartQuizId(null);

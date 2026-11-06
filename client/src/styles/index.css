@@ -1317,3 +1317,118 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Presentation screen: room-scale type for a projector or TV. */
+.screen-stage .option-quad {
+  font-size: clamp(18px, 2.4vw, 40px);
+  min-height: clamp(72px, 13vh, 150px);
+}
+.screen-stage .quad-grid {
+  gap: clamp(12px, 1.5vw, 28px);
+}
+.screen-stage .timer-num {
+  font-size: clamp(2rem, 4vw, 4.5rem);
+}
+.screen-stage .lb-item,
+.screen-stage .dist-head {
+  font-size: clamp(1rem, 1.6vw, 1.8rem);
+}
+/* Fixed-size question-type notes, lists and answer reveals. Maps stay out: Leaflet
+   computes its own pointer and tile geometry. */
+.screen-stage .question-detail:not(:has(.leaflet-container)),
+.screen-stage .result-reveal-correct:not(:has(.leaflet-container)) {
+  zoom: 1.6;
+}
+.screen-stage .pin-display {
+  max-width: 100%;
+  padding: 14px 24px;
+  font-size: clamp(2.25rem, 4.5vw, 6rem);
+}
+@media (min-width: 1600px) {
+  .screen-stage .screen-intro {
+    zoom: 1.35;
+  }
+}
+.screen-stage .result-reveal-correct .leaflet-container {
+  height: 52vh !important;
+}
+
+/* Player avatar pins on the geo reveal map. */
+.geo-guess-icon {
+  background: none;
+  border: none;
+}
+.geo-guess {
+  position: relative;
+  width: 36px;
+  height: 44px;
+}
+.geo-guess::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-width: 10px 6px 0;
+  border-color: #fff transparent transparent;
+}
+.geo-guess-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #1e1b2e;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.geo-guess-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.geo-guess.mine .geo-guess-face {
+  border-color: #7c3aed;
+}
+.geo-guess.mine::after {
+  border-top-color: #7c3aed;
+}
+.geo-guess-label {
+  display: flex;
+  gap: 5px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.geo-guess > .geo-guess-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(15, 13, 26, 0.85);
+}
+.geo-guess-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.geo-guess-distance {
+  font-weight: 400;
+  opacity: 0.75;
+}
+.leaflet-tooltip .geo-guess-label {
+  color: #111;
+}

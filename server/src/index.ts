@@ -24,6 +24,7 @@ app.get('/api/public', (_req, res) =>
     appName: config.appName ?? '',
     appSubtitle: config.appSubtitle ?? '',
     allowedDomain: config.allowedDomain ?? '',
+    publicUrl: config.publicUrl ?? '',
   }),
 );
 

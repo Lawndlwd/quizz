@@ -24,6 +24,8 @@ export interface AppConfig {
   resultsAutoAdvanceSec: number;
   /** Show the "next quiz maker" random picker on the final podium screen */
   chooseQuizMaker: boolean;
+  /** Base URL phones use to reach this app (QR/join link). Empty = host's browser origin. */
+  publicUrl: string;
 }
 
 export type AuthRole = 'super_admin' | 'user';
@@ -181,6 +183,8 @@ export interface DbSession {
   finished_at: string | null;
   quiz_title?: string;
   hosted_by_user_id: number | null;
+  /** 1 = big-screen presentation game: /screen/:pin shows it, phones are controllers. */
+  presentation_mode: number;
 }
 
 export interface DbPlayer {

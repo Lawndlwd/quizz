@@ -325,3 +325,37 @@ export function mapDbQuestionToImport(q: {
 }
 
 export type { ImportPayload };
+
+/** Base URL phones should use: the configured public URL, else this browser's origin. */
+export function publicBaseUrl(publicUrl: string): string {
+  return (publicUrl || window.location.origin).replace(/\/+$/, '');
+}
+
+/**
+ * Copy text, returning whether it worked. `navigator.clipboard` only exists on
+ * HTTPS and localhost, so a host on a plain-http LAN address needs the legacy path.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* blocked by the browser: try the legacy path */
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.append(textarea);
+  textarea.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
+}

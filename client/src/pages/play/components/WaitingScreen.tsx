@@ -16,6 +16,7 @@ interface Props {
   intro?: QuizIntro | null;
   sessionId: number;
   playerId: number;
+  presentationMode?: boolean;
 }
 
 export function WaitingScreen({
@@ -25,6 +26,7 @@ export function WaitingScreen({
   intro,
   sessionId,
   playerId,
+  presentationMode,
 }: Props) {
   const title = intro ? intro.title : reconnecting ? 'Welcome back!' : 'Get ready!';
 
@@ -59,7 +61,11 @@ export function WaitingScreen({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{username}</p>
                   <p className="text-sm text-muted-foreground">
-                    {reconnecting ? 'Resuming your game' : 'Waiting for the host to start'}
+                    {reconnecting
+                      ? 'Resuming your game'
+                      : presentationMode
+                        ? 'Watch the big screen'
+                        : 'Waiting for the host to start'}
                     <span className="dots">
                       <span>.</span>
                       <span>.</span>

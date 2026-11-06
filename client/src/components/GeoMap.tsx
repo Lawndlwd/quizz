@@ -46,6 +46,66 @@ function pin(color: string): L.DivIcon {
 const PIN_GUESS = '#7c3aed';
 const PIN_CORRECT = '#22c55e';
 
+/** One player's pin on the reveal map. */
+export interface MapGuess {
+  playerId: number;
+  username: string;
+  avatar?: string;
+  point: LatLng;
+  distanceKm?: number | null;
+  isMine?: boolean;
+}
+
+// Beyond this, permanent name labels bury the map: names move to a hover/tap tooltip.
+const MAX_NAME_LABELS = 12;
+
+function guessLabel(guess: MapGuess): HTMLElement {
+  const label = document.createElement('div');
+  label.className = 'geo-guess-label';
+  const name = document.createElement('span');
+  name.className = 'geo-guess-name';
+  name.textContent = guess.username;
+  label.append(name);
+  if (guess.distanceKm != null) {
+    const distance = document.createElement('span');
+    distance.className = 'geo-guess-distance';
+    distance.textContent = `${Math.round(guess.distanceKm).toLocaleString()} km`;
+    label.append(distance);
+  }
+  return label;
+}
+
+/**
+ * A player's avatar pin. Built from DOM nodes, not an HTML string: names and
+ * avatars are player-supplied, and divIcon/tooltip strings are rendered as HTML.
+ */
+function guessIcon(guess: MapGuess, showLabel: boolean): L.DivIcon {
+  const root = document.createElement('div');
+  root.className = guess.isMine ? 'geo-guess mine' : 'geo-guess';
+  if (showLabel) root.append(guessLabel(guess));
+
+  const face = document.createElement('div');
+  face.className = 'geo-guess-face';
+  const avatar = guess.avatar;
+  if (avatar?.startsWith('data:') || avatar?.startsWith('/avatars/')) {
+    const img = document.createElement('img');
+    img.src = avatar;
+    img.alt = '';
+    face.append(img);
+  } else {
+    face.textContent = avatar || '🎮';
+  }
+  root.append(face);
+
+  return L.divIcon({
+    html: root,
+    className: 'geo-guess-icon',
+    iconSize: [36, 44],
+    iconAnchor: [18, 44],
+    tooltipAnchor: [0, -44],
+  });
+}
+
 /**
  * Interactive map — click to drop / move a single pin.
  */
@@ -110,14 +170,20 @@ export function MapPicker({
   );
 }
 
-/** Static reveal map — correct spot (green pin), the player's guess (violet pin) and a link line. */
+/**
+ * Static reveal map — the correct spot (green pin) plus either every player's avatar
+ * pin (`guesses`) or just one guess (`guess`), each linked to the correct spot.
+ * Keep `guesses` referentially stable: a new array rebuilds the map.
+ */
 export function MapReveal({
   correct,
   guess,
+  guesses,
   height = 300,
 }: {
   correct: LatLng;
   guess?: LatLng | null;
+  guesses?: MapGuess[];
   height?: number | string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -125,25 +191,50 @@ export function MapReveal({
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
-    const map = L.map(ref.current, MAP_OPTS);
+    // Further out than the picker, so guesses across the globe still fit on a phone.
+    const map = L.map(ref.current, { ...MAP_OPTS, minZoom: 0 });
     addTiles(map);
-    L.marker([correct.lat, correct.lng], { icon: pin(PIN_CORRECT) }).addTo(map);
-    if (guess) {
-      L.marker([guess.lat, guess.lng], { icon: pin(PIN_GUESS) }).addTo(map);
+    L.marker([correct.lat, correct.lng], {
+      icon: pin(PIN_CORRECT),
+      zIndexOffset: 2000,
+    }).addTo(map);
+
+    const points: L.LatLngTuple[] = [[correct.lat, correct.lng]];
+    const link = (from: LatLng, opacity: number) => {
       L.polyline(
         [
-          [guess.lat, guess.lng],
+          [from.lat, from.lng],
           [correct.lat, correct.lng],
         ],
-        { color: '#f59e0b', weight: 2, dashArray: '6 6' },
+        { color: '#f59e0b', weight: 2, dashArray: '6 6', opacity },
       ).addTo(map);
-      map.fitBounds(
-        [
-          [guess.lat, guess.lng],
-          [correct.lat, correct.lng],
-        ],
-        { padding: [40, 40], maxZoom: 6 },
-      );
+      points.push([from.lat, from.lng]);
+    };
+
+    if (guesses?.length) {
+      const showLabels = guesses.length <= MAX_NAME_LABELS;
+      for (const g of guesses) {
+        link(g.point, g.isMine ? 1 : 0.5);
+        const marker = L.marker([g.point.lat, g.point.lng], {
+          icon: guessIcon(g, showLabels || !!g.isMine),
+          riseOnHover: true,
+          zIndexOffset: g.isMine ? 1000 : 0,
+        }).addTo(map);
+        if (!showLabels && !g.isMine) marker.bindTooltip(guessLabel(g), { direction: 'top' });
+      }
+    } else if (guess) {
+      L.marker([guess.lat, guess.lng], { icon: pin(PIN_GUESS) }).addTo(map);
+      link(guess, 1);
+    }
+
+    if (points.length > 1) {
+      // Pins and labels hang above their point, so the top needs the most room.
+      const side = Math.min(70, ref.current.clientWidth * 0.1);
+      map.fitBounds(points, {
+        paddingTopLeft: [side, 90],
+        paddingBottomRight: [side, 30],
+        maxZoom: 6,
+      });
     } else {
       map.setView([correct.lat, correct.lng], 4);
     }
@@ -154,7 +245,7 @@ export function MapReveal({
       map.remove();
       mapRef.current = null;
     };
-  }, [correct, guess]);
+  }, [correct, guess, guesses]);
 
   return (
     <div

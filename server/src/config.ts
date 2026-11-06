@@ -28,6 +28,7 @@ const DEFAULTS: AppConfig = {
   streakBonusBase: 50,
   resultsAutoAdvanceSec: 0,
   chooseQuizMaker: false,
+  publicUrl: '',
 };
 
 export function loadConfig(): AppConfig {
@@ -44,6 +45,7 @@ export function loadConfig(): AppConfig {
   // Env vars always win over file — useful for Docker deployments
   if (process.env.JWT_SECRET) cfg.jwtSecret = process.env.JWT_SECRET;
   if (process.env.ALLOWED_DOMAIN !== undefined) cfg.allowedDomain = process.env.ALLOWED_DOMAIN;
+  if (process.env.PUBLIC_URL) cfg.publicUrl = process.env.PUBLIC_URL;
 
   // Refuse to boot with a missing or well-known JWT secret: it would let anyone
   // forge super-admin tokens. Operators must set a strong JWT_SECRET.

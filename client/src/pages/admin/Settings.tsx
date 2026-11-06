@@ -347,6 +347,14 @@ export default function Settings() {
                 hint="Displayed below the logo on the join screen. Leave blank to hide."
               />
               <BrandingPreview appName={cfg.appName ?? ''} appSubtitle={cfg.appSubtitle ?? ''} />
+              <Input
+                label="Public URL"
+                placeholder="e.g. https://quiz.example.com"
+                value={cfg.publicUrl ?? ''}
+                onChange={(e) => update('publicUrl', e.target.value)}
+                noMargin
+                hint="Address phones use for join links and QR codes. Leave blank to use the host's browser address."
+              />
             </SettingsSection>
 
             <SettingsSection

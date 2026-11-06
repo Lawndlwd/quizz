@@ -28,6 +28,9 @@ class SoundManager {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private muted = false;
+  // Session-only silence for devices that aren't the room's speaker. Unlike
+  // `muted` it isn't persisted, so it can't leak into the next normal game.
+  private suppressed = false;
   private flavor: Flavor = FLAVORS.default;
   private loops = new Map<SoundName, AudioBufferSourceNode>();
   private resumeBound = false;
@@ -70,6 +73,11 @@ class SoundManager {
     if (m) this.stop();
   }
 
+  setSuppressed(s: boolean): void {
+    this.suppressed = s;
+    if (s) this.stop();
+  }
+
   isMuted(): boolean {
     return this.muted;
   }
@@ -79,7 +87,7 @@ class SoundManager {
   }
 
   play(name: SoundName): void {
-    if (this.muted) return;
+    if (this.muted || this.suppressed) return;
     const ctx = this.ensureCtx();
     if (!ctx || !this.master) return;
     // Cheap no-op when already running; won't unlock a suspended context, but
