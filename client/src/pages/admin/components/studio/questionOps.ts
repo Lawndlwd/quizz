@@ -1,4 +1,4 @@
-import { countBlanks } from '@/helpers';
+import { countBlanks, isSlideType } from '@/helpers';
 import { arrayMove } from '@/hooks/usePointerReorder';
 import type { ImportQuestion, QuestionType } from '@/types';
 
@@ -29,6 +29,9 @@ export function isBlankQuestion(q: ImportQuestion): boolean {
 export function normalizeQuestion(q: ImportQuestion): ImportQuestion {
   const type = q.questionType ?? 'multiple_choice';
   let next = q;
+  if (isSlideType(type) && (!next.options || next.correctIndex === undefined)) {
+    next = { ...next, options: next.options ?? [], correctIndex: next.correctIndex ?? 0 };
+  }
   if (type === 'closest_to') {
     if (next.rangeMin === undefined) next = { ...next, rangeMin: 1 };
     if (next.rangeMax === undefined) next = { ...next, rangeMax: 100 };
@@ -84,7 +87,19 @@ export function questionOps(q: ImportQuestion, onChange: ChangeFn) {
     // below would otherwise wipe the author's correctIndices back to [0].
     if (t === type) return;
     onChange('questionType', t);
-    if (t === 'true_false') {
+    if (isSlideType(t)) {
+      onChange('options', []);
+      onChange('correctIndex', 0);
+      onChange('correctIndices', undefined);
+      onChange('mediaType', undefined);
+      onChange('mediaUrl', undefined);
+      onChange('tags', undefined);
+      if (t === 'standings_slide') {
+        onChange('imageUrl', undefined);
+        onChange('explanation', undefined);
+        if (!q.text.trim()) onChange('text', 'Current standings');
+      }
+    } else if (t === 'true_false') {
       onChange('options', ['True', 'False']);
       onChange('correctIndex', 0);
       onChange('correctIndices', undefined);

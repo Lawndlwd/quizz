@@ -209,6 +209,13 @@ All settings live in `.env`. See [`.env.example`](.env.example) for details.
 | **Locate on map** | Drop a pin on a map. Within 50 km counts as correct; beyond that, points decay exponentially with distance. |
 | **Match pairs** | Link each item on the left to its match on the right. |
 
+Quizzes can also include two slides that take no answers and stay on screen until the host moves on:
+
+| Slide | What it shows |
+|---|---|
+| **Title slide** | A title, with optional body text and image, to introduce the next questions. |
+| **Standings slide** | The current leaderboard, for example at the halfway point. |
+
 Each question can also have:
 
 - **Base score** and **time limit** (defaults: 500 pts, 20 s)

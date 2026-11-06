@@ -9,12 +9,14 @@ import {
   type LucideIcon,
   MapPin,
   PenLine,
+  Presentation,
   Square,
   SquareDashed,
   Star,
   Target,
   ToggleLeft,
   Triangle,
+  Trophy,
 } from 'lucide-react';
 import type { GeoPoint, ImportPayload, ImportQuestion, QuestionType } from '@/types';
 export type QuestionWithKey = ImportQuestion & { _key: string };
@@ -157,7 +159,14 @@ export const QUESTION_TYPE_META: Record<QuestionType, { label: string; icon: Luc
   ordering: { label: 'Put in Order', icon: ArrowUpDown },
   geo: { label: 'Locate on Map', icon: MapPin },
   matching: { label: 'Match Pairs', icon: Link2 },
+  title_slide: { label: 'Title Slide', icon: Presentation },
+  standings_slide: { label: 'Standings Slide', icon: Trophy },
 };
+
+/** Slides are non-question entries in a quiz: no answers, no timer, no points. */
+export function isSlideType(type: QuestionType | undefined): boolean {
+  return type === 'title_slide' || type === 'standings_slide';
+}
 
 /** Format a duration in seconds as `45s`, `2m`, or `2m 30s`. */
 export function formatTime(totalSec: number): string {
@@ -224,10 +233,14 @@ export function validateClosestToQuestion(q: ImportQuestion, index: number): str
 export function validateQuizQuestions(questions: ImportQuestion[]): string | null {
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
+    const type = q.questionType ?? 'multiple_choice';
+    if (isSlideType(type)) {
+      if (!q.text.trim()) return `Slide ${i + 1} has no title`;
+      continue;
+    }
     if (!q.text.trim()) {
       return `Question ${i + 1} has no text`;
     }
-    const type = q.questionType ?? 'multiple_choice';
     if (type === 'open_text' && !q.correctAnswer?.trim()) {
       return `Question ${i + 1} needs a correct answer`;
     }
@@ -288,7 +301,9 @@ export function validateQuizQuestions(questions: ImportQuestion[]): string | nul
 
 export function validateQuizPayload(title: string, questions: ImportQuestion[]): string | null {
   if (!title.trim()) return 'Title is required';
-  if (questions.length === 0) return 'At least one question is required';
+  if (questions.every((q) => isSlideType(q.questionType))) {
+    return 'At least one question is required';
+  }
   return validateQuizQuestions(questions);
 }
 

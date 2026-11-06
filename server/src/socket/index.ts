@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 import { type Socket, Server as SocketServer } from 'socket.io';
+import { isSlideType, playableCount, playableIndex } from '../questionTypes';
 import { parseIntegerInRange, scoreClosestToGuess } from '../closestTo';
 import { config } from '../config';
 import { db, getRankedPlayers } from '../db';
@@ -139,7 +140,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           totalScore: p.total_score,
           avatar: state?.playerAvatars?.get(p.id),
         })),
-        questionCount: state.questions.length,
+        questionCount: playableCount(state.questions),
         gameSettings: state?.gameSettings ?? { jokersEnabled: { pass: false, fiftyFifty: false } },
         quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
       });
@@ -155,6 +156,8 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
       } else if (session.status === 'active') {
         if (state.questionPhase === 'results' && state.lastResultsPayload) {
           restoreResultsPhase(socket, state, 'base');
+          emitNextPreview(io, state);
+        } else if (await restoreSlide(socket, state, 'base')) {
           emitNextPreview(io, state);
         } else {
           // Live question (in memory) or cold state after a server restart —
@@ -232,7 +235,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
           totalScore: p.total_score,
           avatar: state.playerAvatars.get(p.id),
         })),
-        questionCount: state.questions.length,
+        questionCount: playableCount(state.questions),
         quizIntro: quiz ? buildQuizIntro(quiz, state.questions) : undefined,
       });
 
@@ -241,6 +244,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         restoreResultsPhase(socket, state, 'base');
         return;
       }
+      if (await restoreSlide(socket, state, 'base')) return;
       if (!(state.questionPhase === 'question' && state.lastQuestionPayload)) {
         coldRebuildQuestion(io, state, session, 'base');
       }
@@ -1090,10 +1094,11 @@ function emitNextPreview(io: SocketServer, state: ActiveSession): void {
   const nextQ = state.questions[nextIndex];
   io.to(`admin:${state.sessionId}`).emit('game:next-preview', {
     hasNext: !!nextQ,
-    index: nextIndex,
-    total: state.questions.length,
+    index: playableIndex(state.questions, nextIndex),
+    total: playableCount(state.questions),
     text: nextQ?.text ?? null,
     mediaType: nextQ?.media_type ?? null,
+    isSlide: isSlideType(nextQ?.question_type),
   });
 }
 
@@ -1126,7 +1131,7 @@ function restoreQuestionPhase(socket: Socket, state: ActiveSession, locale: stri
       : (buildQuestionPayload(
           localizeDbQuestion(baseQ, index, locale, state.translations),
           index,
-          state.questions.length,
+          state.questions,
           state.answerSeed,
         ) as Record<string, unknown>);
   const originalTimeSec = (payload.timeSec as number) ?? 0;
@@ -1196,7 +1201,7 @@ function coldRebuildQuestion(
   const basePayload = buildQuestionPayload(
     currentQ,
     index,
-    state.questions.length,
+    state.questions,
     state.answerSeed,
   ) as Record<string, unknown>;
   state.questionPhase = 'question';
@@ -1214,7 +1219,7 @@ function coldRebuildQuestion(
   return buildQuestionPayload(
     localizeDbQuestion(currentQ, index, locale, state.translations),
     index,
-    state.questions.length,
+    state.questions,
     state.answerSeed,
   ) as Record<string, unknown>;
 }
@@ -1244,6 +1249,8 @@ async function emitReconnectGameState(
     restoreResultsPhase(socket, state, locale);
     return;
   }
+
+  if (await restoreSlide(socket, state, locale)) return;
 
   const currentQ = state.questions[state.currentQuestionIndex];
   if (!currentQ) return;
@@ -1309,7 +1316,12 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
 
   db.run('UPDATE sessions SET current_question_index = ? WHERE id = ?', index, state.sessionId);
 
-  const payload = buildQuestionPayload(q, index, state.questions.length, state.answerSeed);
+  if (isSlideType(q.question_type)) {
+    sendSlide(io, state, q, index).catch((err) => console.error('Failed to send slide', err));
+    return;
+  }
+
+  const payload = buildQuestionPayload(q, index, state.questions, state.answerSeed);
 
   state.questionPhase = 'question';
   state.lastQuestionPayload = payload;
@@ -1329,7 +1341,7 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
         : buildQuestionPayload(
             localizeDbQuestion(q, index, locale, state.translations),
             index,
-            state.questions.length,
+            state.questions,
             state.answerSeed,
           );
     io.to(`player:${playerId}`).emit('game:question', playerPayload);
@@ -1341,6 +1353,93 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
     state.questionTimer = null;
     showResults(io, state, q.id);
   }, q.time_sec * 1000);
+}
+
+/** Standings slides carry the live leaderboard; title slides carry none. */
+async function buildSlideLeaderboard(state: ActiveSession, q: DbQuestion) {
+  if (q.question_type !== 'standings_slide') return undefined;
+  const players = await getRankedPlayers(state.sessionId);
+  const avatars = new Map(
+    players.map((p) => [p.id, state.playerAvatars.get(p.id) ?? p.avatar ?? '']),
+  );
+  return buildLeaderboard(players, avatars).map((entry) => ({
+    ...entry,
+    chosenIndex: null,
+    isCorrect: false,
+    questionScore: 0,
+  }));
+}
+
+function buildSlidePayload(
+  q: DbQuestion,
+  index: number,
+  total: number,
+  leaderboard: Awaited<ReturnType<typeof buildSlideLeaderboard>>,
+) {
+  return {
+    slideId: q.id,
+    slideType: q.question_type,
+    title: q.text,
+    body: q.explanation?.trim() || undefined,
+    imageUrl: normalizeImageUrl(q.image_url),
+    leaderboard,
+    isLast: index >= total - 1,
+  };
+}
+
+/**
+ * Show a non-question slide. It has no timer and takes no answers: it stays up
+ * until the host advances, even in games that auto-advance between questions.
+ */
+async function sendSlide(
+  io: SocketServer,
+  state: ActiveSession,
+  q: DbQuestion,
+  index: number,
+): Promise<void> {
+  if (state.questionTimer) {
+    clearTimeout(state.questionTimer);
+    state.questionTimer = null;
+  }
+  state.questionPhase = 'slide';
+  state.questionStartedAt = null;
+
+  const leaderboard = await buildSlideLeaderboard(state, q);
+  // The host may have advanced or ended the game during the read above.
+  if (state.currentQuestionIndex !== index || state.status !== 'active') return;
+
+  const total = state.questions.length;
+  const payload = buildSlidePayload(q, index, total, leaderboard);
+  if (state.adminSocketId) io.to(state.adminSocketId).emit('game:slide', payload);
+  io.to(`screen:${state.sessionId}`).emit('game:slide', payload);
+  for (const playerId of state.playerSockets.keys()) {
+    const locale = state.playerLocales.get(playerId) ?? 'base';
+    const localized = localizeDbQuestion(q, index, locale, state.translations);
+    io.to(`player:${playerId}`).emit(
+      'game:slide',
+      buildSlidePayload(localized, index, total, leaderboard),
+    );
+  }
+  emitNextPreview(io, state);
+}
+
+/** Re-emit the current slide to one socket. False when the current row isn't a slide. */
+async function restoreSlide(
+  socket: Socket,
+  state: ActiveSession,
+  locale: string,
+): Promise<boolean> {
+  const index = state.currentQuestionIndex;
+  const q = state.questions[index];
+  if (!q || !isSlideType(q.question_type)) return false;
+  state.questionPhase = 'slide';
+  const leaderboard = await buildSlideLeaderboard(state, q);
+  const localized = localizeDbQuestion(q, index, locale, state.translations);
+  socket.emit(
+    'game:slide',
+    buildSlidePayload(localized, index, state.questions.length, leaderboard),
+  );
+  return true;
 }
 
 function showResults(io: SocketServer, state: ActiveSession, questionId: number): void {
@@ -1577,7 +1676,8 @@ function endGame(_io: SocketServer, state: ActiveSession): void {
   void endActiveSession(state);
 }
 
-function buildQuizIntro(quiz: DbQuiz, questions: DbQuestion[]): QuizIntro {
+function buildQuizIntro(quiz: DbQuiz, allQuestions: DbQuestion[]): QuizIntro {
+  const questions = allQuestions.filter((q) => !isSlideType(q.question_type));
   const counts = new Map<QuestionType, number>();
   let totalTimeSec = 0;
   for (const q of questions) {
@@ -1658,13 +1758,13 @@ function originalToSlot(q: DbQuestion, answerSeed: number, index: number): numbe
 
 function buildQuestionPayload(
   q: DbQuestion,
-  questionIndex: number,
-  totalQuestions: number,
+  index: number,
+  questions: DbQuestion[],
   answerSeed = 0,
 ) {
   const payload: Record<string, unknown> = {
-    questionIndex,
-    totalQuestions,
+    questionIndex: playableIndex(questions, index),
+    totalQuestions: playableCount(questions),
     questionId: q.id,
     text: q.text,
     options: JSON.parse(q.options) as string[],

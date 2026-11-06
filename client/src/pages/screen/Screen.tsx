@@ -1,7 +1,8 @@
-import { Maximize, WifiOff } from 'lucide-react';
+import { Maximize, Minimize, WifiOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { QuestionDisplay } from '@/components/game/QuestionDisplay';
+import { SlideDisplay } from '@/components/game/SlideDisplay';
 import { PageCenter, PageLoading } from '@/components/layout';
 import { MuteToggle } from '@/components/MuteToggle';
 import { useCountdown } from '@/hooks/useCountdown';
@@ -15,6 +16,7 @@ import type {
   QuestionPayload,
   QuestionResults,
   QuizIntro,
+  SlidePayload,
 } from '@/types';
 import { CountdownScreen } from '../play/components/CountdownScreen';
 import { ScreenEnded } from './components/ScreenEnded';
@@ -31,10 +33,11 @@ interface ScreenState {
   quizIntro?: QuizIntro;
 }
 
-type Phase = 'connecting' | 'lobby' | 'countdown' | 'question' | 'results' | 'ended';
+type Phase = 'connecting' | 'lobby' | 'countdown' | 'question' | 'results' | 'slide' | 'ended';
 
-function enterFullscreen() {
-  document.documentElement.requestFullscreen?.().catch(() => {});
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  else document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
 /** Read-only room display for presentation games. The host drives it from their console. */
@@ -47,6 +50,7 @@ export default function Screen() {
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [results, setResults] = useState<QuestionResults | null>(null);
+  const [slide, setSlide] = useState<SlidePayload | null>(null);
   const [finalBoard, setFinalBoard] = useState<FinalLeaderboardEntry[]>([]);
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
@@ -54,6 +58,7 @@ export default function Screen() {
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const questionTimer = useCountdown(0);
 
@@ -70,18 +75,26 @@ export default function Screen() {
     };
   }, [socket, pin]);
 
-  // Browsers block sound, autoplay and fullscreen until a user gesture. The page
-  // still works without one, so a TV with no input just stays silent.
+  // Browsers block sound and autoplay until a user gesture. The page still works
+  // without one, so a TV with no input just stays silent.
   useEffect(() => {
     if (unlocked) return;
     function unlock() {
       setUnlocked(true);
       sound.play('blip');
-      enterFullscreen();
     }
     window.addEventListener('pointerdown', unlock, { once: true });
     return () => window.removeEventListener('pointerdown', unlock);
   }, [unlocked]);
+
+  // Esc and browser controls also leave fullscreen, so follow the browser's state.
+  useEffect(() => {
+    function sync() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
 
   useSocketEvent<void>('connect', () => setOnline(true));
   useSocketEvent<void>('disconnect', () => setOnline(false));
@@ -123,6 +136,12 @@ export default function Screen() {
     setQuestion(data);
     setPhase('question');
     questionTimer.start(data.timeRemaining ?? data.timeSec);
+  });
+
+  useSocketEvent<SlidePayload>('game:slide', (data) => {
+    setSlide(data);
+    setPhase('slide');
+    questionTimer.stop();
   });
 
   useSocketEvent<{ answeredCount: number; totalPlayers: number }>('game:answer-count', (data) => {
@@ -192,6 +211,11 @@ export default function Screen() {
         </div>
       )}
       {phase === 'results' && results && <ScreenResults results={results} />}
+      {phase === 'slide' && slide && (
+        <div className="flex flex-1 flex-col justify-center p-4 lg:p-8">
+          <SlideDisplay stage slide={slide} />
+        </div>
+      )}
       {phase === 'ended' && (
         <ScreenEnded
           title={info.quizTitle}
@@ -203,16 +227,16 @@ export default function Screen() {
       <MuteToggle className="fixed left-3 bottom-3 z-50" />
       <button
         type="button"
-        onClick={enterFullscreen}
-        aria-label="Enter fullscreen"
-        title="Fullscreen"
+        onClick={toggleFullscreen}
+        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
         className="fixed right-3 bottom-3 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-[var(--surface2)] text-[var(--text2)] transition-colors hover:text-foreground"
       >
-        <Maximize size={18} />
+        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
       </button>
       {!unlocked && (
         <p className="fixed inset-x-0 bottom-3 z-50 mx-auto w-fit rounded-full bg-black/70 px-4 py-1.5 text-sm text-white">
-          Click anywhere for sound and fullscreen
+          Click anywhere for sound
         </p>
       )}
       {!online && (

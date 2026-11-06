@@ -1,6 +1,6 @@
 import { Plus, X } from 'lucide-react';
 import type { QuestionWithKey } from '@/helpers';
-import { quadColor } from '@/helpers';
+import { isSlideType, quadColor } from '@/helpers';
 import { cn } from '@/lib/utils';
 import { TYPE_SHORT } from './types';
 
@@ -79,18 +79,20 @@ export function SlideRail({
                   horizontal ? 'mb-1.5 min-h-[2em] text-[0.65rem]' : 'mb-2 min-h-[2.2em] text-[0.7rem]',
                 )}
               >
-                {q.text || 'Untitled question'}
+                {q.text || (isSlideType(type) ? 'Untitled slide' : 'Untitled question')}
               </div>
-              <div className="grid grid-cols-2 gap-1">
-                {Array.from({ length: Math.min(optCount, 4) }, (_, oi) => (
-                  <span
-                    // biome-ignore lint/suspicious/noArrayIndexKey: decorative color bars
-                    key={oi}
-                    className="h-2.5 rounded-sm"
-                    style={{ background: quadColor(oi) }}
-                  />
-                ))}
-              </div>
+              {!isSlideType(type) && (
+                <div className="grid grid-cols-2 gap-1">
+                  {Array.from({ length: Math.min(optCount, 4) }, (_, oi) => (
+                    <span
+                      // biome-ignore lint/suspicious/noArrayIndexKey: decorative color bars
+                      key={oi}
+                      className="h-2.5 rounded-sm"
+                      style={{ background: quadColor(oi) }}
+                    />
+                  ))}
+                </div>
+              )}
             </button>
             {questions.length > 1 && (
               <button

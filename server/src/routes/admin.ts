@@ -1,4 +1,5 @@
 import { type Request, type Response, Router } from 'express';
+import { isSlideType, SLIDE_TYPES_SQL } from '../questionTypes';
 import { deleteAvatarByUrl, saveAvatarsFromDataUrls } from '../avatars';
 import { config, saveConfig, toPublicConfig } from '../config';
 import { db, getRankedPlayers } from '../db';
@@ -182,6 +183,17 @@ async function canAccessQuiz(req: Request, quiz: DbQuiz): Promise<boolean> {
 
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
 
+/** Slides are rows in `questions` too, but a quiz's question count means answerable ones. */
+const QUESTION_COUNT_SQL = `COUNT(CASE WHEN qu.question_type NOT IN ${SLIDE_TYPES_SQL} THEN 1 END)`;
+
+/** A quiz made only of slides has nothing to play. */
+function hasPlayableQuestion(questions: unknown): boolean {
+  return (
+    Array.isArray(questions) &&
+    (questions as QuizQuestion[]).some((q) => !isSlideType(q.questionType))
+  );
+}
+
 /** Insert one quiz question row (shared by quiz create + update). */
 async function insertQuestion(
   quizId: number | string | undefined,
@@ -193,8 +205,8 @@ async function insertQuestion(
     'INSERT INTO questions (quiz_id, text, options, correct_index, base_score, time_sec, order_index, image_url, question_type, correct_answer, correct_indices, explanation, range_min, range_max, media_url, media_type, blanks, geo, tags, matches) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     quizId,
     q.text,
-    JSON.stringify(q.options),
-    q.correctIndex,
+    JSON.stringify(q.options ?? []),
+    q.correctIndex ?? 0,
     q.baseScore ?? config.defaultBaseScore,
     q.timeSec ?? config.questionTimeSec,
     orderIndex,
@@ -224,7 +236,7 @@ adminRouter.get('/quizzes', requireAuth, async (req, res) => {
         }
       >
     >(`
-      SELECT q.*, COUNT(qu.id) as question_count,
+      SELECT q.*, ${QUESTION_COUNT_SQL} as question_count,
         (SELECT u.email FROM users u WHERE q.owner_kind = 'user' AND q.owner_id = u.id) as owner_email,
         (SELECT u.username FROM users u WHERE q.owner_kind = 'user' AND q.owner_id = u.id) as owner_username
       FROM quizzes q
@@ -240,7 +252,7 @@ adminRouter.get('/quizzes', requireAuth, async (req, res) => {
   const userId = currentUserId(req);
   const quizzes = await db.all<DbQuiz[]>(
     `
-      SELECT q.*, COUNT(qu.id) as question_count
+      SELECT q.*, ${QUESTION_COUNT_SQL} as question_count
       FROM quizzes q
       LEFT JOIN questions qu ON qu.quiz_id = q.id
       WHERE q.owner_kind = 'user' AND q.owner_id = ?
@@ -275,7 +287,7 @@ function normalizeLanguage(language: unknown): string {
 
 adminRouter.post('/quizzes', requireAuth, async (req: Request, res: Response) => {
   const body = req.body as QuizImportPayload;
-  if (!body.title || !Array.isArray(body.questions) || body.questions.length === 0) {
+  if (!body.title || !hasPlayableQuestion(body.questions)) {
     return res.status(400).json({ error: 'title and at least one question are required' });
   }
 
@@ -308,7 +320,7 @@ adminRouter.post('/quizzes', requireAuth, async (req: Request, res: Response) =>
 
 adminRouter.put('/quizzes/:id', requireAuth, async (req: Request, res: Response) => {
   const body = req.body as QuizImportPayload;
-  if (!body.title || !Array.isArray(body.questions) || body.questions.length === 0) {
+  if (!body.title || !hasPlayableQuestion(body.questions)) {
     return res.status(400).json({ error: 'title and at least one question are required' });
   }
 
@@ -539,7 +551,7 @@ adminRouter.get('/sessions/:id', requireAuth, async (req: Request, res: Response
   const players = await getRankedPlayers(req.params.id as string);
 
   const questions = await db.all<DbQuestion[]>(
-    'SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index',
+    `SELECT * FROM questions WHERE quiz_id = ? AND question_type NOT IN ${SLIDE_TYPES_SQL} ORDER BY order_index`,
     session.quiz_id,
   );
 

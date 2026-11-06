@@ -1,4 +1,4 @@
-import { ArrowRight, Flag, Heart, Music, Trophy, Video } from 'lucide-react';
+import { ArrowRight, Flag, Heart, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ClosestGuessesList, LeaderboardList } from '@/components/game/LeaderboardList';
 import { QuestionDistribution } from '@/components/game/QuestionDistribution';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { sound } from '@/lib/sound';
 import type { NextPreview, QuestionResults } from '../../../types';
+import { UpNextCard } from './UpNextCard';
 
 interface Props {
   results: QuestionResults;
@@ -72,38 +73,7 @@ export function GameResults({
         </div>
       </div>
 
-      {nextPreview &&
-        (nextPreview.hasNext ? (
-          <Card className="mb-4 w-full max-w-4xl zync-gs">
-            <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
-              <span className="mono-label text-brand">
-                Up next · Q{nextPreview.index + 1} of {nextPreview.total}
-              </span>
-              {nextPreview.mediaType && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/15 px-2 py-0.5 text-xs font-semibold text-brand">
-                  {nextPreview.mediaType === 'audio' ? (
-                    <>
-                      <Music className="size-4" /> Audio
-                    </>
-                  ) : (
-                    <>
-                      <Video className="size-4" /> Video
-                    </>
-                  )}
-                </span>
-              )}
-              <span className="w-full text-[1.05rem] font-semibold">{nextPreview.text}</span>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="mb-4 w-full max-w-4xl border-warn/30 bg-warn/[0.06]">
-            <CardContent className="p-4">
-              <span className="mono-label inline-flex items-center gap-1.5 text-warn">
-                Last question — final scores next <Flag className="size-4" />
-              </span>
-            </CardContent>
-          </Card>
-        ))}
+      {nextPreview && <UpNextCard preview={nextPreview} />}
 
       <Card className="mb-4 w-full max-w-4xl">
         <CardContent className="p-6">

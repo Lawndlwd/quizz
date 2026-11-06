@@ -22,6 +22,7 @@ import type {
   QuestionResults,
   QuizIntro,
   Session,
+  SlidePayload,
 } from '../../types';
 import { CountdownScreen } from '../play/components/CountdownScreen';
 import { AnswerKeyPanel } from './components/AnswerKeyPanel';
@@ -29,6 +30,7 @@ import { GameEnded } from './components/GameEnded';
 import { GameLobby } from './components/GameLobby';
 import { GameQuestion } from './components/GameQuestion';
 import { GameResults } from './components/GameResults';
+import { GameSlide } from './components/GameSlide';
 import { PresentationActionBar, PresentationPanel } from './components/PresentationControls';
 import { RemovePointsModal } from './components/RemovePointsModal';
 
@@ -48,7 +50,7 @@ interface PlayerAnswer {
   isCorrect: boolean;
 }
 
-type Phase = 'lobby' | 'countdown' | 'question' | 'results' | 'ended';
+type Phase = 'lobby' | 'countdown' | 'question' | 'results' | 'slide' | 'ended';
 
 export default function GameControl() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -64,6 +66,7 @@ export default function GameControl() {
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
   const [results, setResults] = useState<QuestionResults | null>(null);
+  const [slide, setSlide] = useState<SlidePayload | null>(null);
   const [finalBoard, setFinalBoard] = useState<FinalLeaderboardEntry[]>([]);
   const [countdownSec, setCountdownSec] = useState(3);
   const [answeredCount, setAnsweredCount] = useState(0);
@@ -137,6 +140,14 @@ export default function GameControl() {
     setPhase('question');
     autoAdvanceTimer.stop();
     questionTimer.start(data.timeRemaining ?? data.timeSec);
+  });
+
+  useSocketEvent<SlidePayload>('game:slide', (data) => {
+    setSlide(data);
+    setNextPreview(null);
+    setPhase('slide');
+    questionTimer.stop();
+    autoAdvanceTimer.stop();
   });
 
   useSocketEvent<{ answeredCount: number; totalPlayers: number }>(
@@ -264,7 +275,7 @@ export default function GameControl() {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select')) return;
       if (modalPlayerId !== null || document.querySelector('[role="dialog"]')) return;
-      if (phase !== 'question' && phase !== 'results') return;
+      if (phase !== 'question' && phase !== 'results' && phase !== 'slide') return;
       const now = Date.now();
       if (now - lastAdvanceAt.current < 800) return;
       lastAdvanceAt.current = now;
@@ -338,6 +349,14 @@ export default function GameControl() {
           onOpenPlayerAnswers={openPlayerAnswers}
         />
       )}
+      {phase === 'slide' && slide && (
+        <GameSlide
+          slide={slide}
+          nextPreview={nextPreview}
+          onNext={nextQuestion}
+          onEndGame={endGame}
+        />
+      )}
       {phase === 'ended' && (
         <GameEnded
           quizTitle={sessionState.session.quiz_title ?? ''}
@@ -347,10 +366,10 @@ export default function GameControl() {
           onDashboard={() => navigate(basePath)}
         />
       )}
-      {presentationMode && (phase === 'question' || phase === 'results') && (
+      {presentationMode && (phase === 'question' || phase === 'results' || phase === 'slide') && (
         <PresentationActionBar
           phase={phase}
-          isLastQuestion={!!results?.isLastQuestion}
+          isLastQuestion={phase === 'slide' ? !!slide?.isLast : !!results?.isLastQuestion}
           onFinishQuestion={finishQuestion}
           onNextQuestion={nextQuestion}
         />
