@@ -10,6 +10,8 @@ interface AppContextValue {
   displayName: string;
   /** Short brand string: "Scaleway" or "⚡ Quizz" */
   brandName: string;
+  /** Whether /api/public has answered yet. Until 'ready', empty fields mean "unknown", not "off". */
+  configStatus: 'loading' | 'ready' | 'error';
 }
 
 const AppContext = createContext<AppContextValue>({
@@ -19,6 +21,7 @@ const AppContext = createContext<AppContextValue>({
   publicUrl: '',
   displayName: '⚡ Quizz',
   brandName: '⚡ Quizz',
+  configStatus: 'loading',
 });
 
 function buildDisplay(
@@ -26,6 +29,7 @@ function buildDisplay(
   appSubtitle: string,
   allowedDomain: string,
   publicUrl: string,
+  configStatus: AppContextValue['configStatus'],
 ): AppContextValue {
   const trimmed = appName.trim();
   return {
@@ -35,30 +39,50 @@ function buildDisplay(
     publicUrl: publicUrl.trim(),
     displayName: trimmed ? `${trimmed} by ⚡ Quizz` : '⚡ Quizz',
     brandName: trimmed || '⚡ Quizz',
+    configStatus,
   };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [value, setValue] = useState<AppContextValue>(buildDisplay('', '', '', ''));
+  const [value, setValue] = useState<AppContextValue>(buildDisplay('', '', '', '', 'loading'));
 
   useEffect(() => {
-    fetch('/api/public')
-      .then((r) => r.json())
-      .then(
-        ({
-          appName,
-          appSubtitle,
-          allowedDomain,
-          publicUrl,
-        }: {
-          appName: string;
-          appSubtitle: string;
+    let cancelled = false;
+    // Retry a few times: a single failed request used to leave the app thinking
+    // registration was disabled (empty allowedDomain) until a full reload.
+    async function load(attempt: number): Promise<void> {
+      try {
+        const r = await fetch('/api/public', { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const { appName, appSubtitle, allowedDomain, publicUrl } = (await r.json()) as {
+          appName?: string;
+          appSubtitle?: string;
           allowedDomain?: string;
           publicUrl?: string;
-        }) =>
-          setValue(buildDisplay(appName, appSubtitle ?? '', allowedDomain ?? '', publicUrl ?? '')),
-      )
-      .catch(() => {});
+        };
+        if (cancelled) return;
+        setValue(
+          buildDisplay(
+            appName ?? '',
+            appSubtitle ?? '',
+            allowedDomain ?? '',
+            publicUrl ?? '',
+            'ready',
+          ),
+        );
+      } catch {
+        if (cancelled) return;
+        if (attempt < 4) {
+          setTimeout(() => void load(attempt + 1), 1000 * 2 ** attempt);
+        } else {
+          setValue((v) => ({ ...v, configStatus: 'error' }));
+        }
+      }
+    }
+    void load(0);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Keep browser tab title in sync
