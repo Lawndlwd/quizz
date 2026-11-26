@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function UserRegister() {
   const { registerUser } = useAuth();
-  const { appName, allowedDomain } = useApp();
+  const { appName, allowedDomain, configStatus } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -19,6 +19,9 @@ export default function UserRegister() {
   const [loading, setLoading] = useState(false);
 
   const domainHint = allowedDomain ? `@${allowedDomain}` : 'configured domain';
+  // Only call registration "disabled" once the server has actually said so. While the
+  // config is loading (or couldn't load) the form stays usable: the server checks the domain.
+  const disabled = configStatus === 'ready' && !allowedDomain;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,7 +54,7 @@ export default function UserRegister() {
 
         {error && <AppAlert variant="error">{error}</AppAlert>}
 
-        {!allowedDomain && (
+        {disabled && (
           <AppAlert variant="error" className="mb-4">
             Registration is currently disabled (no allowed domain configured).
           </AppAlert>
@@ -67,7 +70,7 @@ export default function UserRegister() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={!allowedDomain}
+            disabled={disabled}
           />
           <Input
             id="username"
@@ -78,7 +81,7 @@ export default function UserRegister() {
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            disabled={!allowedDomain}
+            disabled={disabled}
           />
           <Input
             id="password"
@@ -90,11 +93,11 @@ export default function UserRegister() {
             minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={!allowedDomain}
+            disabled={disabled}
           />
           <Button
             type="submit"
-            disabled={loading || !allowedDomain}
+            disabled={loading || disabled}
             variant="default"
             size="lg"
             className="mt-2 w-full"
