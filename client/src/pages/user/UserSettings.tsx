@@ -3,9 +3,9 @@ import { AppAlert } from '@/components/AppAlert';
 import { AvatarPicker, saveAvatar } from '@/components/AvatarPicker';
 import { Input } from '@/components/Input';
 import { MainContent, Page, Subtitle } from '@/components/layout';
+import UserNav from '@/components/UserNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import UserNav from '@/components/UserNav';
 import { useAuth } from '@/context/AuthContext';
 
 export default function UserSettings() {

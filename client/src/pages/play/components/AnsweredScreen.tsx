@@ -10,11 +10,7 @@ interface Props {
   totalPlayers: number;
 }
 
-export function AnsweredScreen({
-  wasPassJoker,
-  answeredCount,
-  totalPlayers,
-}: Props) {
+export function AnsweredScreen({ wasPassJoker, answeredCount, totalPlayers }: Props) {
   const answerPct = totalPlayers > 0 ? (answeredCount / totalPlayers) * 100 : 0;
 
   return (

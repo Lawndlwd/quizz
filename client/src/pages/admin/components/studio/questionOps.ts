@@ -64,10 +64,12 @@ export function normalizeQuestion(q: ImportQuestion): ImportQuestion {
  */
 export function stripTrailingEmptyOptions(q: ImportQuestion): ImportQuestion {
   const type = q.questionType ?? 'multiple_choice';
-  if (type !== 'multiple_choice' && type !== 'multi_select') return q;
+  if (type !== 'multiple_choice' && type !== 'multi_select' && type !== 'poll') return q;
   const opts = [...(q.options ?? [])];
   const referenced = (i: number) =>
-    type === 'multi_select' ? (q.correctIndices ?? []).includes(i) : q.correctIndex === i;
+    type === 'multi_select'
+      ? (q.correctIndices ?? []).includes(i)
+      : type !== 'poll' && q.correctIndex === i;
   while (opts.length > 2 && !opts[opts.length - 1].trim() && !referenced(opts.length - 1)) {
     opts.pop();
   }

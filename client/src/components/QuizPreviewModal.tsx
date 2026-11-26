@@ -172,7 +172,7 @@ export function QuizPreviewModal({ title, questions, onClose }: Props) {
   > = {
     questionType: type,
     options: q.options ?? [],
-    correctIndex: q.correctIndex,
+    correctIndex: type === 'poll' ? -1 : q.correctIndex,
     correctIndices: q.correctIndices,
     correctAnswer: q.correctAnswer ?? null,
     correctBlanks: q.blanks?.map((b) => b[0] ?? ''),

@@ -47,6 +47,7 @@ export function QuestionReveal({
   const isOrdering = results.questionType === 'ordering';
   const isGeo = results.questionType === 'geo';
   const isMatching = results.questionType === 'matching';
+  const isPoll = results.questionType === 'poll';
 
   return (
     <>
@@ -146,7 +147,7 @@ export function QuestionReveal({
             return (
               <div
                 key={optionLetter(i)}
-                className={`option-btn ${animate ? 'result-reveal' : ''} ${isCorrect ? 'correct' : myChoice ? 'wrong' : ''}`}
+                className={`option-btn ${animate ? 'result-reveal' : ''} ${isCorrect ? 'correct' : myChoice && !isPoll ? 'wrong' : ''}`}
                 style={{
                   cursor: 'default',
                   ...(animate ? { animationDelay: `${i * 0.06}s` } : {}),

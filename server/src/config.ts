@@ -27,6 +27,7 @@ const DEFAULTS: AppConfig = {
   streakMinimum: 2,
   streakBonusBase: 50,
   resultsAutoAdvanceSec: 0,
+  questionReadSec: 5,
   publicUrl: '',
 };
 

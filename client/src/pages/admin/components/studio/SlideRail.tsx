@@ -1,6 +1,7 @@
-import { Plus, X } from 'lucide-react';
+import { GripVertical, Plus, X } from 'lucide-react';
 import type { QuestionWithKey } from '@/helpers';
 import { isSlideType, quadColor } from '@/helpers';
+import { usePointerReorder } from '@/hooks/usePointerReorder';
 import { cn } from '@/lib/utils';
 import { TYPE_SHORT } from './types';
 
@@ -10,6 +11,8 @@ interface Props {
   onSelect: (i: number) => void;
   onAdd: () => void;
   onRemove: (i: number) => void;
+  /** Move a slide from one position to another (drag handle / arrow keys). */
+  onMove?: (from: number, to: number) => void;
   /** Vertical sidebar (desktop) or horizontal strip (mobile). */
   layout?: 'vertical' | 'horizontal';
   className?: string;
@@ -21,10 +24,14 @@ export function SlideRail({
   onSelect,
   onAdd,
   onRemove,
+  onMove,
   layout = 'vertical',
   className,
 }: Props) {
   const horizontal = layout === 'horizontal';
+  // Drag-reorder is vertical-only (the hook tracks Y); the mobile strip keeps tap-select.
+  const canReorder = !horizontal && !!onMove && questions.length > 1;
+  const reorder = usePointerReorder((from, to) => onMove?.(from, to), !canReorder);
 
   return (
     <aside
@@ -42,77 +49,104 @@ export function SlideRail({
         </div>
       )}
 
-      {questions.map((q, i) => {
-        const type = q.questionType ?? 'multiple_choice';
-        const optCount = Math.max((q.options ?? []).length, type === 'true_false' ? 2 : 1);
-        return (
-          <div
-            key={q._key}
-            className={cn('group relative', horizontal ? 'w-[140px] shrink-0' : 'mb-2')}
-          >
-            <button
-              type="button"
-              onClick={() => onSelect(i)}
+      <div
+        className={cn(
+          horizontal ? 'contents' : 'flex flex-col',
+          reorder.dragPos !== null && 'touch-none select-none',
+        )}
+        {...(canReorder ? reorder.listProps : {})}
+      >
+        {questions.map((q, i) => {
+          const type = q.questionType ?? 'multiple_choice';
+          const optCount = Math.max((q.options ?? []).length, type === 'true_false' ? 2 : 1);
+          return (
+            <div
+              key={q._key}
               className={cn(
-                'w-full cursor-pointer rounded-xl border p-2.5 text-left transition-colors',
-                i === active
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-muted-foreground/40',
+                'group relative',
+                horizontal ? 'w-[140px] shrink-0' : 'mb-2',
+                reorder.dragPos === i && 'opacity-90 shadow-lg',
               )}
+              style={reorder.dragStyle(i)}
             >
-              <div className="mb-1.5 flex items-center justify-between">
-                <span
-                  className={cn(
-                    'text-xs font-extrabold',
-                    i === active ? 'text-primary' : 'text-muted-foreground',
-                  )}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {TYPE_SHORT[type]}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  'line-clamp-2 font-medium text-foreground/80',
-                  horizontal ? 'mb-1.5 min-h-[2em] text-[0.65rem]' : 'mb-2 min-h-[2.2em] text-[0.7rem]',
-                )}
-              >
-                {q.text || (isSlideType(type) ? 'Untitled slide' : 'Untitled question')}
-              </div>
-              {!isSlideType(type) && (
-                <div className="grid grid-cols-2 gap-1">
-                  {Array.from({ length: Math.min(optCount, 4) }, (_, oi) => (
-                    <span
-                      // biome-ignore lint/suspicious/noArrayIndexKey: decorative color bars
-                      key={oi}
-                      className="h-2.5 rounded-sm"
-                      style={{ background: quadColor(oi) }}
-                    />
-                  ))}
-                </div>
-              )}
-            </button>
-            {questions.length > 1 && (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(i);
-                }}
-                title="Delete slide"
+                onClick={() => onSelect(i)}
                 className={cn(
-                  'absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white',
-                  horizontal ? 'opacity-100' : 'hidden group-hover:flex',
+                  'w-full cursor-pointer rounded-xl border p-2.5 text-left transition-colors',
+                  i === active
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-muted-foreground/40',
                 )}
               >
-                <X className="size-3" />
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span
+                    className={cn(
+                      'text-xs font-extrabold',
+                      canReorder && 'pl-4',
+                      i === active ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {TYPE_SHORT[type]}
+                  </span>
+                </div>
+                <div
+                  className={cn(
+                    'line-clamp-2 font-medium text-foreground/80',
+                    horizontal
+                      ? 'mb-1.5 min-h-[2em] text-[0.65rem]'
+                      : 'mb-2 min-h-[2.2em] text-[0.7rem]',
+                  )}
+                >
+                  {q.text || (isSlideType(type) ? 'Untitled slide' : 'Untitled question')}
+                </div>
+                {!isSlideType(type) && (
+                  <div className="grid grid-cols-2 gap-1">
+                    {Array.from({ length: Math.min(optCount, 4) }, (_, oi) => (
+                      <span
+                        // biome-ignore lint/suspicious/noArrayIndexKey: decorative color bars
+                        key={oi}
+                        className="h-2.5 rounded-sm"
+                        style={{ background: quadColor(oi) }}
+                      />
+                    ))}
+                  </div>
+                )}
               </button>
-            )}
-          </div>
-        );
-      })}
+              {canReorder && (
+                <button
+                  type="button"
+                  aria-label={`Move slide ${i + 1} (drag, or arrow keys)`}
+                  title="Drag to reorder"
+                  className="absolute left-1.5 top-2.5 cursor-grab touch-none rounded text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
+                  {...reorder.handleProps(i)}
+                >
+                  <GripVertical className="size-3.5" />
+                </button>
+              )}
+              {questions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(i);
+                  }}
+                  title="Delete slide"
+                  className={cn(
+                    'absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white',
+                    horizontal ? 'opacity-100' : 'hidden group-hover:flex',
+                  )}
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       <button
         type="button"

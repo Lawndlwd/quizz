@@ -2,6 +2,7 @@ import { ArrowRight, Check, GripVertical, Presentation, SkipForward, X } from 'l
 import { useState } from 'react';
 import { type LatLng, MapPicker } from '@/components/GeoMap';
 import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
+import { QuestionReadingCard } from '@/components/game/QuestionReadingCard';
 import { TimerBar } from '@/components/game/TimerBar';
 import { IntegerInput } from '@/components/Input';
 import { PageVCenter } from '@/components/layout';
@@ -22,6 +23,9 @@ interface Props {
   controller?: boolean;
   showQuestionText?: boolean;
   timeLeft: number;
+  /** Reading phase: show the question alone; choices + timer come after. */
+  reading?: boolean;
+  readLeft?: number;
   selectedIndex: number | null;
   selectedIndices: number[];
   multiSelectSubmitted: boolean;
@@ -54,6 +58,8 @@ export function QuestionScreen({
   controller = false,
   showQuestionText = true,
   timeLeft,
+  reading = false,
+  readLeft = 0,
   selectedIndex,
   selectedIndices,
   multiSelectSubmitted,
@@ -89,6 +95,7 @@ export function QuestionScreen({
   const isOrdering = question.questionType === 'ordering';
   const isGeo = question.questionType === 'geo';
   const isMatching = question.questionType === 'matching';
+  const isPoll = question.questionType === 'poll';
   const rangeMin = question.rangeMin ?? 0;
   const rangeMax = question.rangeMax ?? 100;
 
@@ -132,7 +139,10 @@ export function QuestionScreen({
     multiSelectSubmitted ||
     closestSubmitted ||
     localSubmitted;
-  const showImage = !controller && hasQuestionImage(question.imageUrl);
+  // Presentation mode: the big screen plays audio/video, but the phone still shows
+  // the question and its image so players can read along.
+  const showImage = hasQuestionImage(question.imageUrl);
+  const controllerMedia = controller && !!question.mediaType;
 
   function submitFill() {
     if (localSubmitted) return;
@@ -176,6 +186,145 @@ export function QuestionScreen({
     onMatchingSubmit(links);
   }
 
+  if (reading) {
+    return (
+      <QuestionReadingCard question={question} readLeft={readLeft} hideText={!showQuestionText} />
+    );
+  }
+
+  // Choice questions get a no-scroll layout: question, then image (shrinks to fit), then
+  // the choices pinned at the bottom. Videos keep the regular layout (fixed 16:9 player).
+  const isChoice = isTrueFalse || isMultipleChoice || isMultiSelect || isPoll;
+  if (isChoice && question.mediaType !== 'video') {
+    // No image/media: the question takes the free space instead of a blank gap.
+    const hasVisual = question.mediaType ? !controller : showImage;
+    const hint = isMultiSelect
+      ? 'Select all correct answers'
+      : isPoll
+        ? 'Poll: no right answer, just vote'
+        : null;
+    return (
+      <div className="q-compact mx-auto max-w-[900px]">
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="question-counter shrink-0" style={{ marginBottom: 0 }}>
+            Q{question.questionIndex + 1}/{question.totalQuestions}
+          </span>
+          <TimerBar timeLeft={timeLeft} totalSec={question.timeSec} className="flex-1 gap-3" />
+        </div>
+
+        {controllerMedia && (
+          <p className="inline-flex shrink-0 items-center justify-center gap-1.5 text-sm font-semibold text-muted-foreground">
+            <Presentation className="size-4" /> Listen / watch on the big screen
+          </p>
+        )}
+        {showQuestionText && (
+          <div className={cn('q-compact-text', !hasVisual && 'q-compact-text--solo')}>
+            <QuestionText text={question.text} />
+          </div>
+        )}
+        {hint && <p className="shrink-0 text-center text-xs text-[var(--text2)]">{hint}</p>}
+
+        {hasVisual && (
+          <div className="q-compact-media">
+            {question.mediaType ? (
+              <QuestionMedia url={question.mediaUrl} kind={question.mediaType} />
+            ) : (
+              <QuestionImage src={question.imageUrl} className="q-compact-img" />
+            )}
+          </div>
+        )}
+
+        {(jokersEnabled.pass || jokersEnabled.fiftyFifty) && !hasAnswered && !isPoll && (
+          <div className="flex shrink-0 justify-end gap-2">
+            {jokersEnabled.pass && (
+              <Button
+                type="button"
+                variant="warning"
+                size="sm"
+                disabled={jokersUsed.pass}
+                title={
+                  jokersUsed.pass
+                    ? 'Pass already used'
+                    : 'Skip this question and receive the base score'
+                }
+                onClick={onPassJoker}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  {jokersUsed.pass ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <SkipForward className="size-4" />
+                  )}{' '}
+                  Pass
+                </span>
+              </Button>
+            )}
+            {jokersEnabled.fiftyFifty && isMultipleChoice && (
+              <Button
+                type="button"
+                variant="warning"
+                size="sm"
+                disabled={jokersUsed.fiftyFifty}
+                title={jokersUsed.fiftyFifty ? '50/50 already used' : 'Eliminate 2 wrong answers'}
+                onClick={onFiftyFiftyJoker}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  {jokersUsed.fiftyFifty && <Check className="size-4" />} 50/50
+                </span>
+              </Button>
+            )}
+          </div>
+        )}
+
+        {isTrueFalse ? (
+          <QuadOptionGrid
+            options={['True', 'False']}
+            selectedIndex={selectedIndex}
+            colorFor={(i) => (i === 0 ? '#1f9d57' : '#e2455a')}
+            badgeFor={(i) => (i === 0 ? <Check className="size-5" /> : <X className="size-5" />)}
+            optionClassName="justify-center"
+            labelClassName="flex-none"
+            onSelect={onAnswer}
+          />
+        ) : isMultiSelect ? (
+          <>
+            <QuadOptionGrid
+              options={question.options}
+              selectedIndices={selectedIndices}
+              selectedBadge={<Check className="size-5" />}
+              disabled={multiSelectSubmitted}
+              onSelect={onToggleMultiSelect}
+            />
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="w-full shrink-0"
+              onClick={onMultiSelectSubmit}
+              disabled={multiSelectSubmitted || selectedIndices.length === 0}
+            >
+              {multiSelectSubmitted ? (
+                'Submitted!'
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  Submit {selectedIndices.length > 0 ? `(${selectedIndices.length} selected)` : ''}
+                  <ArrowRight className="size-4" />
+                </span>
+              )}
+            </Button>
+          </>
+        ) : (
+          <QuadOptionGrid
+            options={question.options}
+            selectedIndex={selectedIndex}
+            eliminatedIndices={eliminatedIndices}
+            onSelect={onAnswer}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <PageVCenter>
       <div
@@ -187,9 +336,9 @@ export function QuestionScreen({
           <div className="question-counter">
             Question {question.questionIndex + 1} of {question.totalQuestions}
           </div>
-          {controller ? (
+          {controllerMedia ? (
             <p className="my-2 inline-flex w-full items-center justify-center gap-1.5 text-sm font-semibold text-muted-foreground">
-              <Presentation className="size-4" /> Look at the big screen
+              <Presentation className="size-4" /> Listen / watch on the big screen
             </p>
           ) : question.mediaType ? (
             <QuestionMedia url={question.mediaUrl} kind={question.mediaType} className="my-3" />
@@ -199,7 +348,7 @@ export function QuestionScreen({
           {showQuestionText && (
             <div
               className="question-text"
-              style={{ marginTop: !controller && (question.mediaType || showImage) ? 12 : 0 }}
+              style={{ marginTop: !controllerMedia && (question.mediaType || showImage) ? 12 : 0 }}
             >
               <QuestionText text={question.text} />
             </div>
@@ -214,6 +363,18 @@ export function QuestionScreen({
               }}
             >
               Pick the closest number ({rangeMin}–{rangeMax})
+            </p>
+          )}
+          {isPoll && (
+            <p
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text2)',
+                margin: '4px 0 0',
+                textAlign: 'center',
+              }}
+            >
+              Poll: no right answer, just vote
             </p>
           )}
           {isMultiSelect && (
@@ -238,7 +399,7 @@ export function QuestionScreen({
         </div>
 
         {/* Joker buttons */}
-        {(jokersEnabled.pass || jokersEnabled.fiftyFifty) && !hasAnswered && (
+        {(jokersEnabled.pass || jokersEnabled.fiftyFifty) && !hasAnswered && !isPoll && (
           <div
             style={{
               display: 'flex',
@@ -618,7 +779,9 @@ export function QuestionScreen({
                             : 'border-border bg-[var(--surface2)]',
                       )}
                       style={
-                        linkedSlot !== null && !isSelected ? { background: quadColor(i) } : undefined
+                        linkedSlot !== null && !isSelected
+                          ? { background: quadColor(i) }
+                          : undefined
                       }
                     >
                       <span
@@ -646,7 +809,9 @@ export function QuestionScreen({
                       onClick={() => tapRight(slot)}
                       className={cn(
                         'flex items-center gap-2 rounded-lg border p-3 text-left transition-all disabled:cursor-default',
-                        linkedLeft !== -1 ? 'border-transparent text-white' : 'border-border bg-[var(--surface2)]',
+                        linkedLeft !== -1
+                          ? 'border-transparent text-white'
+                          : 'border-border bg-[var(--surface2)]',
                       )}
                       style={linkedLeft !== -1 ? { background: quadColor(linkedLeft) } : undefined}
                     >

@@ -17,6 +17,7 @@ import { QuizPreviewModal } from '@/components/QuizPreviewModal';
 import { Button } from '@/components/ui/button';
 import { copyText, type QuestionWithKey, validateQuizPayload, withKey } from '@/helpers';
 import { COMMON_LOCALES, DEFAULT_LOCALE, localeName } from '@/helpers/locale';
+import { arrayMove } from '@/hooks/usePointerReorder';
 import { cn } from '@/lib/utils';
 import type { ImportPayload, ImportQuestion } from '@/types';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -190,6 +191,17 @@ export function QuizStudio({
     setBankOpen(false);
   }
 
+  function moveSlide(from: number, to: number) {
+    setQuestions((prev) => arrayMove(prev, from, to));
+    // Keep the same slide selected as it (or a neighbour) moves.
+    setActive((a) => {
+      if (a === from) return to;
+      if (from < a && to >= a) return a - 1;
+      if (from > a && to <= a) return a + 1;
+      return a;
+    });
+  }
+
   function removeSlide(i: number) {
     setQuestions((prev) => prev.filter((_, idx) => idx !== i));
     setActive((a) => Math.max(0, Math.min(a, questions.length - 2)));
@@ -352,6 +364,7 @@ export function QuizStudio({
           onSelect={setActive}
           onAdd={addSlide}
           onRemove={removeSlide}
+          onMove={moveSlide}
         />
 
         {/* Center canvas */}

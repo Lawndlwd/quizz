@@ -57,7 +57,12 @@ export function ScreenResults({ results }: { results: QuestionResults }) {
             <h2 className="mb-4 flex items-center gap-2 text-2xl">
               <Trophy className="size-6" /> Standings
             </h2>
-            <LeaderboardList entries={results.leaderboard} limit={5} showQuestionScore animate />
+            <LeaderboardList
+              entries={results.leaderboard}
+              limit={5}
+              showQuestionScore={results.questionType !== 'poll'}
+              animate
+            />
           </CardContent>
         </Card>
       )}

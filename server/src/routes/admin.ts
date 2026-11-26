@@ -1,11 +1,11 @@
 import { type Request, type Response, Router } from 'express';
-import { isSlideType, SLIDE_TYPES_SQL } from '../questionTypes';
 import { deleteAvatarByUrl, saveAvatarsFromDataUrls } from '../avatars';
 import { config, saveConfig, toPublicConfig } from '../config';
 import { db, getRankedPlayers } from '../db';
 import { getMetricsSnapshot } from '../metrics';
 import { getRequestUser, requireAuth, requireSuperAdmin } from '../middleware';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../passwords';
+import { isSlideType, SLIDE_TYPES_SQL } from '../questionTypes';
 import { terminateSessionById } from '../socket/sessionLifecycle';
 import type {
   DbQuestion,
@@ -117,6 +117,7 @@ adminRouter.put('/config', requireSuperAdmin, (req: Request, res: Response) => {
     'streakMinimum',
     'streakBonusBase',
     'resultsAutoAdvanceSec',
+    'questionReadSec',
   ];
   const publicUrl = req.body.publicUrl as unknown;
   if (publicUrl !== undefined) {

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { clearPlayerSession, loadPlayerSession } from '@/helpers/playerSession';
-import { useAuth } from '@/context/AuthContext';
-import { useCountdown } from '@/hooks/useCountdown';
-import { MuteToggle } from '@/components/MuteToggle';
-import { sound } from '@/lib/sound';
 import { SlideDisplay } from '@/components/game/SlideDisplay';
 import { StreakBadge } from '@/components/game/StreakBadge';
 import { PageVCenter } from '@/components/layout';
+import { MuteToggle } from '@/components/MuteToggle';
+import { useAuth } from '@/context/AuthContext';
+import { clearPlayerSession, loadPlayerSession } from '@/helpers/playerSession';
+import { useCountdown } from '@/hooks/useCountdown';
+import { useQuestionClock } from '@/hooks/useQuestionClock';
+import { sound } from '@/lib/sound';
 import { getSocket, useSocketEvent } from '../../hooks/useSocket';
 import type {
   GameEndedPayload,
@@ -76,13 +77,11 @@ export default function Game() {
   const [streak, setStreak] = useState(0);
   const [presentationMode, setPresentationMode] = useState(false);
   // The big screen shows the base language, so translated players keep the text here.
-  const isTranslated = !!storedSession.locale && storedSession.locale !== 'base';
 
-  const questionTimer = useCountdown(0);
+  const questionTimer = useQuestionClock();
   const autoAdvanceTimer = useCountdown(0);
 
   const effectiveSessionId = Number(sessionId) || Number(storedSession.sessionId) || 0;
-
 
   // Phones are controllers in a presentation game: the big screen is the speaker.
   useEffect(() => {
@@ -152,7 +151,7 @@ export default function Game() {
     setAnsweredCount(0);
     setPhase('question');
     autoAdvanceTimer.stop();
-    questionTimer.start(data.timeRemaining ?? data.timeSec);
+    questionTimer.begin(data);
   });
 
   useSocketEvent<{ isCorrect: boolean; score: number; wasPassJoker?: boolean; streak?: number }>(
@@ -317,118 +316,117 @@ export default function Game() {
   const showStreak = phase === 'question' || phase === 'answered' || phase === 'results';
 
   function renderScreen() {
-  if (phase === 'waiting')
-    return (
-      <WaitingScreen
-        username={username}
-        avatar={myAvatar}
-        reconnecting={reconnecting}
-        intro={quizIntro}
-        sessionId={effectiveSessionId}
-        playerId={playerId}
-        presentationMode={presentationMode}
-      />
-    );
+    if (phase === 'waiting')
+      return (
+        <WaitingScreen
+          username={username}
+          avatar={myAvatar}
+          reconnecting={reconnecting}
+          intro={quizIntro}
+          sessionId={effectiveSessionId}
+          playerId={playerId}
+          presentationMode={presentationMode}
+        />
+      );
 
-  if (phase === 'countdown') return <CountdownScreen seconds={countdownSec} />;
+    if (phase === 'countdown') return <CountdownScreen seconds={countdownSec} />;
 
-  if (phase === 'question' && question)
-    return (
-      <QuestionScreen
-        question={question}
-        controller={presentationMode}
-        showQuestionText={!presentationMode || isTranslated}
-        timeLeft={questionTimer.seconds}
-        selectedIndex={selectedIndex}
-        selectedIndices={selectedIndices}
-        multiSelectSubmitted={multiSelectSubmitted}
-        openTextInput={openTextInput}
-        openTextSubmitted={openTextSubmitted}
-        closestValue={closestValue}
-        closestSubmitted={closestSubmitted}
-        eliminatedIndices={eliminatedIndices}
-        answeredCount={answeredCount}
-        totalPlayers={totalPlayers}
-        jokersEnabled={jokersEnabled}
-        jokersUsed={jokersUsed}
-        onAnswer={submitAnswer}
-        onToggleMultiSelect={toggleMultiSelectIndex}
-        onMultiSelectSubmit={submitMultiSelect}
-        onOpenTextChange={setOpenTextInput}
-        onOpenTextSubmit={submitOpenText}
-        onClosestChange={setClosestValue}
-        onClosestSubmit={submitClosestTo}
-        onPassJoker={() => {
-          if (jokersUsed.pass) return;
-          setJokersUsed((prev) => ({ ...prev, pass: true }));
-          socket.emit('player:joker-pass', { sessionId: effectiveSessionId, playerId });
-        }}
-        onFiftyFiftyJoker={() => {
-          if (jokersUsed.fiftyFifty) return;
-          socket.emit('player:joker-5050', { sessionId: effectiveSessionId, playerId });
-        }}
-        onFillSubmit={submitFill}
-        onOrderSubmit={submitOrder}
-        onGeoSubmit={submitGeo}
-        onMatchingSubmit={submitMatching}
-      />
-    );
+    if (phase === 'question' && question)
+      return (
+        <QuestionScreen
+          question={question}
+          controller={presentationMode}
+          timeLeft={questionTimer.seconds}
+          reading={questionTimer.reading}
+          readLeft={questionTimer.readLeft}
+          selectedIndex={selectedIndex}
+          selectedIndices={selectedIndices}
+          multiSelectSubmitted={multiSelectSubmitted}
+          openTextInput={openTextInput}
+          openTextSubmitted={openTextSubmitted}
+          closestValue={closestValue}
+          closestSubmitted={closestSubmitted}
+          eliminatedIndices={eliminatedIndices}
+          answeredCount={answeredCount}
+          totalPlayers={totalPlayers}
+          jokersEnabled={jokersEnabled}
+          jokersUsed={jokersUsed}
+          onAnswer={submitAnswer}
+          onToggleMultiSelect={toggleMultiSelectIndex}
+          onMultiSelectSubmit={submitMultiSelect}
+          onOpenTextChange={setOpenTextInput}
+          onOpenTextSubmit={submitOpenText}
+          onClosestChange={setClosestValue}
+          onClosestSubmit={submitClosestTo}
+          onPassJoker={() => {
+            if (jokersUsed.pass) return;
+            setJokersUsed((prev) => ({ ...prev, pass: true }));
+            socket.emit('player:joker-pass', { sessionId: effectiveSessionId, playerId });
+          }}
+          onFiftyFiftyJoker={() => {
+            if (jokersUsed.fiftyFifty) return;
+            socket.emit('player:joker-5050', { sessionId: effectiveSessionId, playerId });
+          }}
+          onFillSubmit={submitFill}
+          onOrderSubmit={submitOrder}
+          onGeoSubmit={submitGeo}
+          onMatchingSubmit={submitMatching}
+        />
+      );
 
-  if (phase === 'answered' && answerResult)
-    return (
-      <AnsweredScreen
-        isCorrect={answerResult.isCorrect}
-        score={answerResult.score}
-        wasPassJoker={answerResult.wasPassJoker}
-        answeredCount={answeredCount}
-        totalPlayers={totalPlayers}
-      />
-    );
+    if (phase === 'answered' && answerResult)
+      return (
+        <AnsweredScreen
+          isCorrect={answerResult.isCorrect}
+          score={answerResult.score}
+          wasPassJoker={answerResult.wasPassJoker}
+          answeredCount={answeredCount}
+          totalPlayers={totalPlayers}
+        />
+      );
 
-  if (phase === 'results' && results)
-    return (
-      <ResultsScreen
-        results={results}
-        playerId={playerId}
-        autoAdvanceLeft={autoAdvanceTimer.seconds}
-        onReveal={commitStreakOnReveal}
-      />
-    );
+    if (phase === 'results' && results)
+      return (
+        <ResultsScreen
+          results={results}
+          playerId={playerId}
+          autoAdvanceLeft={autoAdvanceTimer.seconds}
+          onReveal={commitStreakOnReveal}
+        />
+      );
 
-  if (phase === 'slide' && slide)
-    return (
-      <PageVCenter>
-        <SlideDisplay slide={slide} playerId={playerId} />
-      </PageVCenter>
-    );
+    if (phase === 'slide' && slide)
+      return (
+        <PageVCenter>
+          <SlideDisplay slide={slide} playerId={playerId} />
+        </PageVCenter>
+      );
 
-  if (phase === 'podium')
-    return (
-      <PodiumScreen
-        leaderboard={finalBoard}
-        onContinue={() => setPhase('ended')}
-      />
-    );
+    if (phase === 'podium')
+      return <PodiumScreen leaderboard={finalBoard} onContinue={() => setPhase('ended')} />;
 
-  if (phase === 'ended')
-    return (
-      <EndedScreen
-        leaderboard={finalBoard}
-        username={username}
-        onPlayAgain={() => {
-          clearPlayerSession();
-          navigate('/play');
-        }}
-      />
-    );
+    if (phase === 'ended')
+      return (
+        <EndedScreen
+          leaderboard={finalBoard}
+          username={username}
+          onPlayAgain={() => {
+            clearPlayerSession();
+            navigate('/play');
+          }}
+        />
+      );
 
-  return null;
+    return null;
   }
 
   return (
     <>
       {renderScreen()}
-      {!presentationMode && <MuteToggle className="fixed left-3 bottom-3 z-50" />}
+      {/* Hidden while answering: it would sit on top of the bottom-left choice. */}
+      {!presentationMode && phase !== 'question' && (
+        <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      )}
       {showStreak && (
         <div key={streak} className="fixed top-3 right-3 z-40">
           <StreakBadge streak={streak} />

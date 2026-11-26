@@ -106,7 +106,7 @@ export function GameResults({
           <LeaderboardList
             entries={results.leaderboard}
             limit={10}
-            showQuestionScore
+            showQuestionScore={results.questionType !== 'poll'}
             renderActions={(e) => (
               <div className="ml-2 flex shrink-0 gap-1">
                 {e.questionScore > 0 && (
