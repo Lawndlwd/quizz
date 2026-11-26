@@ -37,7 +37,7 @@ export function QuestionCanvas({ q, ops, onChange }: Props) {
     }
   }, [type, blankCount, q.blanks, onChange]);
 
-  const choiceMode = type === 'multiple_choice' || type === 'multi_select';
+  const choiceMode = type === 'multiple_choice' || type === 'multi_select' || type === 'poll';
 
   if (type === 'title_slide' || type === 'standings_slide') {
     return (
@@ -86,7 +86,13 @@ export function QuestionCanvas({ q, ops, onChange }: Props) {
       />
 
       {choiceMode && (
-        <ChoiceTiles q={q} ops={ops} onChange={onChange} multi={type === 'multi_select'} />
+        <ChoiceTiles
+          q={q}
+          ops={ops}
+          onChange={onChange}
+          multi={type === 'multi_select'}
+          poll={type === 'poll'}
+        />
       )}
 
       {type === 'true_false' && (
@@ -203,11 +209,14 @@ function ChoiceTiles({
   ops,
   onChange,
   multi,
+  poll = false,
 }: {
   q: ImportQuestion;
   ops: ReturnType<typeof questionOps>;
   onChange: (field: keyof ImportQuestion, value: unknown) => void;
   multi: boolean;
+  /** Poll: no correct answer, so the mark-correct toggle is hidden. */
+  poll?: boolean;
 }) {
   const opts = q.options ?? [];
   // Which answer index the media picker is open for (null = closed).
@@ -216,7 +225,8 @@ function ChoiceTiles({
     <div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {opts.map((opt, oi) => {
-          const correct = multi ? (q.correctIndices ?? []).includes(oi) : q.correctIndex === oi;
+          const correct =
+            !poll && (multi ? (q.correctIndices ?? []).includes(oi) : q.correctIndex === oi);
           const Glyph = quadIcon(oi);
           return (
             <div
@@ -257,19 +267,23 @@ function ChoiceTiles({
               >
                 <ImageIcon className="size-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => (multi ? ops.toggleCorrectIndex(oi) : onChange('correctIndex', oi))}
-                title={correct ? 'Correct answer' : 'Mark correct'}
-                className={cn(
-                  'flex h-16 w-12 shrink-0 items-center justify-center transition-colors',
-                  correct
-                    ? 'bg-white/25 text-white'
-                    : 'text-white/60 hover:bg-black/10 hover:text-white',
-                )}
-              >
-                <Check className="size-5" />
-              </button>
+              {!poll && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    multi ? ops.toggleCorrectIndex(oi) : onChange('correctIndex', oi)
+                  }
+                  title={correct ? 'Correct answer' : 'Mark correct'}
+                  className={cn(
+                    'flex h-16 w-12 shrink-0 items-center justify-center transition-colors',
+                    correct
+                      ? 'bg-white/25 text-white'
+                      : 'text-white/60 hover:bg-black/10 hover:text-white',
+                  )}
+                >
+                  <Check className="size-5" />
+                </button>
+              )}
               {opts.length > 2 && (
                 <button
                   type="button"
@@ -289,8 +303,12 @@ function ChoiceTiles({
           <Plus className="size-3.5" /> Add answer
         </Button>
         <p className="text-xs text-muted-foreground">
-          {multi ? 'Mark every correct answer.' : 'Mark the correct answer.'} Use the image button
-          to set a picture or GIF answer.
+          {poll
+            ? 'Poll: no right answer, no points. Everyone sees the vote split.'
+            : multi
+              ? 'Mark every correct answer.'
+              : 'Mark the correct answer.'}{' '}
+          Use the image button to set a picture or GIF answer.
         </p>
       </div>
       <MediaPicker

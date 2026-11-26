@@ -1,11 +1,11 @@
 import bcrypt from 'bcrypt';
 import { type Request, type Response, Router } from 'express';
-import { SLIDE_TYPES_SQL } from '../questionTypes';
 import { config } from '../config';
 import { db, getRankedPlayers } from '../db';
 import { getRequestUser, requireAuth, signToken } from '../middleware';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../passwords';
 import { savePlayProfile } from '../playProfile';
+import { SLIDE_TYPES_SQL } from '../questionTypes';
 import type { DbQuestion, DbSession, DbUser } from '../types';
 import { isUserBanned, parseQuestionRow } from '../utils';
 

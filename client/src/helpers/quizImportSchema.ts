@@ -260,11 +260,12 @@ const QUIZ_IMPORT_SCHEMA_OBJECT = {
             'ordering',
             'geo',
             'matching',
+            'poll',
             'title_slide',
             'standings_slide',
           ],
           description:
-            'title_slide: section intro, text is the title and explanation the body. standings_slide: shows the current leaderboard under the title in text. Slides have no answers or timer and stay up until the host advances; use options [] and correctIndex 0.',
+            'poll: opinion vote, options like multiple_choice but no correct answer and no points (correctIndex ignored). title_slide: section intro, text is the title and explanation the body. standings_slide: shows the current leaderboard under the title in text. Slides have no answers or timer and stay up until the host advances; use options [] and correctIndex 0.',
           default: 'multiple_choice',
         },
         baseScore: {

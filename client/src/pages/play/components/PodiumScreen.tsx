@@ -15,9 +15,7 @@ export function PodiumScreen({ leaderboard, onContinue }: Props) {
   const [celebrate, setCelebrate] = useState(false);
   return (
     <PageCenter className="flex-col gap-8">
-      {celebrate && (
-        <Confetti count={40} spread="center" durationRange={[0.6, 2]} />
-      )}
+      {celebrate && <Confetti count={40} spread="center" durationRange={[0.6, 2]} />}
 
       <h1 className="flex items-center justify-center gap-2 text-center text-[2rem]">
         <Trophy className="size-8" /> Final Podium

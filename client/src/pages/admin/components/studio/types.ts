@@ -18,6 +18,7 @@ export const TYPE_SHORT: Record<QuestionType, string> = {
   ordering: 'Order',
   geo: 'Map',
   matching: 'Match',
+  poll: 'Poll',
   title_slide: 'Title',
   standings_slide: 'Scores',
 };

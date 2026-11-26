@@ -8,6 +8,8 @@ export type QuestionType =
   | 'ordering'
   | 'geo'
   | 'matching'
+  /** Opinion vote: options like multiple choice, but no correct answer and no points. */
+  | 'poll'
   /** Section intro: `text` is the title, `explanation` the optional body. No answers. */
   | 'title_slide'
   /** Shows the current leaderboard under the title in `text`. No answers. */
@@ -134,6 +136,10 @@ export interface QuestionPayload {
   timeSec: number;
   /** Remaining seconds — only present on reconnect; absent means use timeSec */
   timeRemaining?: number;
+  /** Seconds the question is shown alone before choices + timer appear (0/absent = off). */
+  readSec?: number;
+  /** Remaining reading seconds — only present on reconnect; absent means use readSec */
+  readRemaining?: number;
   imageUrl?: string;
   explanation?: string;
   questionType: QuestionType;
@@ -329,5 +335,6 @@ export interface AppConfig {
   streakMinimum: number;
   streakBonusBase: number;
   resultsAutoAdvanceSec: number;
+  questionReadSec?: number;
   publicUrl: string;
 }

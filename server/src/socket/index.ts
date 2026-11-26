@@ -1,6 +1,5 @@
 import type { Server as HttpServer } from 'node:http';
 import { type Socket, Server as SocketServer } from 'socket.io';
-import { isSlideType, playableCount, playableIndex } from '../questionTypes';
 import { parseIntegerInRange, scoreClosestToGuess } from '../closestTo';
 import { config } from '../config';
 import { db, getRankedPlayers } from '../db';
@@ -16,6 +15,7 @@ import {
   scoreMatching,
   scoreOrdering,
 } from '../questionScoring';
+import { isSlideType, playableCount, playableIndex } from '../questionTypes';
 import { invertPerm, seededPerm, seededShuffle } from '../shuffle';
 import type {
   DbPlayer,
@@ -661,6 +661,8 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         // for the correct answer broadcast, then submit it for full points.
         if (state.questionPhase !== 'question') return;
         if (state.socketPlayers.get(socket.id) !== playerId) return;
+        // Choices aren't shown yet during the reading phase.
+        if (isReadingPhase(state)) return;
 
         const currentQ = state.questions[state.currentQuestionIndex];
         if (!currentQ || currentQ.id !== questionId) return;
@@ -675,7 +677,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
         let score = 0;
         let newStreak = 0;
 
-        if (currentQ.question_type === 'closest_to') {
+        if (currentQ.question_type === 'poll') {
+          // Opinion vote: no right answer, no points, and the streak carries over untouched.
+          newStreak = state.playerStreaks.get(playerId) ?? 0;
+          if (chosenIndex == null || chosenIndex < 0) return;
+        } else if (currentQ.question_type === 'closest_to') {
           const min = currentQ.range_min ?? 0;
           const max = currentQ.range_max ?? 100;
           const correct = Number.parseInt(currentQ.correct_answer ?? '', 10);
@@ -852,7 +858,11 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     socket.on('player:joker-pass', async (data: { sessionId: number; playerId: number }) => {
       const state = getStateBySessionId(data.sessionId);
       if (!state || state.status !== 'active' || state.questionPhase !== 'question') return;
+      if (isReadingPhase(state)) return;
       if (!state.gameSettings.jokersEnabled.pass) return;
+      // Nothing to skip on a poll — passing would hand out free points. Checked before
+      // the joker is marked used so it isn't burned.
+      if (state.questions[state.currentQuestionIndex]?.question_type === 'poll') return;
 
       const { playerId } = data;
       // Verify the socket owns this playerId
@@ -894,6 +904,7 @@ export function setupSockets(httpServer: HttpServer): SocketServer {
     socket.on('player:joker-5050', (data: { sessionId: number; playerId: number }) => {
       const state = getStateBySessionId(data.sessionId);
       if (!state || state.status !== 'active' || state.questionPhase !== 'question') return;
+      if (isReadingPhase(state)) return;
       if (!state.gameSettings.jokersEnabled.fiftyFifty) return;
 
       const { playerId } = data;
@@ -1135,9 +1146,14 @@ function restoreQuestionPhase(socket: Socket, state: ActiveSession, locale: stri
           state.answerSeed,
         ) as Record<string, unknown>);
   const originalTimeSec = (payload.timeSec as number) ?? 0;
+  const readSec = payloadReadSec(payload);
   socket.emit('game:question', {
     ...localizedPayload,
-    timeRemaining: remainingSec(state.questionStartedAt, originalTimeSec),
+    readRemaining: remainingSec(state.questionStartedAt, readSec),
+    timeRemaining: Math.min(
+      originalTimeSec,
+      remainingSec(state.questionStartedAt, readSec + originalTimeSec),
+    ),
   });
 }
 
@@ -1209,10 +1225,13 @@ function coldRebuildQuestion(
   state.questionStartedAt = Date.now();
 
   if (!state.questionTimer) {
-    state.questionTimer = setTimeout(() => {
-      state.questionTimer = null;
-      showResults(io, state, currentQ.id);
-    }, currentQ.time_sec * 1000);
+    state.questionTimer = setTimeout(
+      () => {
+        state.questionTimer = null;
+        showResults(io, state, currentQ.id);
+      },
+      (payloadReadSec(basePayload) + currentQ.time_sec) * 1000,
+    );
   }
 
   if (locale === 'base') return basePayload;
@@ -1349,10 +1368,27 @@ function sendQuestion(io: SocketServer, state: ActiveSession, index: number): vo
 
   // Server-side timer
   if (state.questionTimer) clearTimeout(state.questionTimer);
-  state.questionTimer = setTimeout(() => {
-    state.questionTimer = null;
-    showResults(io, state, q.id);
-  }, q.time_sec * 1000);
+  state.questionTimer = setTimeout(
+    () => {
+      state.questionTimer = null;
+      showResults(io, state, q.id);
+    },
+    (payloadReadSec(payload) + q.time_sec) * 1000,
+  );
+}
+
+/** Reading-phase length baked into a question payload (0 when absent). */
+function payloadReadSec(payload: Record<string, unknown> | null | undefined): number {
+  const v = payload?.readSec;
+  return typeof v === 'number' && v > 0 ? v : 0;
+}
+
+/** True while the question is still in its read-only phase (answers not open yet). */
+function isReadingPhase(state: ActiveSession): boolean {
+  const readSec = payloadReadSec(state.lastQuestionPayload as Record<string, unknown>);
+  if (readSec === 0 || !state.questionStartedAt) return false;
+  // Small grace so a tap right as choices appear isn't dropped by clock skew.
+  return Date.now() < state.questionStartedAt + readSec * 1000 - 500;
 }
 
 /** Standings slides carry the live leaderboard; title slides carry none. */
@@ -1564,7 +1600,11 @@ function showResults(io: SocketServer, state: ActiveSession, questionId: number)
           if (idx >= 0 && idx < options.length) answerDistribution[idx]++;
         }
       }
-    } else if (q.question_type === 'multiple_choice' || q.question_type === 'true_false') {
+    } else if (
+      q.question_type === 'multiple_choice' ||
+      q.question_type === 'true_false' ||
+      q.question_type === 'poll'
+    ) {
       answerDistribution = new Array<number>(options.length).fill(0);
       for (const a of answers) {
         const idx = a.chosen_index;
@@ -1639,7 +1679,8 @@ function buildAnswerReveal(q: DbQuestion, answerSeed: number) {
   return {
     questionType: q.question_type,
     options,
-    correctIndex: originalToSlot(q, answerSeed, q.correct_index),
+    // Polls have no right answer: -1 never matches a slot, so nothing is highlighted.
+    correctIndex: q.question_type === 'poll' ? -1 : originalToSlot(q, answerSeed, q.correct_index),
     correctIndices:
       q.question_type === 'multi_select' && q.correct_indices
         ? (JSON.parse(q.correct_indices) as number[]).map((i) => originalToSlot(q, answerSeed, i))
@@ -1769,6 +1810,8 @@ function buildQuestionPayload(
     text: q.text,
     options: JSON.parse(q.options) as string[],
     timeSec: q.time_sec,
+    // Reading phase: players see the question alone first, then choices + timer.
+    readSec: Math.max(0, Math.min(30, Math.round(config.questionReadSec ?? 0))),
     imageUrl: normalizeImageUrl(q.image_url),
     questionType: q.question_type,
     mediaUrl: q.media_url ?? undefined,

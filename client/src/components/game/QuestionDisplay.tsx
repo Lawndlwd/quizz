@@ -1,5 +1,7 @@
 import { ArrowDownUp, GripVertical } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { QuadOptionGrid } from '@/components/game/QuadOptionGrid';
+import { QuestionReadingCard } from '@/components/game/QuestionReadingCard';
 import { TimerBar } from '@/components/game/TimerBar';
 import { OptionText } from '@/components/OptionText';
 import { QuestionImage } from '@/components/QuestionImage';
@@ -21,6 +23,11 @@ interface Props {
   silent?: boolean;
   /** Room-scale sizing for the presentation screen. */
   stage?: boolean;
+  /** Reading phase: question alone, choices + timer come after. */
+  reading?: boolean;
+  readLeft?: number;
+  /** Host controls shown in the top row of the full-screen (stage) layouts. */
+  actions?: ReactNode;
 }
 
 /** Read-only view of the live question, shared by the host console and the big screen. */
@@ -32,6 +39,9 @@ export function QuestionDisplay({
   hideMedia,
   silent,
   stage,
+  reading = false,
+  readLeft = 0,
+  actions,
 }: Props) {
   const showImage = hasQuestionImage(question.imageUrl);
   // Only these types are "pick a tile" answers — ordering/geo/fill_blank/open_text/closest_to
@@ -39,22 +49,74 @@ export function QuestionDisplay({
   const isOptionBased =
     question.questionType === 'multiple_choice' ||
     question.questionType === 'true_false' ||
-    question.questionType === 'multi_select';
+    question.questionType === 'multi_select' ||
+    question.questionType === 'poll';
 
   const options =
     question.questionType === 'true_false' && question.options.length === 0
       ? ['True', 'False']
       : question.options;
 
+  if (stage && reading) {
+    return (
+      <>
+        {actions && <div className="fixed right-3 top-3 z-10 flex gap-2">{actions}</div>}
+        <QuestionReadingCard stage question={question} readLeft={readLeft} />
+      </>
+    );
+  }
+
+  // Big screen, choice questions: fit the viewport with no scroll — question, then the
+  // image shrinking into the space left, then the choices. Videos keep the card layout.
+  if (stage && isOptionBased && question.mediaType !== 'video') {
+    // No image/media: the question takes the free space instead of a blank gap.
+    const hasVisual = question.mediaType ? !hideMedia : showImage;
+    return (
+      <div className="q-compact mx-auto max-w-[1600px]">
+        <div className="flex shrink-0 items-center gap-6">
+          <span className="mono-label shrink-0">
+            Question {question.questionIndex + 1} of {question.totalQuestions}
+          </span>
+          <TimerBar
+            timeLeft={timeLeft}
+            totalSec={question.timeSec}
+            className="flex-1 gap-4"
+            silent={silent}
+          />
+          <span className="shrink-0 text-2xl text-muted-foreground">
+            {answeredCount} / {totalPlayers} answered
+          </span>
+          {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+        </div>
+        <div className={cn('q-compact-text', !hasVisual && 'q-compact-text--solo')}>
+          <QuestionText text={question.text} />
+        </div>
+        {hasVisual && (
+          <div className="q-compact-media">
+            {question.mediaType ? (
+              <QuestionMedia url={question.mediaUrl} kind={question.mediaType} />
+            ) : (
+              <QuestionImage src={question.imageUrl} className="q-compact-img" />
+            )}
+          </div>
+        )}
+        <QuadOptionGrid options={options} interactive={false} glyphSize={26} staggerSec={0.07} />
+      </div>
+    );
+  }
+
   return (
     <Card className={stage ? 'w-full' : 'w-full max-w-5xl'}>
       <CardContent className="flex flex-col p-4 sm:p-8 md:p-10">
         {/* Counter row */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <span className="mono-label">
             Question {question.questionIndex + 1} of {question.totalQuestions}
           </span>
-          <span className="mono-label">{question.timeSec}s</span>
+          <span className="flex items-center gap-3">
+            <span className="mono-label">{question.timeSec}s</span>
+            {stage && actions}
+          </span>
         </div>
 
         {question.mediaType
@@ -77,13 +139,19 @@ export function QuestionDisplay({
           <QuestionText text={question.text} />
         </div>
 
-        {/* Timer bar + number */}
-        <TimerBar
-          timeLeft={timeLeft}
-          totalSec={question.timeSec}
-          className="mb-2 gap-4"
-          silent={silent}
-        />
+        {/* Timer bar + number (reading phase: players only see the question yet) */}
+        {reading ? (
+          <div className="mb-2 rounded-xl border border-border bg-muted/50 px-4 py-2 text-center text-sm font-semibold text-muted-foreground">
+            Reading time: choices appear in {readLeft}s
+          </div>
+        ) : (
+          <TimerBar
+            timeLeft={timeLeft}
+            totalSec={question.timeSec}
+            className="mb-2 gap-4"
+            silent={silent}
+          />
+        )}
 
         <div
           className={cn(

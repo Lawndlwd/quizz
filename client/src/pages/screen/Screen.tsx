@@ -5,7 +5,7 @@ import { QuestionDisplay } from '@/components/game/QuestionDisplay';
 import { SlideDisplay } from '@/components/game/SlideDisplay';
 import { PageCenter, PageLoading } from '@/components/layout';
 import { MuteToggle } from '@/components/MuteToggle';
-import { useCountdown } from '@/hooks/useCountdown';
+import { useQuestionClock } from '@/hooks/useQuestionClock';
 import { getSocket, useSocketEvent } from '@/hooks/useSocket';
 import { sound } from '@/lib/sound';
 import type {
@@ -60,8 +60,7 @@ export default function Screen() {
   const [unlocked, setUnlocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const questionTimer = useCountdown(0);
-
+  const questionTimer = useQuestionClock();
 
   useEffect(() => {
     function join() {
@@ -135,7 +134,7 @@ export default function Screen() {
     if (question?.questionId !== data.questionId) setAnsweredCount(0);
     setQuestion(data);
     setPhase('question');
-    questionTimer.start(data.timeRemaining ?? data.timeSec);
+    questionTimer.begin(data);
   });
 
   useSocketEvent<SlidePayload>('game:slide', (data) => {
@@ -200,11 +199,13 @@ export default function Screen() {
       )}
       {phase === 'countdown' && <CountdownScreen seconds={countdownSec} />}
       {phase === 'question' && question && (
-        <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-center p-4 lg:p-8">
+        <div className="mx-auto flex h-[100dvh] w-full max-w-[1600px] flex-1 flex-col justify-center overflow-hidden">
           <QuestionDisplay
             stage
             question={question}
             timeLeft={questionTimer.seconds}
+            reading={questionTimer.reading}
+            readLeft={questionTimer.readLeft}
             answeredCount={answeredCount}
             totalPlayers={totalPlayers || players.length}
           />
@@ -224,9 +225,11 @@ export default function Screen() {
         />
       )}
 
-      <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      {/* Corner buttons would sit on the answer tiles while a question is up. */}
+      {phase !== 'question' && <MuteToggle className="fixed left-3 bottom-3 z-50" />}
       <button
         type="button"
+        hidden={phase === 'question'}
         onClick={toggleFullscreen}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
         title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}

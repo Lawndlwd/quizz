@@ -5,8 +5,8 @@ import { ClosestGuessesList, LeaderboardList } from '@/components/game/Leaderboa
 import { QuestionDistribution } from '@/components/game/QuestionDistribution';
 import { Page } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { sound } from '@/lib/sound';
+import { cn } from '@/lib/utils';
 import type { LeaderboardEntry, QuestionResults } from '../../../types';
 
 interface Props {
@@ -127,6 +127,7 @@ function YourAnswer({ entry, results }: { entry: LeaderboardEntry; results: Ques
 export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: Props) {
   const myEntry = results.leaderboard.find((e) => e.playerId === playerId);
   const isClosestTo = results.questionType === 'closest_to';
+  const isPoll = results.questionType === 'poll';
   const closestList = results.closestRanking ?? [];
 
   // Reveal drama: a short heartbeat pause before the answer distribution, then
@@ -138,7 +139,7 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: 
     const t = setTimeout(() => {
       setRevealed(true);
       onReveal?.();
-      if (myEntry) sound.play(myEntry.isCorrect ? 'correct' : 'wrong');
+      if (myEntry && !isPoll) sound.play(myEntry.isCorrect ? 'correct' : 'wrong');
     }, 1200);
     return () => clearTimeout(t);
   }, [results.questionId]);
@@ -168,7 +169,7 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: 
         </CardContent>
       </Card>
 
-      {myEntry && !isClosestTo && <YourAnswer entry={myEntry} results={results} />}
+      {myEntry && !isClosestTo && !isPoll && <YourAnswer entry={myEntry} results={results} />}
 
       {myEntry && isClosestTo && (
         <AppAlert
@@ -195,7 +196,15 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: 
         </AppAlert>
       )}
 
-      {myEntry && !isClosestTo && (
+      {myEntry && isPoll && (
+        <AppAlert variant="info" className="text-center text-[1.05rem] font-semibold">
+          {myEntry.chosenIndex != null && myEntry.chosenIndex >= 0
+            ? 'Thanks for voting!'
+            : "You didn't vote this time."}
+        </AppAlert>
+      )}
+
+      {myEntry && !isClosestTo && !isPoll && (
         <AppAlert
           variant={myEntry.isCorrect ? 'success' : 'error'}
           className={cn(
@@ -238,7 +247,7 @@ export function ResultsScreen({ results, playerId, autoAdvanceLeft, onReveal }: 
               entries={results.leaderboard}
               limit={8}
               highlightPlayerId={playerId}
-              showQuestionScore
+              showQuestionScore={!isPoll}
               animate
             />
             <AdvanceHint

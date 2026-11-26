@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MainContent, Page, Subtitle } from '@/components/layout';
 import { StatusBadge } from '@/components/StatusBadge';
+import UserNav from '@/components/UserNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import UserNav from '@/components/UserNav';
 import { useAuthFetch } from '@/hooks/useAuthFetch';
 import type { PlayHistoryEntry } from '@/types';
 

@@ -374,6 +374,14 @@ export default function Settings() {
                   onValueChange={(value) => update('questionTimeSec', value)}
                 />
                 <IntegerInput
+                  label="Reading time (seconds)"
+                  min={0}
+                  max={30}
+                  value={cfg.questionReadSec ?? 5}
+                  onValueChange={(value) => update('questionReadSec', value)}
+                  hint="Question shown alone before the choices and timer appear. 0 = off."
+                />
+                <IntegerInput
                   label="Max players per session"
                   min={2}
                   max={500}

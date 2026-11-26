@@ -22,6 +22,8 @@ export interface AppConfig {
   streakMinimum: number;
   streakBonusBase: number;
   resultsAutoAdvanceSec: number;
+  /** Seconds the question is shown alone (no choices, no timer) before answering opens. 0 = off. */
+  questionReadSec: number;
   /** Show the "next quiz maker" random picker on the final podium screen */
   /** Base URL phones use to reach this app (QR/join link). Empty = host's browser origin. */
   publicUrl: string;
@@ -45,6 +47,8 @@ export type QuestionType =
   | 'ordering'
   | 'geo'
   | 'matching'
+  /** Opinion vote: options like multiple choice, but no correct answer and no points. */
+  | 'poll'
   /** Section intro: `text` is the title, `explanation` the optional body. No answers. */
   | 'title_slide'
   /** Shows the current leaderboard under the title in `text`. No answers. */

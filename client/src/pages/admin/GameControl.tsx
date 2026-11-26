@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainContent, Page, PageLoading } from '@/components/layout';
-import { useCountdown } from '@/hooks/useCountdown';
+import { MuteToggle } from '@/components/MuteToggle';
 import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/context/DialogContext';
 import { copyText, publicBaseUrl } from '@/helpers';
-import { MuteToggle } from '@/components/MuteToggle';
+import { useCountdown } from '@/hooks/useCountdown';
+import { useQuestionClock } from '@/hooks/useQuestionClock';
 import { sound } from '@/lib/sound';
 import CreatorNav from '../../components/CreatorNav';
 import { useAuth } from '../../context/AuthContext';
@@ -74,7 +75,7 @@ export default function GameControl() {
   const [screenCount, setScreenCount] = useState(0);
   const [answerKey, setAnswerKey] = useState<AnswerKey | null>(null);
 
-  const questionTimer = useCountdown(0);
+  const questionTimer = useQuestionClock();
   const autoAdvanceTimer = useCountdown(0);
 
   const presentationMode = sessionState?.session.presentation_mode === 1;
@@ -139,7 +140,7 @@ export default function GameControl() {
     setNextPreview(null);
     setPhase('question');
     autoAdvanceTimer.stop();
-    questionTimer.start(data.timeRemaining ?? data.timeSec);
+    questionTimer.begin(data);
   });
 
   useSocketEvent<SlidePayload>('game:slide', (data) => {
@@ -300,7 +301,9 @@ export default function GameControl() {
   return (
     <Page className={presentationMode ? 'pb-20 sm:pb-0' : undefined}>
       <CreatorNav />
-      {!presentationMode && <MuteToggle className="fixed left-3 bottom-3 z-50" />}
+      {!presentationMode && phase !== 'question' && (
+        <MuteToggle className="fixed left-3 bottom-3 z-50" />
+      )}
       {presentationMode && phase !== 'ended' && (
         <PresentationPanel baseUrl={baseUrl} pin={pin} screenCount={screenCount} />
       )}
@@ -326,6 +329,8 @@ export default function GameControl() {
         <GameQuestion
           question={question}
           timeLeft={questionTimer.seconds}
+          reading={questionTimer.reading}
+          readLeft={questionTimer.readLeft}
           answeredCount={answeredCount}
           totalPlayers={players.length}
           presentationMode={presentationMode}

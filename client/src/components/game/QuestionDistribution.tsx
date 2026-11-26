@@ -49,7 +49,9 @@ export function QuestionDistribution({
   const isOptionBased =
     results.questionType === 'multiple_choice' ||
     results.questionType === 'multi_select' ||
-    results.questionType === 'true_false';
+    results.questionType === 'true_false' ||
+    results.questionType === 'poll';
+  const isPoll = results.questionType === 'poll';
   const isMultiSelect = results.questionType === 'multi_select';
 
   // Memoized: a new array would rebuild the Leaflet map on every parent render.
@@ -94,7 +96,8 @@ export function QuestionDistribution({
   }
 
   const isCorrect = (i: number) =>
-    isMultiSelect ? (results.correctIndices ?? []).includes(i) : i === results.correctIndex;
+    !isPoll &&
+    (isMultiSelect ? (results.correctIndices ?? []).includes(i) : i === results.correctIndex);
 
   const totalVotes = dist.reduce((a, b) => a + b, 0);
   const maxVotes = Math.max(1, ...dist);
@@ -106,10 +109,14 @@ export function QuestionDistribution({
   return (
     <>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[22px] font-extrabold tracking-tight">Answers</span>
-        <span className="correct-pill inline-flex items-center gap-1">
-          <Check className="size-4" /> Correct: {correctText}
+        <span className="text-[22px] font-extrabold tracking-tight">
+          {isPoll ? 'Votes' : 'Answers'}
         </span>
+        {!isPoll && (
+          <span className="correct-pill inline-flex items-center gap-1">
+            <Check className="size-4" /> Correct: {correctText}
+          </span>
+        )}
       </div>
       <div className="mb-4 text-[13px] text-muted-foreground">
         {totalVotes} vote{totalVotes === 1 ? '' : 's'} total
@@ -124,11 +131,15 @@ export function QuestionDistribution({
           const width = (votes / maxVotes) * 100;
           // Only the correct answer's bar is green; others are a neutral grey so
           // the per-option colors don't read as "also correct".
-          const barColor = correct ? 'var(--success)' : '#7f8b5b';
+          // Polls have no right answer: each bar keeps its option color.
+          const barColor = isPoll ? quadColor(i) : correct ? 'var(--success)' : '#7f8b5b';
           const mine =
             (myChosenIndex != null && myChosenIndex === i) || !!myChosenIndices?.includes(i);
           return (
-            <div key={String.fromCharCode(65 + i)} className={`dist-row ${correct ? '' : 'dim'}`}>
+            <div
+              key={String.fromCharCode(65 + i)}
+              className={`dist-row ${correct || isPoll ? '' : 'dim'}`}
+            >
               <span className="dist-glyph" style={{ background: quadColor(i) }} aria-hidden="true">
                 <QuadGlyph index={i} size={20} />
               </span>

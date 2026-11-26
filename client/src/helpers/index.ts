@@ -17,6 +17,7 @@ import {
   ToggleLeft,
   Triangle,
   Trophy,
+  Vote,
 } from 'lucide-react';
 import type { GeoPoint, ImportPayload, ImportQuestion, QuestionType } from '@/types';
 export type QuestionWithKey = ImportQuestion & { _key: string };
@@ -159,6 +160,7 @@ export const QUESTION_TYPE_META: Record<QuestionType, { label: string; icon: Luc
   ordering: { label: 'Put in Order', icon: ArrowUpDown },
   geo: { label: 'Locate on Map', icon: MapPin },
   matching: { label: 'Match Pairs', icon: Link2 },
+  poll: { label: 'Poll (vote)', icon: Vote },
   title_slide: { label: 'Title Slide', icon: Presentation },
   standings_slide: { label: 'Standings Slide', icon: Trophy },
 };
@@ -245,7 +247,7 @@ export function validateQuizQuestions(questions: ImportQuestion[]): string | nul
       return `Question ${i + 1} needs a correct answer`;
     }
     if (
-      (type === 'multiple_choice' || type === 'multi_select') &&
+      (type === 'multiple_choice' || type === 'multi_select' || type === 'poll') &&
       q.options.some((o) => !o.trim())
     ) {
       return `Question ${i + 1} has empty options`;

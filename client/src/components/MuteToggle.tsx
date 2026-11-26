@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import { sound } from '@/lib/sound';
+import { cn } from '@/lib/utils';
 
 interface Props {
   className?: string;
